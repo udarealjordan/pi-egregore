@@ -73,7 +73,7 @@ export function mutateBook(base: PlanBook, revision: string, action: BookMutatio
     if (book.plans.length >= MAX_PLANS) throw new Error(`This session has ${MAX_PLANS} saved plans. Start a new session; history is never silently discarded.`);
     let state = emptyPlan();
     if (items.length) state = mutate(state, state.revision, { op: "add", items }, actor, now);
-    const p: SavedPlan = { id: `p${book.nextPlanId++}`, title: title(name), state, createdAt: now, updatedAt: now, closedAt: null, archivedAt: null, archivedBy: null, requirements: requirements.length ? amendRequirements([], requirements, state, actor) : [] };
+    const p: SavedPlan = { id: `p${book.nextPlanId++}`, title: title(name), state, createdAt: now, updatedAt: now, closedAt: null, archivedAt: null, archivedBy: null, requirements: requirements.length ? amendRequirements([], requirements, state, actor, /* new ledger */ true) : [] };
     book.plans.push(p); book.selectedId = p.id;
     if (actor === "user") book.userCleared = false;
     return p;

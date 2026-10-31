@@ -34,11 +34,19 @@ export function restoreRequirements(value: unknown, plan: Plan): Requirement[] {
   return result;
 }
 /** Append records or explicitly remap/supersede them; never replace the accepted request text. */
-export function amendRequirements(base: Requirement[], inputs: RequirementInput[], plan: Plan, actor: "agent" | "user"): Requirement[] {
+export function amendRequirements(base: Requirement[], inputs: RequirementInput[], plan: Plan, actor: "agent" | "user", creating = false): Requirement[] {
   if (!inputs.length || inputs.length > 100) throw new Error("Supply 1–100 requirement changes.");
   const result = structuredClone(base), seen = new Set<string>();
   for (const input of inputs) {
-    if (input.id !== undefined) {
+    if (creating) {
+      // A new plan has no ledger to amend. Accept the sequential ID an agent may already have
+      // written, but reject a reference to any other record instead of silently renumbering it.
+      const expected = `r${result.length + 1}`;
+      if (input.disposition !== undefined && input.disposition !== "accepted") throw new Error("New requirements must be accepted requests, not speculative or superseded work.");
+      if (input.id !== undefined && input.id !== expected) throw new Error(`A new plan assigns requirement IDs in order; omit id or use ${expected} for this record.`);
+      result.push({ id: expected, title: input.title!, source: input.source!, acceptance: input.acceptance!,
+        taskIds: links(input.taskIds ?? [], plan), disposition: "accepted", reason: "", updatedBy: actor });
+    } else if (input.id !== undefined) {
       if (seen.has(input.id)) throw new Error("Update each requirement once per call.");
       seen.add(input.id);
       const r = result.find(r => r.id === input.id);

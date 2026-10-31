@@ -834,6 +834,32 @@ test("requirements preserve the small request when a larger follow-up is complet
   }
 });
 
+test("create pre-assigns requirement ids in order and a missing revision is recoverable in one step", async () => {
+  for (const workspace of [false, true]) {
+    const h = await harness({ workspace });
+    const payload = async args => JSON.parse((await h.call(args)).content[0].text);
+    try {
+      await h.emit("session_start");
+      const initial = await payload({ op: "list" });
+      const missing = await h.call({ op: "create", title: "Needs a revision" }).then(() => null, error => error);
+      assert.ok(missing, "a write without revision fails closed");
+      assert.match(String(missing), /revision/);
+      assert.match(String(missing), new RegExp(initial.revision), "the current revision is returned so one retry suffices");
+      await assert.rejects(h.call({ op: "create", revision: initial.revision, title: "Wrong id",
+        requirements: [{ id: "r2", title: "x", source: "User: x", acceptance: "y" }] }), /omit id or use r1/);
+      await assert.rejects(h.call({ op: "create", revision: initial.revision, title: "Superseded",
+        requirements: [{ id: "r1", title: "x", source: "User: x", acceptance: "y", disposition: "superseded", reason: "z" }] }), /accepted requests/);
+      const created = await payload({ op: "create", revision: initial.revision, title: "Requirement ids",
+        items: [{ title: "One" }],
+        requirements: [{ id: "r1", title: "Keep the request", source: "User: keep it", acceptance: "It stays", taskIds: ["t1"] }] });
+      assert.equal(created.coverage.recorded, 1);
+      const saved = h.entries.filter(e => e.customType === BOOK_ENTRY).at(-1).data;
+      assert.equal(saved.plans[0].requirements[0].id, "r1");
+      assert.deepEqual(saved.plans[0].requirements[0].taskIds, ["t1"]);
+    } finally { await h.close(); }
+  }
+});
+
 test("requirement mutations are atomic, bounded, source-preserving and respect user boundaries", () => {
   let b = create(emptyBook(), "Coverage", ["Small outcome"]);
   const record = { title: "Small visible change", source: "User asks for wording 界面", acceptance: "Not-started label is visible", taskIds: ["t1"] };

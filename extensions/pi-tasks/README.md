@@ -172,7 +172,7 @@ The offline comparison workflow is in `eval/harness/README.md` at the suite root
 
 Capture each independently verifiable user-visible outcome, even a small wording change. Do not create a task for every tool call. Use `doneWhen` for task-level checks and a requirement's `acceptance` for the requested outcome. A follow-up appends requirements to the same plan; an unrelated request gets another plan. Exploratory suggestions are not accepted work unless authorized.
 
-A new requirement supplies `title` (200 characters), `source` (800: an exact quote or accurate request reference), `acceptance` (400), and optional `taskIds` (existing IDs in the same plan). IDs `r1`, `r2`, … are assigned and never reused. Create can link to its newly assigned `t1`, `t2`, …; read `addedIds` before linking later additions.
+A new requirement supplies `title` (200 characters), `source` (800: an exact quote or accurate request reference), `acceptance` (400), and optional `taskIds` (existing IDs in the same plan). IDs `r1`, `r2`, … are assigned and never reused. Create can link to its newly assigned `t1`, `t2`, …; read `addedIds` before linking later additions. Omit `requirements[].id` on create; the sequential ID an agent may pre-write (`r1`, `r2`, … in order) is accepted, while any other `id` is rejected because a new plan has no earlier ledger to amend.
 
 ```json
 {
