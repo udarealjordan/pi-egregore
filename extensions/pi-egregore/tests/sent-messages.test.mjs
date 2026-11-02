@@ -57,6 +57,40 @@ test("sent-message frames wrap only native user messages, preserving content, wr
   } finally { frames.dispose(); }
 });
 
+test("zone markers stay at column 0 of the frame edges, never inside a content row", () => {
+  const root = new Container(), frames = new SentMessageFrames();
+  const text = "it does not have to be only one you tell me, but a synthesization explaining all that i have learned";
+  const user = new UserMessageComponent(text);
+  const assistant = new AssistantMessageComponent({ role: "assistant", content: [{ type: "text", text: "A reply that also wraps once it is narrow enough to do so" }],
+    stopReason: "stop", model: "test", provider: "test", timestamp: 1 });
+  root.addChild(user); root.addChild(assistant);
+  const prefs = { density: "spaced", messageTime: "off", timestamps: "24h" };
+  try {
+    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs }));
+    for (const density of ["spaced", "compact"]) {
+      prefs.density = density;
+      for (const width of [40, 69, 76, 120]) {
+        const rows = user.render(width);
+        // Pi's prompt protocol is start-anchored: a marker mid-row is invisible to
+        // Pi's own prompt jump and is treated by terminals as a prompt start, so a
+        // prompt-aware redraw can wipe the row that carries it.
+        assert.ok(rows[0].startsWith("\x1b]133;A\x07"), `${density} ${width}: prompt start anchors the first frame row`);
+        assert.ok(rows.at(-1).startsWith("\x1b]133;B\x07\x1b]133;C\x07"), `${density} ${width}: prompt end anchors the last frame row`);
+        for (const row of rows.slice(1, -1)) assert.doesNotMatch(row, /\x1b\]133;[A-Z]\x07/, `${density} ${width}: no zone marker inside the framed body`);
+        assert.match(plain(rows.slice(1, -1).join("\n")), /it does not have to be/);
+        assert.match(plain(rows.slice(1, -1).join("\n")), /explaining all that i have learned/);
+      }
+    }
+    // Assistant frames carry the same start marker and keep their first content line.
+    prefs.density = "spaced";
+    const reply = assistant.render(76);
+    assert.ok(reply[0].startsWith("\x1b]133;A\x07"), "assistant prompt start anchors the first frame row");
+    assert.doesNotMatch(reply[1], /\x1b\]133;[A-Z]\x07/, "assistant first content row stays free of zone markers");
+    assert.match(plain(reply.slice(1, -1).join("\n")), /A reply that also wraps/);
+    for (const row of reply) assert.ok(visibleWidth(row) <= 76);
+  } finally { frames.dispose(); }
+});
+
 test("live workspace identity and density balance the user and assistant frame interiors", () => {
   const root = new Container(), frames = new SentMessageFrames();
   const user = new UserMessageComponent("hello");

@@ -80,15 +80,20 @@ export class SentMessageFrames {
         if (!nativeLines.length) return nativeLines;
         const density = this.presentation?.prefs?.density ?? "spaced";
         const lines = [...nativeLines];
+        // Pi anchors prompt zones to the first and last row of a message and strips
+        // them only at column 0. Keep that contract when trimming: a marker left in
+        // the middle of a content row is not a prompt start, so a terminal that acts
+        // on semantic prompts can wipe that row, and Pi's own prompt jump never
+        // matches it.
+        const zoneStart: string[] = [], zoneEnd: string[] = [];
         // Remove only the host-owned edge rows, then apply one symmetric Egregore
         // padding contract. Keep internal Markdown/thinking gaps and OSC zones.
         if (lines.length > 1 && !stripVTControlCharacters(lines[0]).trim()) {
-          lines[1] = (lines[0].match(/\x1b]133;A\x07/g) ?? []).join("") + lines[1]; lines.shift(); removedTop++;
+          zoneStart.push(...(lines[0].match(/\x1b]133;A\x07/g) ?? [])); lines.shift(); removedTop++;
         }
         // Native user messages alone append a blank interior row.
         if (node instanceof UserMessageComponent && lines.length > 1 && !stripVTControlCharacters(lines.at(-1)!).trim()) {
-          const last = lines.pop()!;
-          lines[lines.length - 1] += (last.match(/\x1b]133;[A-Z]\x07/g) ?? []).join("");
+          zoneEnd.push(...(lines.pop()!.match(/\x1b]133;[A-Z]\x07/g) ?? []));
           removedBottom++;
         }
         // Image placement is protocol-specific: never prefix graphics payloads.
@@ -105,11 +110,17 @@ export class SentMessageFrames {
           !!options?.chronomancerDay && options.chronomancerDay !== calendarDay(now)) : "";
         const motion = facts.kind === "assistant" && facts.streaming
           ? thinkingMotion?.() : undefined;
-        return rememberCopyFrame(node, width, frameRows({ theme: t, width, rows: messageBodyRows(lines.map(terminalBackground), density), color,
+        const framed = frameRows({ theme: t, width, rows: messageBodyRows(lines.map(terminalBackground), density), color,
           corners: { topLeft: assistant ? assistantIdentity(t, ` ${label} `, color, style) : t.style(` ${label} `, { fg: color, bold: true }),
             [style.chat.sentPosition]: styledSentLabel(t, time, color, assistant ? "quiet" : "user", options?.prefs?.icons) },
           surface: (text, cells) => composerSurface(t, text, cells),
-          motion: motion ? { ...motion, accent: mixColors(color, t.colors.text, .35) } : undefined }), 0, padding);
+          motion: motion ? { ...motion, accent: mixColors(color, t.colors.text, .35) } : undefined });
+        // The frame's own corner rows replace the removed host padding rows, so they
+        // become the message's start and end line. Prefixing there keeps every zone
+        // marker at column 0 where the host can strip and find it.
+        if (zoneStart.length) framed[0] = zoneStart.join("") + framed[0];
+        if (zoneEnd.length) framed[framed.length - 1] = zoneEnd.join("") + framed[framed.length - 1];
+        return rememberCopyFrame(node, width, framed, 0, padding);
       };
       node.render = render; node.handleMouse = mouse; node.invalidate();
       this.mounted.set(node, () => {
