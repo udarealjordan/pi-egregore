@@ -31,7 +31,7 @@ This is a flexible flow, not a required pipeline. Ordinary conversation needs no
 | Component | Responsibility | Guide |
 | --- | --- | --- |
 | Egregore | Composer, footer, supported transcript presentation, session activity and `/egregore` | [Egregore](extensions/pi-egregore/README.md) |
-| Tasks | Named plans, request coverage, history and independent fallback | [Tasks](extensions/pi-tasks/README.md) |
+| Tasks | Named checklists, notes/evidence, history and independent fallback | [Tasks](extensions/pi-tasks/README.md) |
 | Quests | Cross-session pursuits, goals, progress, evidence, connections and exploratory questions | [Quests](extensions/pi-quests/README.md) |
 | Ask | Immediate and posted questions, answers and temporary input | [Ask](packages/pi-ask/README.md) |
 | Frame | Passive frame primitives and opt-in presentation rules | [Frame](packages/pi-frame/README.md) |

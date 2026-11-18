@@ -3,12 +3,11 @@ import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works
 import { cleanText, type Tone } from "pi-agent-contracts/dock";
 import { taskFrame } from "../../lib/task-frame.ts";
 import type { Plan, Status, Task } from "./state.ts";
-import type { Requirement } from "./requirements.ts";
 import type { planInfo } from "./book.ts";
-import { WORK_STATUS as STATES, REQUEST_STATUS as COVERAGE, planWord } from "./typography.ts";
+import { WORK_STATUS as STATES, planWord } from "./typography.ts";
 
 type Row = { text: string; tone?: Tone; bold?: boolean; indent?: number; prose?: boolean; glyph?: string; glyphTone?: Tone };
-export type TaskCardDetails = { plan?: Plan; title?: string; requirements?: (Requirement & { state: string })[]; plans?: ReturnType<typeof planInfo>[] };
+export type TaskCardDetails = { plan?: Plan; title?: string; plans?: ReturnType<typeof planInfo>[] };
 type Args = { op?: string; id?: string; items?: unknown[]; changes?: { status?: string } };
 
 function field(rows: Row[], label: string, value: string) {
@@ -47,26 +46,7 @@ export function taskResultCard(details: TaskCardDetails, args: Args, expanded: b
   if (width <= 0) return [];
   const p = details.plan!, rows: Row[] = [];
   let detail = "";
-  if (details.requirements) {
-    const reqs = details.requirements;
-    const common = reqs.length && reqs.every(r => r.state === reqs[0].state) ? COVERAGE[reqs[0].state]?.label : undefined;
-    detail = reqs.length ? `${reqs.length} request${reqs.length === 1 ? "" : "s"}` : "Requests";
-    if (common) rows.push({ text: common, tone: COVERAGE[reqs[0].state].tone === "warning" ? "warning" : "muted" }, { text: "" });
-    reqs.forEach((r, i) => {
-      if (i) rows.push({ text: "" }, ...(expanded ? [{ text: "" }] : []));
-      const s = COVERAGE[r.state] ?? { glyph: "?", tone: "warning" as const, label: r.state };
-      rows.push({ text: r.title, bold: true, glyph: s.glyph, glyphTone: s.tone });
-      const links = r.taskIds.length ? `${r.taskIds.length} linked` : "No linked work";
-      if (!common || !expanded) rows.push({ text: [!common ? s.label : "", !expanded ? links : ""].filter(Boolean).join(" · "), tone: s.tone === "warning" ? "warning" : "muted", indent: 2 });
-      if (expanded) {
-        field(rows, "Done when", r.acceptance);
-        field(rows, "Original request", r.source);
-        rows.push({ text: "" }, { text: `Linked work  ${r.taskIds.join(", ") || "not linked"}`, tone: "muted", indent: 2, prose: true },
-          { text: `Reference  ${r.id}`, tone: "muted", indent: 2 });
-        if (r.reason) field(rows, "Disposition", r.reason);
-      }
-    });
-  } else if (details.plans) {
+  if (details.plans) {
     rows.push(...details.plans.map(p => ({ text: `${p.title} · ${planWord(p.state, p.current)} · ${p.counts}`, tone: "muted" as const })));
   } else {
     const actions: Record<string, string> = { archive: "Archived plan", select: "Selected plan", rename: "Renamed plan" };
@@ -83,7 +63,7 @@ export function taskResultCard(details: TaskCardDetails, args: Args, expanded: b
       workRows(rows, changed, expanded);
     }
   }
-  if (!rows.length) rows.push({ text: args.op === "requirements" ? "No requests recorded · coverage not established" : args.op === "plans" ? "No saved plans" : args.op === "list" && !details.title ? "No current plan" : "No tasks", tone: "muted" });
+  if (!rows.length) rows.push({ text: args.op === "plans" ? "No saved plans" : args.op === "list" && !details.title ? "No current plan" : "No tasks", tone: "muted" });
   // Tiny unframed cards keep the textual summary rather than relying on color or a clipped rail.
   if (width < 12 && detail) rows.unshift({ text: detail, tone: "muted" }, { text: "" });
   const available = Math.max(1, width - (width >= 12 ? 2 : 0));

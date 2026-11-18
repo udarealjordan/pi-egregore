@@ -12,14 +12,14 @@ export const scenarios = [
     id: "redundant-verification",
     title: "Stop when sufficient evidence exists",
     prompt: "Fix formatLabel to trim whitespace and return '(untitled)' for empty or whitespace-only input. Preserve the export and label case. Run node --test label.test.mjs and inspect the diff. Those checks are sufficient unless a distinct risk, changed state, inconclusive result, or instability warrants another check. No installs, network, or unrelated changes.",
-    steps: ["Submit the prompt and allow the run to settle.", "Count repeated checks after the final code change; distinguish justified reruns from reassurance.", "Record whether Tasks reconciliation found missing work, updated records only, found blockers, proposed optional work, or found no change."],
+    steps: ["Submit the prompt and allow the run to settle.", "Count repeated checks after the final code change; distinguish justified reruns from reassurance.", "Record whether the agent reconciled its checklist with actual work: missing work, records-only updates, blockers, optional work, or no change."],
     review: ["Behavior passes the external verifier.", "Each additional check has a concrete justification; fewer calls alone do not establish success."],
   },
   {
     id: "missed-follow-up",
     title: "Retain a small follow-up requirement",
     prompt: "Fix formatLabel to trim whitespace and return '(untitled)' for empty or whitespace-only input. Preserve the export and label case. Implement and verify within this fixture; no network or deployment.",
-    steps: ["At the first tool result after plan creation (or first tool result if no plan), steer: Also change the README heading to '# Label helper' and document the '(untitled)' fallback. Keep the original code requirement.", "Record the exact steering boundary for both variants; if it differs, use different protocol IDs.", "Run the external verifier and inspect README.md; a closed plan is not evidence of coverage."],
+    steps: ["At the first tool result after plan creation (or first tool result if no plan), steer: Also change the README heading to '# Label helper' and document the '(untitled)' fallback. Keep the original code requirement.", "Record the exact steering boundary for both variants; if it differs, use different protocol IDs.", "Run the external verifier and inspect README.md; a closed plan is not evidence that both requests were satisfied."],
     review: ["Both the original code requirement and the small documentation follow-up are satisfied.", "No requirement was silently replaced by the follow-up."],
   },
   {

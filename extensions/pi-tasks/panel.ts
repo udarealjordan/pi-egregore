@@ -2,18 +2,17 @@ import type { Theme } from '@earendil-works/pi-coding-agent';
 import { matchesKey, mixColors, parseColor, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from '@earendil-works/pi-tui';
 import { cleanText, type DockColors, type Tone } from 'pi-agent-contracts/dock';
 import { progressText } from './state.ts';
-import { WORK_STATUS, REQUEST_STATUS, planWord, workWord, waitingText, questionAttention } from './typography.ts';
+import { WORK_STATUS, planWord, workWord, waitingText, questionAttention } from './typography.ts';
 import { planInfo, selectedPlan, type PlanBook, type SavedPlan } from './book.ts';
-import { requirementCoverage, coverageGaps } from './requirements.ts';
 import { unresolved, type QuestionProjection } from 'pi-agent-contracts/posted';
 
 export type PanelResult = { op: 'new'; revision: string } | { op: 'add' | 'clear' | 'rename' | 'archive' | 'restore' | 'select' | 'edit'; planId: string; revision: string; id?: string } | 'off' | undefined;
 export interface PanelNavigation {
-  viewId?: string; history?: boolean; planIndex?: number; view?: 'work' | 'requests';
+  viewId?: string; history?: boolean; planIndex?: number;
   help?: boolean; searching?: boolean; query?: string; key?: string; showDone?: boolean;
 }
 export interface PanelQuestions { available: boolean; fault?: string; records: () => QuestionProjection[]; open: (question: QuestionProjection) => void }
-interface Entry { key: string; kind: 'question' | 'task' | 'request'; id?: string; title: string; glyph: string; glyphTone: Tone; sub?: string; subTone?: Tone; active?: boolean }
+interface Entry { key: string; kind: 'question' | 'task'; id?: string; title: string; glyph: string; glyphTone: Tone; sub?: string; subTone?: Tone; active?: boolean }
 interface Detail { text: string; tone?: Tone; bold?: boolean; glyph?: string; glyphTone?: Tone }
 /** One action bar, trimmed from the end; the final help/back segment always survives. */
 function fitBar(segments: string[], width: number): string {
@@ -30,11 +29,11 @@ function ageText(now: number, updatedAt: number): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 const HELP = [
-  { title: 'Work', rows: ['Enter  open details or answer', 'A      add a task', 'E      edit the selected task', 'F      show completed work', 'V      requests and coverage'] },
+  { title: 'Work', rows: ['Enter  open details or answer', 'A      add a task', 'E      edit the selected task', 'F      show completed work'] },
   { title: 'Plans', rows: ['N  new plan', 'H  plan list', 'S  make current', 'R  restore archived', 'X  archive', 'C  clear tasks', 'T  rename plan'] },
   { title: 'Other', rows: ['O      turn Tasks off', '?      close this help', 'Esc    close the panel'] },
 ] as const;
-/** Tasks owns work and requests. Ask supplies read-only projections and owns every answer. */
+/** Tasks owns work. Ask supplies read-only projections and owns every answer. */
 export class TaskPanel implements Component {
   private details = false;
   private scroll = 0;
@@ -78,15 +77,7 @@ export class TaskPanel implements Component {
       glyph: WORK_STATUS[t.status].glyph, glyphTone: WORK_STATUS[t.status].tone, sub: WORK_STATUS[t.status].label, subTone: 'muted' as Tone }));
     return [...entries, ...work, ...done];
   }
-  private requestEntries(p?: SavedPlan): Entry[] {
-    return (p ? requirementCoverage(p.requirements, p.state) : []).map(r => ({ key: `r:${r.id}`, kind: 'request' as const, id: r.id,
-      title: r.title, glyph: REQUEST_STATUS[r.state]?.glyph ?? '?', glyphTone: REQUEST_STATUS[r.state]?.tone ?? 'warning',
-      sub: `${REQUEST_STATUS[r.state]?.label ?? r.state} · ${r.taskIds.length} linked`,
-      subTone: REQUEST_STATUS[r.state]?.tone === 'warning' ? 'warning' : 'muted' }));
-  }
-  /** The one placeholder-free view answer: a fresh panel is the work list, not an unnamed neither. */
-  private view(): 'work' | 'requests' { return this.nav.view ?? 'work'; }
-  private entries(p?: SavedPlan): Entry[] { return this.view() === 'requests' ? this.requestEntries(p) : this.workEntries(p); }
+  private entries(p?: SavedPlan): Entry[] { return this.workEntries(p); }
   /** Selection follows the record key, so arriving work cannot move it. */
   private select(entries: Entry[]): number {
     const index = entries.findIndex(e => e.key === this.nav.key);
@@ -125,7 +116,6 @@ export class TaskPanel implements Component {
     }
     if (matchesKey(data, 'escape')) {
       if (this.details) { this.details = false; this.scroll = 0; }
-      else if (this.view() === 'requests') { this.nav.view = 'work'; this.resetList(); }
       else if (this.nav.history) this.nav.history = false;
       else return this.done(undefined);
       this.tui.requestRender(); return;
@@ -148,7 +138,6 @@ export class TaskPanel implements Component {
       }
       this.tui.requestRender(); return;
     }
-    if (key('v')) { this.nav.view = this.view() === 'requests' ? 'work' : 'requests'; this.resetList(); this.tui.requestRender(); return; }
     const entries = this.entries(p);
     const chosen = this.select(entries), entry = entries[chosen];
     if (this.details) {
@@ -161,10 +150,6 @@ export class TaskPanel implements Component {
     if (delta) {
       this.nav.key = entries[Math.max(0, Math.min(entries.length - 1, chosen + delta))]?.key;
       this.tui.requestRender(); return;
-    }
-    if (this.view() === 'requests') {
-      if (matchesKey(data, 'return') && entry) { this.details = true; this.scroll = 0; }
-      this.tui.requestRender(); return; // Requests are read-only, never dispatch task edits.
     }
     if (entry?.kind === 'question') {
       // A question row answers only to Enter: plan and task edits ignore it.
@@ -290,21 +275,11 @@ export class TaskPanel implements Component {
       rows.push(line('No plan yet', 'text', false, true));
       rows.push(line('A plan appears when you or the agent starts substantial work.', 'muted'));
     }
-    if (this.view() === 'requests') rows.push(line('Requests · read-only', 'accent'), line());
     if (this.details) {
       const entry = entries[chosen], task = entry?.kind === 'task' ? p?.state.tasks.find(t => t.id === entry.id) : undefined;
-      const request = entry?.kind === 'request' && p ? requirementCoverage(p.requirements, p.state).find(r => r.id === entry.id) : undefined;
       const content: Detail[] = [];
       const field = (label: string, values: string[]) => content.push({ text: '' }, { text: label, tone: 'muted' }, ...values.map(text => ({ text })));
-      if (request) {
-        const mark = REQUEST_STATUS[request.state];
-        content.push({ text: request.title, bold: true }, { text: mark?.label ?? request.state, tone: 'muted', glyph: mark?.glyph, glyphTone: mark?.tone });
-        field('Original request', [request.source]);
-        field('Done when', [request.acceptance]);
-        field('Linked work', request.taskIds.length ? request.taskIds.map(id => `${p?.state.tasks.find(t => t.id === id)?.title ?? id} · ${id}`) : ['Not linked']);
-        if (request.reason) field('Disposition', [request.reason]);
-        content.push({ text: '' }, { text: `Reference  ${request.id}`, tone: 'muted' }, { text: 'Coverage is a report, not independent verification.', tone: 'muted' });
-      } else if (task) {
+      if (task) {
         const mark = WORK_STATUS[task.status];
         content.push({ text: task.title, bold: true },
           { text: workWord(task.status, current && this.running()), tone: 'muted', glyph: mark.glyph, glyphTone: mark.tone });
@@ -330,9 +305,6 @@ export class TaskPanel implements Component {
       const bar = editable ? ['↑↓ scroll', 'E edit', 'Esc back'] : ['↑↓ scroll', 'Esc back'];
       return finish(rows, [line(fitBar(bar, width), 'muted')]);
     }
-    const warnings: string[] = [];
-    const gaps = p ? coverageGaps(p.requirements, p.state).length : 0;
-    if (gaps && this.view() === 'work') warnings.push(`! ${gaps} request${gaps === 1 ? ' needs' : 's need'} review · V`);
     const mark = (entry: Entry, index: number) => ({ marker: index === chosen ? '›' : ' ', glyph: entry.kind === 'task' ? `${entries.slice(index+1).some(e=>e.kind === 'task') ? '├─' : '└─'} ${entry.glyph}` : entry.glyph, tone: entry.glyphTone });
     const wrapped: Array<{ text: string; tone: Tone; index: number; bold?: boolean; mark?: { marker?: string; glyph?: string; tone: Tone } }> = [];
     const starts: number[] = [], ends: number[] = [];
@@ -341,14 +313,14 @@ export class TaskPanel implements Component {
       starts.push(wrapped.length);
       const indent = entry.kind === 'task' ? 7 : 4;
       wrapped.push(...wrapTextWithAnsi(cleanText(entry.title), Math.max(1, Math.min(80, contentWidth - indent))).map((text, n) => ({
-        text: n ? ' '.repeat(indent) + text : text, tone: 'text' as const, index, bold: entry.active || entry.kind === 'request', mark: n ? undefined : mark(entry, index) })));
+        text: n ? ' '.repeat(indent) + text : text, tone: 'text' as const, index, bold: entry.active, mark: n ? undefined : mark(entry, index) })));
       if (entry.sub) wrapped.push(...entry.sub.split('\n').flatMap(s=>wrapTextWithAnsi(cleanText(s.trim()), Math.max(1,Math.min(80,contentWidth-indent)))).map(text=>({text:`${' '.repeat(indent)}${text}`, tone:entry.subTone ?? 'muted', index})));
       ends.push(wrapped.length);
     }
     const doneCount = p?.state.tasks.filter(t => t.status === 'done').length ?? 0;
-    // Reserve the footer warning, the position line and the F toggle before slicing the list.
+    // Reserve the position line and the F toggle before slicing the list.
     const doneReserve = doneCount ? 1 : 0;
-    const capacity = Math.max(1, height - 3 - warnings.length), headerRows = rows.length;
+    const capacity = Math.max(1, height - 3), headerRows = rows.length;
     const base = Math.max(1, capacity - headerRows - doneReserve);
     const needsPosition = entries.length > 0 && wrapped.length > base - 1;
     const room = Math.max(1, base - (needsPosition ? 1 : 0)), start = starts[chosen] ?? 0, end = ends[chosen] ?? wrapped.length;
@@ -360,19 +332,17 @@ export class TaskPanel implements Component {
       rows.push(line(row.text, row.tone, row.index === chosen, row.bold, row.mark, entries[row.index]?.active));
     }
     if (!entries.length) {
-      rows.push(line(this.view() === 'requests' ? 'No requests recorded.'
-        : this.questions?.fault ? 'Question history unreadable · /questions'
+      rows.push(line(this.questions?.fault ? 'Question history unreadable · /questions'
         : this.questions?.available === false ? 'Ask is unavailable. Work remains accessible.'
         : 'No open tasks. A adds work; F shows completed.', 'muted'));
     }
     if (entries.length && wrapped.length > room) rows.push(line(`${chosen + 1} of ${entries.length} · ↑↓ select`, 'muted'));
-    if (this.view() === 'work' && doneCount) rows.push(line(`${this.nav.showDone ? '▾' : '▸'} ${doneCount} done · F`, 'muted'));
-    const bar = this.view() === 'requests' ? ['Enter details', 'Esc back']
-      : !p ? ['N new', 'H plans', '? help']
+    if (doneCount) rows.push(line(`${this.nav.showDone ? '▾' : '▸'} ${doneCount} done · F`, 'muted'));
+    const bar = !p ? ['N new', 'H plans', '? help']
       : p.archivedAt !== null ? ['Enter details', 'R restore', 'H plans', '? help']
       : current ? ['Enter details', 'A add', 'N new', 'H plans', '? help']
       : ['Enter details', 'S make current', 'H plans', '? help'];
-    // The footer is at most one warning line plus the action bar; the body stays pure work.
-    return finish(rows, [...warnings.map(text => line(text, 'warning')), line(fitBar(bar, width), 'muted')]);
+    // The footer is one action bar; the body stays pure work.
+    return finish(rows, [line(fitBar(bar, width), 'muted')]);
   }
 }

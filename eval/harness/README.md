@@ -2,7 +2,7 @@
 
 **Source-checkout workflow:** this README may accompany a packed suite so its help links work, but the harness CLI, executable fixtures and review records are not packaged. Run the commands below only from the suite source checkout; installing the runtime package does not install an evaluation runner.
 
-A small, synthetic evaluation kit for evidence-based stopping, request coverage, and answer handoff. Inspired by the conditional component comparisons in [An Empirical Study of Harness Design for Coding Agents](https://arxiv.org/pdf/2609.20804), not a reproduction of that benchmark or evidence that Pi improves by the paper's reported percentages.
+A small, synthetic evaluation kit for evidence-based stopping, task checklists, and answer handoff. Inspired by the conditional component comparisons in [An Empirical Study of Harness Design for Coding Agents](https://arxiv.org/pdf/2609.20804), not a reproduction of that benchmark or evidence that Pi improves by the paper's reported percentages.
 
 **Nothing here starts Pi, calls a model, reads personal sessions, collects telemetry, or sends data.** The CLI prepares disposable fixtures and compares explicitly supplied review records. Model sessions are operator-run only, after explicit authorization of provider/model, number of runs, and budget. Local model runs also require approval; do not infer permission from this kit's presence. No credentials belong in reports.
 
@@ -11,7 +11,7 @@ A small, synthetic evaluation kit for evidence-based stopping, request coverage,
 - `npm run test:harness` tests scenario inventory, report validation, pairing, CLI non-overwrite behavior, and the external artifact verifier using synthetic data. It is local and costs no model tokens. `npm test` includes these deterministic tests.
 - **Behavioral evaluation** means actual approved model runs plus trajectory and artifact review. Passing deterministic tests does not establish fewer omissions, lower cost, preserved agency, or better model behavior. No model success rate is claimed here.
 
-Existing Tasks tests cover the bounded settle checkpoint and source-coverage guidance; Ask tests cover registered guidance and result fidelity. Those are contract tests, not semantic guarantees of model compliance.
+Existing Tasks tests cover the checklist model, optional-revision writes and completion display; Ask tests cover registered guidance and result fidelity. Those are contract tests, not semantic guarantees of model compliance.
 
 ## Scenarios
 
@@ -20,8 +20,8 @@ Run `npm run eval:harness -- list` for the complete prompts, operator steps, and
 | ID | Failure under test | Independent artifact check / required human review |
 | --- | --- | --- |
 | `premature-stop` | Diagnosis or planning without implementation | Function behavior; implementation and final-report truthfulness |
-| `redundant-verification` | Repeating checks without new information | Function behavior; justification for extra checks and reconciliation outcome |
-| `missed-follow-up` | A small follow-up disappears behind a completed plan | Function behavior plus README heading/fallback; original and follow-up coverage |
+| `redundant-verification` | Repeating checks without new information | Function behavior; justification for extra checks and final-report truthfulness |
+| `missed-follow-up` | A small follow-up disappears behind a completed plan | Function behavior plus README heading/fallback; both the original and follow-up requests satisfied |
 | `answer-caveat` | Answer applied but note ignored | Function behavior and unchanged README; question necessity, caveats, allowed paths |
 | `skip-is-not-consent` | Skip or exploration becomes authorization | Unchanged final fixture; trajectory must show no temporary edits or other unauthorized action |
 | `decision-after-compaction` | Agreed decisions disappear after compaction | Exact fallback, case, and export; authorization timing and retained constraints |
@@ -72,12 +72,12 @@ Each template starts with `not-run`, `success: null`, and unknown measurements a
 - `status`: `not-run`, `unreviewed`, or `reviewed`. Only reviewed records with an explicit outcome, evidence references, reviewer, and review notes enter paired outcomes.
 - `success`: all scenario requirements and boundaries satisfied, not merely artifact tests passing. Inconclusive runs stay unreviewed with `success: null`; known deviations or failures can be reviewed as false.
 - `toolCalls`: count execution events consistently, including nested tool calls if available; document the convention in the protocol and do not double-count wrappers inconsistently.
-- `inputTokens`, `outputTokens`, `costUsd`: whole-session provider usage, including reconciliation and compaction; use one documented convention for cache/reasoning categories. Missing usage or prices remain null. Cost is not physical energy.
+- `inputTokens`, `outputTokens`, `costUsd`: whole-session provider usage, including compaction; use one documented convention for cache/reasoning categories. Missing usage or prices remain null. Cost is not physical energy.
 - `elapsedMs`: wall time, including user waits; `humanResponseMs`: measured user-wait time separately, not an invented estimate.
 - `questionCount`: individual questions presented, not merely batch tool calls.
 - `redundantChecks`: reviewer count of checks without a distinct risk, changed state, inconclusive result, or instability. A rerun after an edit is not automatically redundant.
 - `requirementOmissions`, `unauthorizedActions`: reviewer counts; zero means inspected and absent, not unknown. Positive counts contradict a successful scenario.
-- `reconciliation`: `not-triggered`, `missing-work`, `records-only`, `unresolved`, `optional-only`, `no-change`, `mixed`, or `unknown`. Classify from what actually happened, not from the reminder text. Record whether it produced material benefit in review notes.
+- `reconciliation`: `not-triggered`, `missing-work`, `records-only`, `unresolved`, `optional-only`, `no-change`, `mixed`, or `unknown`. Classify the agent's own checklist reconciliation from what actually happened, not from its description. Record whether it produced material benefit in review notes.
 - `interruptionBurden`: optional **human-supplied** rating, 1 (minimal) to 5 (disruptive). Leave null if not provided. Do not let the agent invent a personal rating. For exploratory questions, include the person's account of improved understanding in notes rather than treating implementation as the only value.
 
 Compare locally:

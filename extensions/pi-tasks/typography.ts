@@ -11,13 +11,6 @@ export const WORK_STATUS: Readonly<Record<Status, StatusMark>> = {
   done: { glyph: "✓", tone: "success", label: "Done" },
   cancelled: { glyph: "–", tone: "muted", label: "Cancelled" },
 };
-export const REQUEST_STATUS: Readonly<Record<string, StatusMark>> = {
-  uncovered: { glyph: "!", tone: "warning", label: "No work linked" },
-  open: { glyph: "○", tone: "muted", label: "Open" },
-  "needs disposition": { glyph: "!", tone: "warning", label: "Needs review" },
-  "reported done": { glyph: "✓", tone: "success", label: "Reported done" },
-  superseded: { glyph: "–", tone: "muted", label: "Superseded" },
-};
 /** A running agent distinguishes active work from a paused plan without inventing a new status. */
 export function workWord(status: Status, running: boolean): string {
   return status === "active" ? running ? "Working" : "Paused" : WORK_STATUS[status].label;

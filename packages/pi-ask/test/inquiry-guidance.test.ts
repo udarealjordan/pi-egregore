@@ -39,8 +39,8 @@ test("both tools preserve answer caveats, scope ownership, and consent boundarie
     const guidance = tool.promptGuidelines.join(" ");
     for (const pattern of [
       /apply it and its notes or caveats/, /Drop questions made obsolete/,
-      /existing requirement through its owning tool if available/,
-      /supersede changed requirements rather than rewriting their history/,
+      /reconcile it with the owning plan's tools if available/,
+      /preserving the original request and caveats rather than rewriting history/,
       /Do not create a task for every answer/,
       /Skipped, unanswered, cancelled, or unavailable questions are not agreement or consent/,
       /do not proceed across an unresolved approval boundary/,

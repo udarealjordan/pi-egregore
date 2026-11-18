@@ -96,42 +96,41 @@ Tasks are never completed automatically as a consequence of an answer.
 
 ### Tool
 
-`tasks` accepts `op: "plans" | "create" | "select" | "rename" | "archive" | "list" | "add" | "update" | "requirements"`,
-plus `revision` (required for writes), `planId`, `title`, `items`, `id`, `changes`,
-`requirements`, `offset`, `limit`. `executionMode: "sequential"`,
-`renderShell: "self"`.
+`tasks` accepts `op: "plans" | "create" | "select" | "rename" | "archive" | "list" | "add" | "update"`,
+plus optional `revision`, `planId`, `title`, `items`, `id`, `changes`,
+`offset`, `limit`. `executionMode: "sequential"`, `renderShell: "self"`.
 
-Reads: `plans`, `list`, and `requirements` without inputs. Writes require the
-current library `revision` and fail closed when history is unreadable.
+Reads: `plans` and `list`. Writes may pass `revision` to assert a snapshot read
+earlier; omitting it applies the command to live state, and a stale value is
+rejected. Writes fail closed when history is unreadable.
 
 Result `details` by branch:
 
 - `plans` → `{ plans, plan? }`, where each plan is the `planInfo()` return shape `{ id, title, current, state, counts, createdAt, updatedAt }` with `state: "open" | "closed" | "completed" | "archived"`;
-- `requirements` → `{ plan?, requirements: (Requirement & { state })[], title? }`;
 - everything else → `{ plan?, planId?, title? }`.
 
 ### Storage
 
 | Key | Record | Status |
 | --- | --- | --- |
-| `pi-tasks:plans-v2` | `PlanBook` `version: 3` | written |
+| `pi-tasks:plans-v2` | `PlanBook` `version: 4` | written |
 | `pi-tasks:plan-v1` | `Plan` `version: 1` | read-only legacy, migrated in memory |
 
-The `plans-v2` key is kept even though the record is version 3 so an older reader
+The `plans-v2` key is kept even though the record is version 4 so an older reader
 sees an unsupported version and fails closed instead of restoring stale data.
+Versions 2 and 3 carried a requirement ledger; it is validated on restore, then
+discarded.
 
 ```ts
 Task      = { id, title, status, phase, doneWhen, dependsOn, reason, note, noteBy, evidence, userClosed, updatedBy, updatedAt }
 Status    = "pending" | "active" | "blocked" | "done" | "cancelled"
 Plan      = { version: 1, revision, nextId, tasks, userCleared }
-Requirement = { id, title, source, acceptance, taskIds, disposition, reason, updatedBy }
-disposition = "accepted" | "superseded"
-PlanBook  = { version: 3, revision, nextPlanId, selectedId, plans, userCleared }
-SavedPlan = { id, title, state, createdAt, updatedAt, closedAt, archivedAt, archivedBy, requirements }
+PlanBook  = { version: 4, revision, nextPlanId, selectedId, plans, userCleared }
+SavedPlan = { id, title, state, createdAt, updatedAt, closedAt, archivedAt, archivedBy }
 ```
 
-Requirement coverage `state` is computed, not stored:
-`"uncovered" | "needs disposition" | "open" | "reported done" | "superseded"`.
+A plan closes when every task is `done` or `cancelled`; there is no coverage
+state.
 
 ### Dock provider contract
 
