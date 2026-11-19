@@ -3,6 +3,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, sliceByColumn, truncateToWidth, visibleWidth, type EditorComponent, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { composerBottomRail, composerFrame, composerThinkingBorder, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
 import { dictationSpan } from "./dictation.ts";
+import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
 import type { WorkspaceState } from "./state.ts";
 
 export function isEditorComponent(value: unknown): value is EditorComponent & { focused?: boolean } {
@@ -26,6 +27,7 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
   const render = function(width: number): string[] {
     // A queued paint may retain this wrapper after cleanup. Use native rendering, not stale session state.
     if (!active) return original.render.call(editor, width);
+    forgetCopyFrame(editor);
     verticalPad = 0;
     bottomRailWidth = -1;
     framed = canFrame && (workspace.footerPickerOpen || workspace.prefs.enabled) && width >= 8;
@@ -75,7 +77,9 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
     bottomRailWidth = width;
     result.push(bottomRail);
     for (const line of lines.slice(bottom + 1)) result.push(composerSurface(theme, " " + line + " ", width, true));
-    return composerFrame(theme, result, width, workspace, now(), bottom + 2 * verticalPad);
+    return rememberCopyFrame(editor, width,
+      composerFrame(theme, result, width, workspace, now(), bottom + 2 * verticalPad),
+      appliedPadding ?? 0, verticalPad, bottom + 2 * verticalPad);
   };
   const handleInput = function(data: string) {
     if (active && !isKeyRelease(data)) workspace.lastInputAt = now();
@@ -115,6 +119,7 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
   return () => {
     if (!active) return;
     active = false;
+    forgetCopyFrame(editor);
     if (canFrame && padded.getPaddingX?.() === appliedPadding) padded.setPaddingX!(oldPadding);
     if (editor.setText === setText) editor.setText = original.setText;
     if (editor.render === render) editor.render = original.render;

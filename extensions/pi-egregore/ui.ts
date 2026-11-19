@@ -8,6 +8,7 @@ import {
 import { homedir } from "node:os";
 import type { WorkspaceState } from "./state.ts";
 import { dictationSpan } from "./dictation.ts";
+import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
 import { composerBottomRail, composerFrame, composerThinkingBorder, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
 
 const BOTTOM = "\0pi-workspace:bottom\0"; // Internal layout sentinel; replaced before render returns.
@@ -78,6 +79,7 @@ export class ComposerEditor extends CustomEditor {
       : composerBottomRail(theme, width, this.homeState, this.ctx(), "", this.hiddenBelow ? hint : "");
   }
   override render(width: number): string[] {
+    forgetCopyFrame(this);
     if (width <= 0) return [];
     this.lastRenderWidth = width;
     this.framed = width >= 8;
@@ -112,7 +114,9 @@ export class ComposerEditor extends CustomEditor {
     this.railWidth = width;
     result.push(bottomRail);
     for (const line of lines.slice(this.baseBottom + 1)) result.push(composerSurface(theme, " " + line + " ", width, true));
-    return composerFrame(theme, result, width, this.homeState, now, this.baseBottom + 2 * this.verticalPad);
+    return rememberCopyFrame(this, width,
+      composerFrame(theme, result, width, this.homeState, now, this.baseBottom + 2 * this.verticalPad),
+      this.getPaddingX(), this.verticalPad, this.baseBottom + 2 * this.verticalPad);
   }
   override handleMouse(event: TuiMouseEvent) {
     if (!this.framed || this.lastRenderWidth < 8) return super.handleMouse(event);

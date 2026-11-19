@@ -1,20 +1,21 @@
 import { stripVTControlCharacters } from "node:util";
-import { Container, sliceByColumn, type Component } from "@earendil-works/pi-tui";
+import { Container, CURSOR_MARKER, sliceByColumn, type Component } from "@earendil-works/pi-tui";
 
 // Provenance belongs to the rendering adapter, never to a glyph-pattern filter.
 // Weak keys do not retain messages or sessions. Only the latest render is eligible.
-type Frame = { width: number; rows: string[]; inset: number; padding: number };
+type Frame = { width: number; rows: string[]; inset: number; padding: number; bottom: number };
 const frames = new WeakMap<Component, Frame>();
 export function forgetCopyFrame(owner: Component): void { frames.delete(owner); }
-export function rememberCopyFrame(owner: Component, width: number, rows: string[], inset = 0, padding = 0): string[] {
-  frames.set(owner, { width, rows, inset, padding });
+export function rememberCopyFrame(owner: Component, width: number, rows: string[], inset = 0, padding = 0, bottom = rows.length - 1): string[] {
+  frames.set(owner, { width, rows, inset, padding, bottom });
   return rows;
 }
-type Box = { component: Component; children: Box[]; scrollView?: unknown; scrollContentLines?: string[]; rect: { width: number } };
+type Box = { component: Component; children: Box[]; scrollView?: unknown; scrollContentLines?: string[]; lines?: string[]; lineOffset?: number; rect: { x: number; y: number; width: number; height: number }; clip: { x: number; y: number; width: number; height: number } };
 type Point = { row: number; col: number; scrollView?: unknown; boundary?: boolean };
 type Selection = { start: Point; end: Point };
 type Host = {
-  currentLayout?: { root: Box };
+  currentLayout?: { root: Box; width: number };
+  previousScreen?: string[];
   getActiveSelectionText: () => string | undefined;
   getSelectionBounds: () => Selection | undefined;
   getSelectionColumns: (line: string, row: number, selection: Selection) => { start: number; end: number };
@@ -45,17 +46,43 @@ function collect(component: Component, width: number, row: number, height: numbe
   for (const child of layout.children) { collect(child.component, width, row, child.height, spans, depth + 1); row += child.height; }
 }
 
+/** Only full-width, unclipped native layout leaves are eligible in screen space.
+ * Other docks remain native unless their renderer explicitly records a frame. */
+function collectFixed(box: Box, width: number, spans: Span[], depth = 0): void {
+  if (depth > 32 || box.scrollView) return;
+  if (box.lines && box.rect.x === 0 && box.rect.width === width && !box.lineOffset &&
+    box.rect.height >= box.lines.length && box.clip.x === 0 && box.clip.width === width &&
+    box.clip.y <= box.rect.y && box.clip.y + box.clip.height >= box.rect.y + box.lines.length) {
+    collect(box.component, width, box.rect.y, box.lines.length, spans);
+    return;
+  }
+  for (const child of box.children) collectFixed(child, width, spans, depth + 1);
+}
+
+// Pi removes renderer-owned APC cursor markers before screen composition.
+function screenText(line: string): string {
+  return stripVTControlCharacters(line.replaceAll(CURSOR_MARKER, "")
+    .replaceAll("\x1b_pi:fc\x07", "").replaceAll("\x1b_pi:/fc\x07", ""));
+}
+
 function selectedText(host: Host, native: string | undefined): string | undefined {
   if (native === undefined) return native;
   const selection = host.getSelectionBounds();
-  // Fixed docks, overlays and terminal-owned regular-mode selection stay native.
-  if (!selection?.start.scrollView || selection.start.scrollView !== selection.end.scrollView || !host.currentLayout) return native;
-  const box = findScrollBox(host.currentLayout.root, selection.start.scrollView);
-  if (!box?.scrollContentLines || box.children.length !== 1) return native;
-  const source = box.scrollContentLines;
-  const content = box.children[0];
+  if (!selection || selection.start.scrollView !== selection.end.scrollView || !host.currentLayout) return native;
   const spans: Span[] = [];
-  collect(content.component, content.rect.width, 0, source.length, spans);
+  let source: string[];
+  const fixed = !selection.start.scrollView;
+  if (fixed) {
+    if (!host.previousScreen) return native;
+    source = host.previousScreen;
+    collectFixed(host.currentLayout.root, host.currentLayout.width, spans);
+  } else {
+    const box = findScrollBox(host.currentLayout.root, selection.start.scrollView);
+    if (!box?.scrollContentLines || box.children.length !== 1) return native;
+    source = box.scrollContentLines;
+    const content = box.children[0];
+    collect(content.component, content.rect.width, 0, source.length, spans);
+  }
   if (!spans.length) return native;
   const { start, end } = selection;
   if (!Number.isInteger(start.row) || !Number.isInteger(end.row) || start.row < 0 || end.row >= source.length || end.row < start.row) return native;
@@ -69,10 +96,13 @@ function selectedText(host: Host, native: string | undefined): string | undefine
     const span = spans.find(item => row >= item.row && row < item.row + item.frame.rows.length);
     // Exact rendered row + component provenance: identical glyphs in content or
     // an unowned component cannot cause frame detection. Stale layouts fail closed.
-    if (!span || line !== span.frame.rows[row - span.row]) { cleaned.push(original.at(-1)!); continue; }
+    if (!span || (fixed ? screenText(line) !== screenText(span.frame.rows[row - span.row])
+      : line !== span.frame.rows[row - span.row])) { cleaned.push(original.at(-1)!); continue; }
     const local = row - span.row, frame = span.frame;
+    // Completion/menu rows after the Composer's bottom rail stay native.
+    if (local > frame.bottom) { cleaned.push(original.at(-1)!); continue; }
     changed = true;
-    if (local <= frame.padding || local >= frame.rows.length - 1 - frame.padding) continue;
+    if (local <= frame.padding || local >= frame.bottom - frame.padding) continue;
     const left = Math.max(columns.start, 1 + frame.inset);
     const right = Math.min(columns.end, frame.width - 1 - frame.inset);
     // A selection containing only a side border has no copyable content.
