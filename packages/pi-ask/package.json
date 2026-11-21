@@ -6,12 +6,12 @@
   "author": "Jordan (the-sleeping-teemo)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/drawde-nadroj/pi-workspace.git",
+    "url": "git+https://github.com/udarealjordan/pi-egregore.git",
     "directory": "packages/pi-ask"
   },
-  "homepage": "https://github.com/drawde-nadroj/pi-workspace/tree/main/packages/pi-ask#readme",
+  "homepage": "https://github.com/udarealjordan/pi-egregore/tree/main/packages/pi-ask#readme",
   "bugs": {
-    "url": "https://github.com/drawde-nadroj/pi-workspace/issues"
+    "url": "https://github.com/udarealjordan/pi-egregore/issues"
   },
   "engines": {
     "node": ">=22.23.2"

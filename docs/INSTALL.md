@@ -9,7 +9,7 @@ Extensions execute in Pi's process with its OS access. Review source before inst
 1. Clone to a stable directory outside your Pi agent directory. Use your repository access method; this example uses the repository's HTTPS address:
 
    ```sh
-   git clone https://github.com/drawde-nadroj/pi-workspace.git ~/code/pi-egregore
+   git clone https://github.com/udarealjordan/pi-egregore.git ~/code/pi-egregore
    cd ~/code/pi-egregore
    npm ci
    npm test

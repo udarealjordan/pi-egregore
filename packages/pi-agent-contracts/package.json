@@ -7,7 +7,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/drawde-nadroj/pi-workspace.git",
+    "url": "git+https://github.com/udarealjordan/pi-egregore.git",
     "directory": "packages/pi-agent-contracts"
   },
   "engines": {

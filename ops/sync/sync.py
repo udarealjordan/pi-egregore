@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-URL = "https://github.com/udarealjordan/pi-workspace.git"
+URL = "https://github.com/udarealjordan/pi-egregore.git"
 STATE = Path(__file__).resolve().parent
 MIRROR = STATE / "upstream.git"
 ACTIVE = STATE / "current"

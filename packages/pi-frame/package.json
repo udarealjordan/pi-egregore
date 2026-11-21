@@ -6,7 +6,7 @@
   "keywords": ["pi-package", "pi", "tui", "frame"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/drawde-nadroj/pi-workspace.git",
+    "url": "git+https://github.com/udarealjordan/pi-egregore.git",
     "directory": "packages/pi-frame"
   },
   "engines": { "node": ">=22.23.2" },

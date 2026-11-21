@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/drawde-nadroj/pi-workspace.git"
+    "url": "git+https://github.com/udarealjordan/pi-egregore.git"
   },
   "workspaces": ["packages/pi-frame", "packages/pi-ask", "packages/pi-agent-contracts"],
   "files": [
