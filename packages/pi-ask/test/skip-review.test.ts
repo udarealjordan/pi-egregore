@@ -304,7 +304,7 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) {
 test("registered ask_questions returns explicit all-skipped metadata and labels", async () => {
 	const tools = new Map<string, any>();
 	const events: any[] = [];
-	registerQuestions({ registerTool(tool: any) { tools.set(tool.name, tool); }, events: { emit(name: string, data: any) { events.push([name, data]); } } } as any);
+	registerQuestions({ on() {}, registerTool(tool: any) { tools.set(tool.name, tool); }, events: { emit(name: string, data: any) { events.push([name, data]); } } } as any);
 	let open!: (component: TabbedQuestions) => void;
 	const opened = new Promise<TabbedQuestions>((resolve) => { open = resolve; });
 	const ctx: any = { hasUI: true, mode: "tui", ui: { custom(factory: any) {

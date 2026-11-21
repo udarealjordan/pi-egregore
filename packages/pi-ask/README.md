@@ -39,8 +39,8 @@ For setup, see [Installation](#installation). For an answer task, see [best usag
 
 The package exposes three tools:
 
-- **`ask_user_question`** asks one free-form, single-choice, or multiple-choice question.
-- **`ask_questions`** collects several related answers in a sequential form with a compact **1 of N** header and a Review screen.
+- **`consult`** asks one to four questions. One question opens a focused form (free-form, single choice or multiple choice; one Enter answers a choice). Several related questions open a sequential form with a **1 of N** header and a Review screen.
+- How often the agent asks is your choice: `/egregore` → Ask → Question frame → **How often to ask** (quiet, balanced or curious; balanced by default).
 - **`question_queue`** posts one durable question without stopping independent work, lists history, and records application, withdrawal or replacement. `/questions` opens the standalone inbox; when Tasks is installed, unresolved questions lead its work list.
 
 ## Posted questions: one continuous thread
@@ -81,7 +81,7 @@ If you want the agent to check for important unknowns, try:
 
 > **Before you start, investigate what you can. Ask me only about matters that need my perspective and would change the work. If I've invited exploration, contribute your thinking first; then ask an open question if it could help us see something important differently. If no question is needed, proceed.**
 
-Give the agent relevant context, especially context already shared in the conversation or project. It can use `ask_questions` to gather related unknowns rather than guessing or interrupting repeatedly. It should not ask questions simply to fill a batch. For practical work, it should inspect what it can, make a provisional judgment, and ask only when different answers would materially change its next action. It can proceed with a stated, reversible assumption when the choice does not belong to you. For exploration you invited, a question can instead help reveal an overlooked possibility or reconsider an aim; it should still earn the interruption.
+Give the agent relevant context, especially context already shared in the conversation or project. It can use `consult` with several questions to gather related unknowns rather than guessing or interrupting repeatedly. It should not ask questions simply to fill a batch. For practical work, it should inspect what it can, make a provisional judgment, and ask only when different answers would materially change its next action. It can proceed with a stated, reversible assumption when the choice does not belong to you. For exploration you invited, a question can instead help reveal an overlooked possibility or reconsider an aim; it should still earn the interruption.
 
 ### Inquiry charter
 
@@ -344,7 +344,7 @@ Keyboard hints wrap to fit the terminal. Large pasted notes retain their full co
 
 ## Non-TUI behavior
 
-The synchronous `ask_user_question` and `ask_questions` tools require Pi's interactive TUI. In RPC, print or other non-interactive modes they return structured `unavailable` rather than prompting on stdin; an already-aborted call returns `cancelled`. `question_queue` can post, list and disposition records outside TUI. Answering a posted question requires TUI; queue availability does not mean an answer or approval exists.
+The synchronous `consult` tool requires Pi's interactive TUI. In RPC, print or other non-interactive modes they return structured `unavailable` rather than prompting on stdin; an already-aborted call returns `cancelled`. `question_queue` can post, list and disposition records outside TUI. Answering a posted question requires TUI; queue availability does not mean an answer or approval exists.
 
 ## Security
 

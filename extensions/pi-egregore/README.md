@@ -22,7 +22,7 @@ The optional Tasks extension publishes a data-only plan snapshot to Egregore. A 
 
 ## Notification sounds
 
-On macOS, Windows and Linux, Egregore plays React Bits **Pluck** once when an interactive run settles successfully, after retries and queued work finish. A quieter **Hint** plays when a blocking `ask_questions` or `ask_user_question` form opens, once per tool call rather than once per nested dialog. Errors, cancellations (including settlement aborted after the final reply), ordinary tools, settings dialogs and passive posted-question browsing are silent. Noninteractive modes never play automatic cues.
+On macOS, Windows and Linux, Egregore plays React Bits **Pluck** once when an interactive run settles successfully, after retries and queued work finish. A quieter **Hint** plays when a blocking `consult` question form opens, once per tool call rather than once per nested dialog. Errors, cancellations (including settlement aborted after the final reply), ordinary tools, settings dialogs and passive posted-question browsing are silent. Noninteractive modes never play automatic cues.
 
 `/sounds off` mutes automatic cues and stops current playback; `/sounds on` enables them. `/sounds` reports the current state. `/sounds test` previews Pluck and `/sounds question` previews Hint, even while muted. These operational controls are session-only, independent of Composer appearance and `/egregore` Save; restarting or reloading restores the platform default. No saved settings are changed.
 

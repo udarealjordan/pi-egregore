@@ -281,7 +281,7 @@ test("Escape asks once before discarding a free-text draft", async () => {
 
 test("single free-text Skip returns skipped rather than cancelled", async () => {
   const tools = new Map<string, any>();
-  registerQuestions({ registerTool(tool: any) { tools.set(tool.name, tool); }, events: { emit() {} } } as any);
+  registerQuestions({ on() {}, registerTool(tool: any) { tools.set(tool.name, tool); }, events: { emit() {} } } as any);
   let open!: (component: any) => void;
   const opened = new Promise<any>(resolve => { open = resolve; });
   const ctx: any = { hasUI: true, mode: "tui", cwd: process.cwd(), ui: { custom(factory: any) {

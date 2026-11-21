@@ -30,8 +30,7 @@ that renders provider rows; Frame owns drawing primitives only.
 
 | Tool | Mode | Parameters | Result `details` |
 | --- | --- | --- | --- |
-| `ask_user_question` | pauses for one answer | `{ question: string; details?: string; options?: Option[]; multiSelect?: boolean }` | `AskUserQuestionResultDetails` |
-| `ask_questions` | pauses; sequential batch with Review | `{ questions: Array<{ question: string; label?: string; details?: string; options?: Option[]; multiSelect?: boolean }> }` (min 1) | `BatchQuestionResultDetails` |
+| `consult` | pauses for one to four answers; one question opens a focused form, several open a sequential form with Review | `{ questions: Array<{ question: string; label?: string; details?: string; options?: Option[]; multiSelect?: boolean }> }` (1–4) | `AskUserQuestionResultDetails` for one question, `BatchQuestionResultDetails` for several |
 | `question_queue` | durable, does not pause | `{ op: "post" \| "list" \| "apply" \| "withdraw" \| "replace"; question?: Input; id?: string; revision?: integer ≥ 1; reason?: string; offset?: integer; limit?: integer 1–20 }` | `{ label, question, questions }` (no named type) |
 
 `options` items use the exported `OptionSchema`: `{ label: string; value?: string; description?: string; recommended?: boolean; suggestion?: { kind: "evidence" | "fit" | "low-friction" | "explore"; basis: string; caveat?: string } }`.
@@ -41,7 +40,7 @@ urgency: "blocking" | "deferred"; why; boundary; planId?; taskIds? }`, where `wh
 and `boundary` are required: a durable question must say what waits.
 
 `status` is one of `"answered" | "skipped" | "cancelled" | "unavailable" | "regenerate" | "clarification_requested"`.
-`ask_questions` reports per-question skips through `skippedQuestionIndexes`, not a
+A multi-question `consult` reports per-question skips through `skippedQuestionIndexes`, not a
 batch status. Both pausing tools return `unavailable` outside an interactive TUI.
 
 ### Events

@@ -38,8 +38,17 @@ export function askControls(e: RoomEditor, selected: AskElementId): Control[] {
   ];
   if (selected === "body") return [choice("Question emphasis", style.questionText, ["bold", "normal"], "Bold or normal. The question wording does not change.", questionText => ({ questionText: questionText as AskAppearance["questionText"] }))];
   if (selected === "hint") return [choice("Hint tone", style.hints, ["dim", "muted"], "Quiet the key hints without changing their actions.", hints => ({ hints: hints as AskAppearance["hints"] }))];
-  return [{ label: "Question frame is fixed", value: "Pi theme accent", readonly: true,
-    help: "Information, not a setting. Questions use Pi's accent; warning and error colors keep their meanings.", activate() {} }];
+  // Curiosity has its own labels: the shared vocabulary maps "quiet" to "Quieter".
+  const CURIOSITY_LABELS: Record<AskAppearance["curiosity"], string> = { quiet: "Only when needed", balanced: "Balanced", curious: "Curious" };
+  const curiosityHelp = "Only when needed: asks when blocked or before something hard to undo. Balanced: also at real forks and on taste or scope. Curious: also checks in at milestones.";
+  return [
+    { label: "Question frame is fixed", value: "Pi theme accent", readonly: true,
+      help: "Information, not a setting. Questions use Pi's accent; warning and error colors keep their meanings.", activate() {} },
+    { label: "How often to ask", value: CURIOSITY_LABELS[style.curiosity], help: curiosityHelp,
+      activate: () => e.choose("How often to ask", (Object.keys(CURIOSITY_LABELS) as AskAppearance["curiosity"][]).map(value => ({ value, label: CURIOSITY_LABELS[value] })),
+        style.curiosity, next => e.change(() => patch(e.get(), { curiosity: next as AskAppearance["curiosity"] })),
+        e.visual((candidate, next) => patch(candidate, { curiosity: next as AskAppearance["curiosity"] }))) },
+  ];
 }
 export function transcriptControls(e: RoomEditor, selected: TranscriptElementId): Control[] {
   const draft = e.get(), style = readTranscript(draft.transcript, draft);

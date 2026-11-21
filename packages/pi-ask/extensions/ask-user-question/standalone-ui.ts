@@ -350,16 +350,13 @@ export function askSingleChoice(
 			const option = item.option!;
 			return { type: "option", label: option.label, value: option.value, index: item.index };
 		}
+		/** One Enter answers a single-choice question; "Something else" opens its editor first. */
 		function stageOrConfirm(item: WrappedChoiceItem): void {
 			if (item.isOther) {
 				if (stagedAnswer?.type === "other") return finish(stagedAnswer);
 				return openOtherEditor();
 			}
-			const answer = answerForItem(item);
-			if (stagedAnswer && answerSelectionKey(stagedAnswer) === item.id) return finish(stagedAnswer);
-			stagedAnswer = answer;
-			invalidate();
-			tui.requestRender();
+			return finish(answerForItem(item));
 		}
 		editor.onSubmit = (value) => {
 			const trimmed = value.trim();
@@ -373,8 +370,7 @@ export function askSingleChoice(
 			stagedAnswer = { type: "other", label: trimmed, value: trimmed };
 			editMode = false;
 			editor.focused = false;
-			invalidate();
-			tui.requestRender();
+			return finish(stagedAnswer);
 		};
 
 		return {
@@ -400,7 +396,7 @@ export function askSingleChoice(
 							? ["Enter/+ Edit note", "Tab/Esc Back", "F2 More"]
 							: editMode
 								? ["Enter Save answer", "Ctrl+C Clear", "Alt+↑/↓ Options", "Tab Note", "Esc Back", "Ctrl+S Skip", "F2 More"]
-								: [stagedAnswer ? "Enter Confirm or replace" : "Enter Select",
+								: ["Enter Answer",
 									"Ctrl+S Skip", { label: "Esc Close", tone: "error" }, "F2 More"];
 					addActionHints(tail, width, theme, tokens);
 				}

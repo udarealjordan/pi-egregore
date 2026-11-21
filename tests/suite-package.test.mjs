@@ -85,7 +85,7 @@ test("packed private suite loads its only three entry points in an isolated Pi d
         const commands = result.extensions.flatMap(extension => [...extension.commands.keys()]);
         assert.equal(tools.length, new Set(tools).size, "one owner per tool name");
         assert.equal(commands.length, new Set(commands).size, "one owner per command name");
-        for (const name of ["tasks", "ask_user_question", "ask_questions", "question_queue"]) assert.ok(tools.includes(name), name);
+        for (const name of ["tasks", "consult", "question_queue"]) assert.ok(tools.includes(name), name);
         for (const name of ["composer", "egregore", "tasks", "questions"]) assert.ok(commands.includes(name), name);
       }
       const tasksOnly = await loadExtensions([entries[1]], project);

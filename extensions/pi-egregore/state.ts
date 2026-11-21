@@ -176,3 +176,6 @@ export function shouldAnimate(state: EgregoreState, now: number, focused: boolea
   return !state.footerPickerOpen && state.prefs.enabled && state.prefs.motion !== "off" && state.layout?.motion !== "off" &&
     state.promptDepth === 0 && (state.clock.active || state.compacting);
 }
+
+/** Tools that open a blocking question form. Old names stay for restored sessions. */
+export const QUESTION_TOOLS: ReadonlySet<string> = new Set(["consult", "ask_user_question", "ask_questions"]);

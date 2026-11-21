@@ -11,41 +11,52 @@ import {
   type QuestionDef,
 } from "../extensions/ask-user-question/domain.ts";
 
-test("both tools distinguish necessary decisions from invited exploration", () => {
+test("consult asks at real decision points, briefly, and recommends an option", () => {
   const tools = new Map<string, any>();
-  registerQuestions({ registerTool(tool: any) { tools.set(tool.name, tool); } } as any);
-  const single = tools.get("ask_user_question");
-  const batch = tools.get("ask_questions");
-  const singleGuidance = [single.description, single.promptSnippet, ...single.promptGuidelines].join(" ");
-  const batchGuidance = [batch.description, batch.promptSnippet, ...batch.promptGuidelines].join(" ");
-  assert.match(singleGuidance, /provisional judgment/);
-  assert.match(singleGuidance, /materially change the next action/);
-  assert.match(singleGuidance, /invites exploration or reflection/);
-  assert.match(singleGuidance, /reconsider an aim/);
-  assert.match(singleGuidance, /warrant the interruption/);
-  assert.match(singleGuidance, /unsolicited questionnaire/);
-  assert.match(singleGuidance, /no question is a good outcome/i);
-  assert.match(batchGuidance, /materially change the next action/);
-  assert.match(batchGuidance, /invited exploration/);
-  assert.match(batchGuidance, /No questions is a valid outcome/);
-  assert.doesNotMatch(singleGuidance, /immediately call ask_user_question again/);
-  assert.doesNotMatch(batchGuidance, /immediately call ask_questions again/);
+  registerQuestions({ on() {}, registerTool(tool: any) { tools.set(tool.name, tool); } } as any);
+  const consult = tools.get("consult");
+  assert.equal(consult.exposure, undefined, "consult is offered to the model");
+  const guidance = [consult.description, consult.promptSnippet, ...consult.promptGuidelines].join(" ");
+  for (const pattern of [/goal, scope or a key choice is unclear/, /forks between reasonable approaches/, /taste, naming or priority/,
+    /hard to undo/, /share the plan and ask whether to adjust it/, /Recommend an option/, /up to four related questions/, /not consent/])
+    assert.match(guidance, pattern);
+  for (const discouraging of [/no question is a good outcome/i, /unsolicited questionnaire/, /warrant the interruption/])
+    assert.doesNotMatch(guidance, discouraging, "guidance no longer talks the model out of asking");
+  assert.ok(guidance.length < 1400, `guidance stays short (${guidance.length} characters)`);
+  assert.equal(consult.parameters.properties.questions.maxItems, 4);
 });
 
-test("both tools preserve answer caveats, scope ownership, and consent boundaries", () => {
-  const tools: any[] = [];
-  registerQuestions({ registerTool(tool: any) { tools.push(tool); } } as any);
-  for (const tool of tools) {
-    const guidance = tool.promptGuidelines.join(" ");
-    for (const pattern of [
-      /apply it and its notes or caveats/, /Drop questions made obsolete/,
-      /reconcile it with the owning plan's tools if available/,
-      /preserving the original request and caveats rather than rewriting history/,
-      /Do not create a task for every answer/,
-      /Skipped, unanswered, cancelled, or unavailable questions are not agreement or consent/,
-      /do not proceed across an unresolved approval boundary/,
-      /Exploratory answers are not implementation authorization/,
-    ]) assert.match(guidance, pattern, tool.name);
+test("earlier tool names stay registered but hidden, so old transcripts still render", () => {
+  const tools = new Map<string, any>();
+  registerQuestions({ on() {}, registerTool(tool: any) { tools.set(tool.name, tool); } } as any);
+  for (const name of ["ask_user_question", "ask_questions"]) {
+    assert.equal(tools.get(name).exposure, "hidden", name);
+    assert.equal(tools.get(name).renderResult, tools.get("consult").renderResult, name);
+  }
+});
+
+test("curiosity adds one guideline line per run, and balanced adds none", async () => {
+  const { CURIOSITY_GUIDANCE } = await import("../extensions/questions.ts");
+  assert.equal(CURIOSITY_GUIDANCE.balanced, "");
+  assert.match(CURIOSITY_GUIDANCE.quiet, /only when you are blocked/);
+  assert.match(CURIOSITY_GUIDANCE.curious, /check in at milestones/);
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(join(tmpdir(), "consult-curiosity-")), previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = dir;
+  try {
+    const hooks = new Map<string, any>();
+    registerQuestions({ on(name: string, fn: any) { hooks.set(name, fn); }, registerTool() {} } as any);
+    const run = async () => { const event: any = { systemPromptOptions: { toolGuidelines: { consult: ["base"] } } }; await hooks.get("before_agent_start")(event); return event.systemPromptOptions.toolGuidelines.consult; };
+    assert.deepEqual(await run(), ["base"], "no settings file means balanced, which adds nothing");
+    writeFileSync(join(dir, "pi-egregore.json"), JSON.stringify({ version: 1, ask: { version: 1, curiosity: "curious" } }));
+    assert.deepEqual(await run(), ["base", CURIOSITY_GUIDANCE.curious]);
+    writeFileSync(join(dir, "pi-egregore.json"), JSON.stringify({ version: 1, ask: { version: 1, curiosity: "quiet" } }));
+    assert.deepEqual(await run(), ["base", CURIOSITY_GUIDANCE.quiet]);
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = previous;
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

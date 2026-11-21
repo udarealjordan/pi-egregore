@@ -52,7 +52,10 @@ function batch(mode: QuestionDef["mode"], rows = 40) {
 	component.focused = true;
 	return { tui, component, get result() { return result; } };
 }
-function stage(component: any, mode: QuestionDef["mode"]) {
+/** Put the form in a state with an answer ready. A standalone single choice answers
+ * on Enter, so its highlighted option is the answer and notes come first. */
+function stage(component: any, mode: QuestionDef["mode"], standalone = false) {
+	if (standalone && mode === "single-select") return;
 	component.handleInput(mode === "text" ? "Primary answer" : mode === "single-select" ? keys.enter : " ");
 }
 
@@ -150,7 +153,7 @@ test("inline note cursor remains visible at narrow widths and wide grapheme boun
 for (const mode of ["text", "single-select", "multi-select"] as const) {
 	test(`standalone ${mode}: note cursor, clear scope, hints, multiline, and submit`, async () => {
 		const h = standalone(mode);
-		stage(h.component, mode);
+		stage(h.component, mode, true);
 		h.component.handleInput(keys.tab);
 		assert.match(sanitizeDisplayText(h.component.render(80).join("\n")), /› \+ Note/);
 		h.component.handleInput(keys.enter);
@@ -247,7 +250,7 @@ for (const mode of ["text", "single-select", "multi-select"] as const) {
 		const note = "A long pasted note. ".repeat(80);
 		const paste = `\x1b[200~${note}\x1b[201~`;
 		const one = standalone(mode);
-		stage(one.component, mode);
+		stage(one.component, mode, true);
 		one.component.handleInput(keys.tab);
 		one.component.handleInput(keys.enter);
 		one.component.handleInput(paste);

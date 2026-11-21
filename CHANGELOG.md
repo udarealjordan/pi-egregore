@@ -6,6 +6,10 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Ask's two tools are now one: `consult` asks one to four questions (one opens the focused form, several open the form with Review). Its guidance is short and names when to ask: unclear goal or scope, forks between approaches, taste and naming, anything hard to undo, and when sharing a plan. It replaces a dozen lines that talked the model out of asking. The old `ask_user_question` and `ask_questions` stay registered but hidden so earlier sessions still render.
+- New setting `/egregore` → Ask → Question frame → **How often to ask**: only when needed, balanced (default) or curious. It adds one guideline line per run.
+- A single-choice question now answers with one Enter, and a custom "Something else" answer submits when entered. The multi-question form keeps select-then-continue, since Review confirms there.
+
 - Tool calls are now one row each on a shared rail instead of a box per call: marker, name, target and a quiet detail (line count, diff counts, `exit N`), with error and live-output notes beneath. Tasks and Ask calls use the same rows (`Done`, `Started`, `Asked` with your answer). Expanding a row still opens the full card. The grouped file-tool box is retired.
 - Heavy lines (`┏━┓┃`) now mark what wants attention: the Composer, a question and the live Tasks dock. History stays light. Frame gains `weight` and a `toolRows` primitive.
 - Question dialog: the footer no longer repeats "+ Note" (the row by the options stays), Regenerate moved to F2 More, "Write your own answer." and a lone "1 of 1" are gone, and the discard hint reads "Esc Discard note".

@@ -202,6 +202,14 @@ export const AskQuestionsParams = Type.Object({
 	),
 });
 
+/** consult: one to four questions in a single call. One question opens the focused form. */
+export const ConsultParams = Type.Object({
+	questions: Type.Array(AskQuestionsParams.properties.questions.items, {
+		description: "One to four related questions. A single question opens a focused form; several open a sequential form with Review.",
+		minItems: 1, maxItems: 4,
+	}),
+});
+
 export function normalizeOptions(options: Array<{ label: string; value?: string; description?: string; recommended?: boolean; suggestion?: OptionSuggestion }> | undefined): AskOption[] {
 	return (options || [])
 		.map((option) => {
@@ -310,7 +318,7 @@ export function batchCancelledResult(questions: QuestionDef[]) {
 }
 
 export function batchUnavailableResult(questions: QuestionDef[]) {
-	const message = "ask_questions requires interactive TUI mode";
+	const message = "consult requires interactive TUI mode";
 	return {
 		content: [{ type: "text" as const, text: message }],
 		details: { status: "unavailable" as const, questions, answers: [] } as BatchQuestionResultDetails,

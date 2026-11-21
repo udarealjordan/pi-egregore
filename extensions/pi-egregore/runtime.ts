@@ -22,8 +22,7 @@ import { SurfaceScope } from "./surface-lifecycle.ts";
 import { EgregoreSounds } from "./sounds.ts";
 import {
   DEFAULTS, TIMING_ENTRY, RunClock, shouldAnimate,
-  type EgregoreState, type Outcome, type Preferences,
-} from "./state.ts";
+  type EgregoreState, type Outcome, type Preferences, QUESTION_TOOLS } from "./state.ts";
 
 type EditorFactory = Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0];
 const IDENTITY_WIDGET = "pi-egregore:dock";
@@ -51,7 +50,7 @@ export default function egregore(pi: ExtensionAPI) {
     if (event.active) passiveDialogs.add(event.id); else passiveDialogs.delete(event.id);
   });
   state.promptBlocksWork = kind => kind !== "custom" || !passiveDialogs.size ||
-    [...state.tools.values()].some(name => name === "ask_user_question" || name === "ask_questions");
+    [...state.tools.values()].some(name => QUESTION_TOOLS.has(name));
   let tui: TUI | undefined;
   let editor: ComposerEditor | undefined;
   let dictation: DictationController | undefined;
@@ -211,7 +210,7 @@ export default function egregore(pi: ExtensionAPI) {
   function mountEgregore(ctx: ExtensionContext) {
     // Native custom questions replace the editor. Move Egregore as one unit below
     // that surface, so the question does not split the egregore and footer.
-    const question = state.promptDepth > 0 && [...state.tools.values()].some(name => name === "ask_questions" || name === "ask_user_question");
+    const question = state.promptDepth > 0 && [...state.tools.values()].some(name => QUESTION_TOOLS.has(name));
     const scope = surfaces;
     if (!scope) return;
     ctx.ui.setWidget(IDENTITY_WIDGET, (ui) => scope.guard(createDock(ui, current, state, docks, () => activeEditor()?.focused ?? false)), { placement: question ? "belowEditor" : "aboveEditor" });
@@ -419,7 +418,7 @@ export default function egregore(pi: ExtensionAPI) {
     promptPauses.push(pauses);
     if (pauses) {
       const pending = [...state.tools].filter(([id, name]) =>
-        (name === "ask_questions" || name === "ask_user_question") && !questionSounds.has(id));
+        QUESTION_TOOLS.has(name) && !questionSounds.has(id));
       if (pending.length) {
         for (const [id] of pending) questionSounds.add(id);
         playSound("question", ctx);

@@ -1,6 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import { type EgregoreState } from "./state.ts";
+import { type EgregoreState, QUESTION_TOOLS } from "./state.ts";
 import { clean, duration, type ActivityClock, type FooterPrefs } from "./footer-state.ts";
 import { splitRow } from "./ui.ts";
 import { emberStatus } from "./composer-ember.ts";
@@ -28,7 +28,7 @@ export function composerStatusRows(egregore: EgregoreState, clock: ActivityClock
   const d = clock.data;
   const waiting = clock.running && (egregore.blockingPromptDepth ?? egregore.promptDepth) > 0;
   // The question frame owns the only prompt heading.
-  if (waiting && [...egregore.tools.values()].some(name => name === "ask_questions" || name === "ask_user_question")) return [];
+  if (waiting && [...egregore.tools.values()].some(name => QUESTION_TOOLS.has(name))) return [];
   const busy = (clock.running || egregore.compacting) && !waiting;
   const failed = d.lastOutcome === "error" && !clock.running;
   const stopped = d.lastOutcome === "stopped" && !clock.running;
@@ -45,7 +45,7 @@ export function composerStatusRows(egregore: EgregoreState, clock: ActivityClock
   // a recoverable tool failure is not the outcome of the whole agent run.
   // Reserve the row so starting/finishing tools cannot shift the input.
   const detail = egregore.tools.size ? theme.fg("muted", [...egregore.tools.values()].map(name =>
-    name === "ask_questions" ? "Questions" : name === "ask_user_question" ? "Question" : clean(name)).join(" · ")) : "";
+    QUESTION_TOOLS.has(name) ? "Question" : clean(name)).join(" · ")) : "";
   const inset = width >= 8 ? 2 : 0;
   return [splitRow(left, right, Math.max(0, width - 2 * inset)), detail]
     .map(line => " ".repeat(inset) + truncateToWidth(line, Math.max(0, width - 2 * inset), ""));

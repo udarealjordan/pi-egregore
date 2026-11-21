@@ -450,3 +450,19 @@ test("Something else keeps the earlier options and a capped editor on screen", (
 		assert.deepEqual(h.form.render(80).map(sanitizeDisplayText), plain, "Alt+Up restores the first options");
 	}
 });
+
+test("one Enter answers a single-choice question; a custom answer submits when entered", async () => {
+	const open = (pick: (panel: any) => void) => {
+		let panel: any;
+		const ctx: any = { cwd: process.cwd(), ui: { custom(make: any) {
+			return new Promise(resolve => { panel = make({ terminal: { rows: 40 }, requestRender() {} }, theme, getKeybindings(), resolve); panel.focused = true; pick(panel); });
+		} } };
+		return askSingleChoice(ctx, "Which scope?", undefined, [{ label: "Small", value: "small" }, { label: "Large", value: "large" }]);
+	};
+	const footer = await new Promise<string>(resolve => { void open(panel => { resolve(sanitizeDisplayText(panel.render(80).join("\n"))); panel.handleInput(keys.escape); }); });
+	assert.match(footer, /↵ Answer/); assert.doesNotMatch(footer, /Confirm or replace/);
+	const chosen: any = await open(panel => { panel.handleInput("\x1b[B"); panel.handleInput(keys.enter); });
+	assert.equal(chosen.answer.value, "large");
+	const custom: any = await open(panel => { panel.handleInput("3"); panel.handleInput("A middle size"); panel.handleInput(keys.enter); });
+	assert.equal(custom.answer.type, "other"); assert.equal(custom.answer.value, "A middle size");
+});

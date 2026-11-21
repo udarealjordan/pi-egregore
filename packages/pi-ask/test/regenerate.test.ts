@@ -11,7 +11,7 @@ const tui = { terminal: { rows: 40 }, requestRender() {} };
 for (const mode of ["text", "single-select", "multi-select"]) {
   test(`single ${mode} visibly regenerates with an active note, not an answer`, async () => {
     const tools = new Map<string, any>();
-    registerQuestions({ registerTool(tool: any) { tools.set(tool.name, tool); }, events: { emit() {} } } as any);
+    registerQuestions({ on() {}, registerTool(tool: any) { tools.set(tool.name, tool); }, events: { emit() {} } } as any);
     let open!: (component: any) => void;
     const opened = new Promise<any>(resolve => { open = resolve; });
     const ctx: any = { hasUI: true, mode: "tui", cwd: process.cwd(), ui: { custom(factory: any) {

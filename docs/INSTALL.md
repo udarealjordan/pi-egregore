@@ -28,7 +28,7 @@ Extensions execute in Pi's process with its OS access. Review source before inst
 
    Do not separately register `packages/pi-ask` or Frame alongside the suite. Do not load old personal Egregore/Tasks copies as well. Equivalent local declarations may be deduplicated by Pi, but separate component entries can still duplicate registration. Review any legacy resource exclusions before starting.
 
-3. Start a fresh Pi process. Run `/egregore` and `/tasks` in Pi, not in the shell. `pi list` should identify the root checkout; each command should open its corresponding surface. The Ask agent tools are `ask_user_question`, `ask_questions` and `question_queue`; `/questions` is the user-facing inbox.
+3. Start a fresh Pi process. Run `/egregore` and `/tasks` in Pi, not in the shell. `pi list` should identify the root checkout; each command should open its corresponding surface. The Ask agent tools are `consult` and `question_queue`; `/questions` is the user-facing inbox.
 
 Pi loads a local package from its resolved checkout path. It does **not** copy its files or install its dependency tree. Keep the directory and installed dependencies in place. CLI input paths resolve from the command's working directory; relative paths already recorded in settings resolve from that settings file. Using `"$PWD"` avoids that distinction during registration.
 

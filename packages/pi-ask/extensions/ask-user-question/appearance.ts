@@ -12,8 +12,12 @@ export interface AskAppearance {
   labels: "matched" | "hierarchy";
   questionText: "bold" | "normal";
   hints: "dim" | "muted";
+  /** How readily the agent consults you. Behavioral, but stored with Ask's settings. */
+  curiosity: Curiosity;
 }
-export const askAppearanceDefaults = (): AskAppearance => ({ version: 1, title: "Questions", titlePosition: "topLeft", progressPosition: "bottomLeft", labels: "matched", questionText: "bold", hints: "dim" });
+export type Curiosity = "quiet" | "balanced" | "curious";
+export const CURIOSITY: readonly Curiosity[] = ["quiet", "balanced", "curious"];
+export const askAppearanceDefaults = (): AskAppearance => ({ version: 1, title: "Questions", titlePosition: "topLeft", progressPosition: "bottomLeft", labels: "matched", questionText: "bold", hints: "dim", curiosity: "balanced" });
 export const safeAskTitle = (text: string) => Array.from(stripVTControlCharacters(text).replace(/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, " ").trim()).slice(0, 30).join("");
 export function readAskAppearance(value: unknown, legacy?: unknown): AskAppearance | undefined {
   if (value !== undefined && (!value || typeof value !== "object" || (value as any).version !== 1)) return undefined;
@@ -26,6 +30,7 @@ export function readAskAppearance(value: unknown, legacy?: unknown): AskAppearan
   if (raw.labels === "matched" || raw.labels === "hierarchy") out.labels = raw.labels;
   if (raw.questionText === "bold" || raw.questionText === "normal") out.questionText = raw.questionText;
   if (raw.hints === "dim" || raw.hints === "muted") out.hints = raw.hints;
+  if (CURIOSITY.includes(raw.curiosity as Curiosity)) out.curiosity = raw.curiosity!;
   return out;
 }
 /** Read once per interaction. Missing, malformed or future-version settings retain safe defaults. */
