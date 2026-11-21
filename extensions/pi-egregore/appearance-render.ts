@@ -52,7 +52,8 @@ export function appearanceValues(egregore: EgregoreState, width: number, now: nu
   const sent = egregore.lastUserSentAt?.();
   const lastSendTime = sentTime(sent, p, now, !!egregore.chronomancerDay && egregore.chronomancerDay !== calendarDay(now));
   return {
-    status: !simulated && egregore.chronomancerDay ? "" : status, session: data?.session || "Untitled session", sentTime: lastSendTime,
+    status: !simulated && egregore.chronomancerDay ? "" : status, // The path marker leads, so a long title truncates before it.
+    session: (egregore.pathLabel?.() ? `⑂ ${egregore.pathLabel()} · ` : "") + (data?.session || "Untitled session"), sentTime: lastSendTime,
     directory: p.directory === "folder" ? basename(data?.cwd ?? "") : homePath(data?.cwd ?? ""),
     vim: egregore.appearanceMode ?? "", model: data?.model ?? "", thinking: egregore.thinkingLevel?.() ?? data?.thinking ?? "",
     context: contextText(p, data?.usage, width), git: data?.git ? gitLabel(data.git, p, width < 75) : data?.gitUnavailable ? "—" : "",

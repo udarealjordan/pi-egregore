@@ -142,9 +142,9 @@ test("question shell keeps native focus/cursor and fits all viewport sizes", () 
     assert.ok(lines.length <= questionHeight(tui));
     for (const line of lines) assert.ok(visibleWidth(line) <= width);
     if (rows >= 24 && width >= 20) {
-      assert.match(sanitizeDisplayText(lines[0]), /^┏ Questions/);
+      assert.match(sanitizeDisplayText(lines[0]), /^╭ Questions/);
       if (width >= 38) assert.doesNotMatch(sanitizeDisplayText(lines.at(-1)!), /1 of 1/, "a single question shows no count");
-      assert.match(sanitizeDisplayText(lines.at(-1)!), /^┗/);
+      assert.match(sanitizeDisplayText(lines.at(-1)!), /^╰/);
       assert.equal(lines.join("").split(CURSOR_MARKER).length - 1, 1);
     }
     shell.focused = false;
@@ -231,8 +231,8 @@ test("standalone question requests native input replacement and cancels once", a
   assert.equal(options.overlayOptions, undefined);
   const rendered = component.render(86).map(sanitizeDisplayText);
   assert.match(rendered[0], /Questions/);
-  assert.match(rendered.at(-1)!, /^┗━/);
-  assert.match(rendered[0], /^┏/, "the question frame is heavy");
+  assert.match(rendered.at(-1)!, /^╰━/);
+  assert.match(rendered[0], /^╭/, "the question frame is heavy");
   assert.ok(rendered.some((line: string) => /╭.*╮/.test(line)), "free-form answer editor embeds its own light frame");
   signal.abort();
   assert.equal(await pending, null);

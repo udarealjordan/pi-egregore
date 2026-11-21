@@ -16,6 +16,8 @@ import { POSTED } from "pi-agent-contracts/posted";
 import { ThemeLease } from "./composer-theme.ts";
 import { registerRecaps } from "./recaps.ts";
 import { registerEgregoreAppearance } from "./footer.ts";
+import { registerAside } from "./aside.ts";
+import { registerPaths } from "./paths.ts";
 import { registerComposerControls } from "./composer-controls.ts";
 import { loadComposerPreferences, saveComposerPreferences, COMPOSER_SETTINGS } from "./composer-preferences.ts";
 import { SurfaceScope } from "./surface-lifecycle.ts";
@@ -464,6 +466,8 @@ export default function egregore(pi: ExtensionAPI) {
   });
 
   const recaps = registerRecaps(pi, () => state.prefs.enabled);
+  registerAside(pi);
+  registerPaths(pi, state);
 
   pi.registerCommand("sounds", {
     description: "Egregore audio: on, off, test, or question (session-only; macOS, Windows, Linux).",

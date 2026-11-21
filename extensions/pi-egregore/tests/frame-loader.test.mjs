@@ -149,7 +149,7 @@ for (const warm of [false, true]) test(`Egregore's presentation API loads with $
       const rows = taskPanelRows(theme, 90, taskDemo("working"), prefs, { state: "working", active: false, elapsed: 0 });
       assert.ok(rows.some(row => plain(row).includes("Photos for Mom")));
       assert.ok(rows.some(row => plain(row).includes("Print 4×6 copies")));
-      assert.ok(rows[0].includes("┏"), "new presentation uses fresh primitives (heavy live dock), not the cached legacy root");
+      assert.ok(rows[0].includes("╭"), "new presentation uses fresh primitives (heavy live dock), not the cached legacy root");
       const { chooseFooter } = await jiti.import(join(f.egregore, "footer-settings.ts"));
       const { FOOTER_DEFAULTS } = await jiti.import(join(f.egregore, "footer-state.ts"));
       const ctx = { ui: { custom: factory => new Promise(done => {

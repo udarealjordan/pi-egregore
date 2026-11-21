@@ -132,10 +132,10 @@ test("preview target clicks retain geometry after highlighting and property edit
     h.click("[Tasks]"); h.click("3 of 6 done · 1 blocked");
     assert.match(h.rows().join("\n"), /Selected: Progress · Top right/);
     h.click("Count position"); h.pick("bottomCenter");
-    const lines = h.rows(), y = lines.findIndex(row => row.startsWith("┗") && row.includes("3 of 6 done"));
+    const lines = h.rows(), y = lines.findIndex(row => row.startsWith("╰") && row.includes("3 of 6 done"));
     h.clickAt(visibleWidth(lines[y].split("3 of 6 done · 1 blocked")[0]), y);
     assert.match(h.rows().join("\n"), /Selected: Progress · Bottom center/);
-    assert.ok(background.test(previewRows(h).find(row => plain(row).startsWith("┗") && plain(row).includes("3 of 6 done"))));
+    assert.ok(background.test(previewRows(h).find(row => plain(row).startsWith("╰") && plain(row).includes("3 of 6 done"))));
     h.click("[Ask]"); h.click("Question frame");
     assert.match(h.rows().join("\n"), /Pi theme accent/); assert.doesNotMatch(h.rows().join("\n"), /orange/i);
     h.click("Question progress"); h.click("Progress position"); h.pick("bottomRight");
@@ -187,7 +187,7 @@ test("a status-specific border control identifies the perimeter without changing
     assert.match(h.rows().join("\n"), /Affects: Input box border · Input perimeter/);
     h.panel.handleInput("\x1b");
     assert.match(h.rows().join("\n"), /• Assistant status/);
-    const rail = previewRows(h).find(row => plain(row).startsWith("┏"));
+    const rail = previewRows(h).find(row => plain(row).startsWith("╭"));
     assert.ok(background.test(rail));
     const plainRail = plain(rail), status = plainRail.indexOf("your turn");
     assert.ok(status >= 0);

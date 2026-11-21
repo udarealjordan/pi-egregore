@@ -3,13 +3,13 @@
 A visible checklist for substantial work. The agent keeps named plans of tasks in the session; you see the current plan above the input and can browse earlier ones with `/tasks`.
 
 ```
-┏ Photos for Mom ━━━━━━━━━━━━━━━━━━━ 1 waiting on you · 1 of 4 done ┓
+╭ Photos for Mom ━━━━━━━━━━━━━━━━━━━ 1 waiting on you · 1 of 4 done ╮
 ┃ ? Which cover photo? · /questions q1                              ┃
 ┃ ✓ Gather the photos                                               ┃
 ┃ ◉ Print 4×6 copies                                                ┃
 ┃ ! Order the album · waiting for the shop to reopen                ┃
 ┃ ○ Mail it                                                         ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 ```
 
 ## The dock

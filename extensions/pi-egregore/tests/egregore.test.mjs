@@ -175,7 +175,7 @@ test("completion menu stays outside box and remains keyboard/mouse selectable", 
     editor.handleInput("/");
     await new Promise((r) => setTimeout(r, 100));
     const lines = editor.render(80);
-    const bottom = lines.findIndex((line, i) => i > 0 && /^[╰└├┗]/u.test(plain(line)));
+    const bottom = lines.findIndex((line, i) => i > 0 && /^[╰└├╰]/u.test(plain(line)));
     assert.ok(bottom >= 2);
     assert.ok(lines.slice(bottom + 1).some((line) => plain(line).includes("hello")));
     assert.equal(lines.join("").split(CURSOR_MARKER).length - 1, 1);
@@ -193,7 +193,7 @@ test("scroll indicators survive framing and autocompletion does not overwrite th
   editor.setText("row\n".repeat(40));
   const lines = editor.render(80).map(plain);
   assert.match(lines[0], /↑ \d+ more/);
-  assert.ok(lines.some((line) => line.startsWith("┗")));
+  assert.ok(lines.some((line) => line.startsWith("╰")));
 });
 
 test("footer prioritizes both timings, retains other extension statuses, and disposes subscription", () => {
@@ -519,7 +519,7 @@ test("approved composer has one real working indicator, no context capsule, and 
     assert.match(all(), /your turn/);
     assert.doesNotMatch(all(), /Tool failed/, "tool results remain in the transcript, not a persistent composer warning");
     assert.doesNotMatch(all(), /last run /, "last-run clutter stays hidden in the minimal Composer view");
-    const rail = h.editor.render(120).map(plain).find(line => line.startsWith("┗"));
+    const rail = h.editor.render(120).map(plain).find(line => line.startsWith("╰"));
     assert.match(rail, /test-model/);
     assert.match(rail, /pi-egregore-test/, "directory and model belong to the bottom rail");
     await h.command("motion off");
@@ -567,7 +567,7 @@ for (const order of ["before", "after"]) test(`composer adopts pi-vim installed 
     assert.notEqual(rail(), before, "the actual native editor frame advances during work");
     assert.ok(h.renders > renders, "Egregore animation scheduler requests renders with Vim focused");
     vim.handleInput("u"); assert.equal(vim.getText(), "Vim draft 界面", "undo predating adoption survives");
-    assert.match(vim.render(100).map(plain).find(line => line.startsWith("┗")), /NORMAL|INSERT/);
+    assert.match(vim.render(100).map(plain).find(line => line.startsWith("╰")), /NORMAL|INSERT/);
     assert.ok(visibleWidth(vim.render(100)[0]) <= 100);
     await h.command("off");
     assert.equal(h.editor, vim);

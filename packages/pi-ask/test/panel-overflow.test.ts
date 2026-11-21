@@ -225,7 +225,7 @@ test("the real Pi screen writes all three choices at 132x29", () => {
     writes.length = 0;
     tui.renderNow(true);
     const written = stripVTControlCharacters(writes.join(""));
-    assert.match(written, /┗━/, "the bottom border survives the taller panel");
+    assert.match(written, /╰━/, "the bottom border survives the taller panel");
     assert.match(written, /2\. Claim only/, "the second choice reaches the screen");
     assert.match(written, /Why: The grounds are/, "the focused rationale is not replaced by a marker");
   } finally { tui.stop(); }

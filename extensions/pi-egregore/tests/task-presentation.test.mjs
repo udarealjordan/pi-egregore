@@ -150,7 +150,7 @@ test('Tasks room synchronizes list and rendered preview selection without editin
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Active task/);
   h.click('○ Not started · 1 task · Mail the album');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Task rows/);
-  h.clickAt(0, h.rows().findIndex(row => row.includes('┏ Photos for Mom')));
+  h.clickAt(0, h.rows().findIndex(row => row.includes('╭ Photos for Mom')));
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Border and motion/);
   h.panel.handleInput('\x1b[D'); // Keyboard path into the element list.
   h.panel.handleInput('\x1b[B');
@@ -193,7 +193,7 @@ test('Tasks positions keep clickable labels on all six rails; omitted narrow lab
   assert.equal(TASK_ELEMENTS.length, 6);
   const h = egregore(); h.click('[Tasks]'); h.click('Progress');
   h.click('Count position'); h.pick('bottomCenter');
-  const countRow = h.rows().findIndex(row => row.startsWith('┗') && row.includes('3 of 6 done'));
+  const countRow = h.rows().findIndex(row => row.startsWith('╰') && row.includes('3 of 6 done'));
   assert.ok(countRow > 0);
   h.clickAt(visibleWidth(h.rows()[countRow].split('3 of 6 done')[0]), countRow);
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Progress/);

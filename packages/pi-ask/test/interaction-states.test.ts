@@ -25,15 +25,15 @@ function formWithQuestions(questions: QuestionDef[]) {
 test("frame shows 1 of N at the bottom left instead of a question-summary bar", () => {
   const h = form(3);
   let lines = h.view().split("\n");
-  assert.match(lines[0], /^┏ Questions ━+ Pinned ┓$/);
-  assert.match(lines.at(-1)!, /^┗ 1 of 3 ━+┛$/);
+  assert.match(lines[0], /^╭ Questions ━+ Pinned ╮$/);
+  assert.match(lines.at(-1)!, /^╰ 1 of 3 ━+╯$/);
   assert.doesNotMatch(h.view(), /○ Topic|✓ Topic/);
   h.shell.handleInput(keys.skip);
   lines = h.view().split("\n");
-  assert.match(lines.at(-1)!, /^┗ 2 of 3 ━+┛$/);
+  assert.match(lines.at(-1)!, /^╰ 2 of 3 ━+╯$/);
   h.shell.handleInput(keys.skip);
   h.shell.handleInput(keys.skip);
-  assert.match(h.view().split("\n").at(-1)!, /^┗ Review /);
+  assert.match(h.view().split("\n").at(-1)!, /^╰ Review /);
   assert.match(h.view(), /Review 0 answers · 3 skipped/);
 });
 
@@ -84,7 +84,7 @@ test("choice focus is text-only without shifting rows; note alignment and bottom
     { question: "Why?", mode: "text", options: [] },
   ]);
   const lines = h.view().split("\n");
-  assert.match(lines[0], /^┏ Questions /);
+  assert.match(lines[0], /^╭ Questions /);
   assert.doesNotMatch(lines[1], /─{5}/, "no duplicate rule immediately under the title");
   assert.ok(!lines.some(line => /╭─+╮|╰─+╯/.test(line)), "choices have no focus box");
   assert.match(lines.find(line => line.includes("First option"))!, /→ ○ 1\. First option/);

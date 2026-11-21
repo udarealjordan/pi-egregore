@@ -36,8 +36,8 @@ test("Pi accent stays on the composer border while model and selected thinking l
     for (const editor of [native, vim]) {
       const rendered = levels.map(current => { level = current; return editor.render(85); });
       assert.equal(new Set(rendered.map(rows => rows[0])).size, 1, "top rail retains a fixed accent");
-      assert.equal(new Set(rendered.map(rows => rows.find(row => plain(row).startsWith("┗")))).size, levels.length, rendered.map(rows => plain(rows.find(row => plain(row).startsWith("┗")))).join("\n"));
-      assert.ok(rendered.every((rows, i) => plain(rows.find(row => plain(row).startsWith("┗"))).includes(`test-model · ${levels[i]}`)));
+      assert.equal(new Set(rendered.map(rows => rows.find(row => plain(row).startsWith("╰")))).size, levels.length, rendered.map(rows => plain(rows.find(row => plain(row).startsWith("╰")))).join("\n"));
+      assert.ok(rendered.every((rows, i) => plain(rows.find(row => plain(row).startsWith("╰"))).includes(`test-model · ${levels[i]}`)));
       assert.deepEqual(rendered.map(rows => rows.slice(0, -1).map(plain)), Array(levels.length).fill(rendered[0].slice(0, -1).map(plain)), "input geometry and content stay unchanged");
       assert.ok(rendered.every(rows => rows.join("").split(CURSOR_MARKER).length - 1 === 1), "IME cursor survives");
       assert.equal(editor.getText(), "draft 界面");
@@ -116,7 +116,7 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) test(`${Renderer.name}: de
       const lines = editor.render(width);
       for (const line of lines) assert.ok(visibleWidth(line) <= width, `${width}: ${visibleWidth(line)}`);
       if (width >= 20) {
-        assert.match(plain(lines[0]), width >= 50 ? /┏.*Alchemy/ : /┏.*What’s next/);
+        assert.match(plain(lines[0]), width >= 50 ? /╭.*Alchemy/ : /╭.*What’s next/);
         assert.equal(lines.join("").split(CURSOR_MARKER).length - 1, 1);
       }
     }
@@ -151,7 +151,7 @@ test("decorated Vim retains literal rules, scroll hints, large paste storage and
     const rows = editor.render(90).map(plain);
     assert.match(rows.join("\n"), /┃.*──── literal rule/);
     assert.match(rows.join("\n"), /┃.*following line/);
-    assert.equal(rows.filter(row => row.startsWith("┗")).length, 1);
+    assert.equal(rows.filter(row => row.startsWith("╰")).length, 1);
     assert.match(rows[1], /^┃\s+┃$/);
     const cursor = editor.getCursor();
     editor.handleMouse({ type: "click", button: "left", x: 5, y: 1, width: 90, height: rows.length });
@@ -173,7 +173,7 @@ test("decorated Vim retains literal rules, scroll hints, large paste storage and
       applyCompletion(_lines, _row, _col, item) { return { lines: [item.value], cursorLine: 0, cursorCol: item.value.length }; },
     });
     editor.handleInput("/"); await new Promise(resolve => setTimeout(resolve, 100));
-    const lines = editor.render(90), bottom = lines.findIndex(row => plain(row).startsWith("┗"));
+    const lines = editor.render(90), bottom = lines.findIndex(row => plain(row).startsWith("╰"));
     const item = lines.findIndex((row, i) => i > bottom && plain(row).includes("egregore"));
     assert.ok(item > bottom);
     editor.handleMouse({ type: "click", button: "left", x: 6, y: item, screenX: 6, screenY: item, width: 90, height: lines.length, shift: false, alt: false, ctrl: false });
@@ -291,7 +291,7 @@ test("Chronomancer makes the native composer frame red, preserves Vim and explic
     assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(userFrameColor(theme)));
     assert.ok(red[0].includes(redAnsi), "top rail is red");
     assert.ok(red[1].includes(redAnsi), "composer side is red");
-    assert.ok(red.find(row => plain(row).startsWith("┗"))?.includes(redAnsi), "bottom rail is red");
+    assert.ok(red.find(row => plain(row).startsWith("╰"))?.includes(redAnsi), "bottom rail is red");
     assert.equal(vim.getText(), "unsent red draft");
     assert.match(plain(red.join("\n")), /INSERT/);
     egregore.layout.appearance = appearanceDefaults(egregore.layout);
@@ -356,7 +356,7 @@ test("composer uses the terminal background and interrupts effects on real state
   const start = render(1100), next = render(1400);
   assert.notEqual(start, next, "start sweep advances");
   assert.equal(plain(start).slice(8), plain(next).slice(8), "status stays still beside the marker");
-  assert.match(plain(start), /^┏.*┓$/);
+  assert.match(plain(start), /^╭.*╮$/);
   egregore.clock.settle(1400, "error");
   assert.equal(render(1400), render(1700), "failed run cancels motion immediately");
   egregore.clock.begin(1800); egregore.clock.settle(2000, "done");
@@ -383,7 +383,7 @@ test("run state moves into the composer rail below Tasks and timing across width
         const raw = [...dockView.render(width), ...editor.render(width)];
         const lines = raw.map(plain);
         raw.forEach(line => assert.ok(visibleWidth(line) <= width));
-        const composer = lines.findIndex((line, index) => index > lines.findIndex(row => /TIMING/.test(row)) && line.startsWith("┏"));
+        const composer = lines.findIndex((line, index) => index > lines.findIndex(row => /TIMING/.test(row)) && line.startsWith("╭"));
         assert.ok(composer > lines.findIndex(line => /TASKS/.test(line)));
         assert.ok(composer > lines.findIndex(line => /TIMING/.test(line)));
         assert.ok(lines[composer].includes(phase === "thinking" ? "Thinking" : phase === "ready" ? "What’s next?"
@@ -401,7 +401,7 @@ test("the dock shows the plan title, open work and one summary without changing 
   const saved = structuredClone(snapshot);
   const dockView = createDock({ terminal: { rows: 40 } }, () => ctx, egregore, new Map([["pi-tasks", snapshot]]), () => true);
   const text = dockView.render(100).map(plain).join("\n");
-  assert.match(text, /┏ Real plan .*1 of 3 done · 1 blocked/);
+  assert.match(text, /╭ Real plan .*1 of 3 done · 1 blocked/);
   assert.match(text, /● Working · Current step/);
   assert.match(text, /Needs approval/);
   assert.doesNotMatch(text, /Done step|Tasks/);

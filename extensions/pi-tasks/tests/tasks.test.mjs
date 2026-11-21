@@ -391,7 +391,7 @@ test("Egregore and Tasks remain independent in both extension startup orders", a
       let egregore = h.widgets.get("pi-egregore:dock").render(100).map(plain).join("\n");
       assert.match(egregore, /A real task/);
       assert.match(h.editor.render(100).map(plain).join("\n"), /Current session/, "identity belongs in Composer's native editor rail");
-      assert.match(egregore, /┏ Session plan .*┓[\s\S]*┗━/);
+      assert.match(egregore, /╭ Session plan .*╮[\s\S]*╰━/);
       await h.command("tasks", "off");
       assert.equal(h.editor, editor);
       assert.equal(h.editor.getText(), "draft stays intact");
@@ -401,7 +401,7 @@ test("Egregore and Tasks remain independent in both extension startup orders", a
       await h.command("tasks", "on");
       await h.command("composer", "off");
       assert.ok(h.widgets.has("pi-tasks:fallback"));
-      assert.match(h.widgets.get("pi-tasks:fallback").render(100).map(plain).join("\n"), /^┏ Session plan .*┓[\s\S]*┗━/);
+      assert.match(h.widgets.get("pi-tasks:fallback").render(100).map(plain).join("\n"), /^╭ Session plan .*╮[\s\S]*╰━/);
       assert.ok(h.active.has("tasks"));
       assert.equal(h.widgets.has("pi-egregore:dock"), false);
       await h.command("composer", "on");

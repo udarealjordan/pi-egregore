@@ -6,6 +6,10 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- New `/btw` (also `/aside`): ask a side question about the session without adding to the chat. It streams in a teal panel, sees the conversation including a reply still being written, and has no tools. Follow-ups continue the thread, and threads can be named (`n`) and reopened with `/btw @name`. `c` copies, `i` sends the answer to the chat, `f` forks a branch that continues with tools. Threads are saved as session entries outside the model's context.
+- New `/paths`: your messages down the left, `⑂N` where you rewound, the other paths one step away, a preview of the chosen message, labels as bookmarks and search. Enter goes there; `e` rewinds and puts the message back to edit. The Composer title shows `⑂ 2/3` while you are on one of several paths.
+- Frame's heavy weight keeps rounded corners and bolds only the edges, so every frame stays rounded.
+
 - The Tasks dock is now the checklist itself, in plan order around the work in progress: the task just finished, the active task, what follows, then earlier tasks not yet started. `✓ ◉ ! ○ –` glyphs, `· paused`, `· after …` for dependencies, phase headers with progress, and `+ N more`. When space is short, both hosts keep questions and the active task and drop headers and finished work first (`DockRow.kind`, shared `prioritizeDock`). The native dock now shows its overflow count.
 - Questions inside Tasks are simpler. Questions waiting on you lead the dock as `?` rows. An answer is resolved once it reaches the agent as a message, so there is no "apply" step, and "delivery pending" and "agent follow-up" are gone. `question_queue` offers post, list, withdraw and replace, with three short guidelines, and its results are rows on the tool rail.
 - `/tasks` advertises `new`, `add` and `history`; the other subcommands still work when typed, and the panel keys cover them. The `tasks` tool no longer exposes `revision`, `blockerOwner` or `unblockWhen`; existing records with them still load. The tool description and context reminders are rewritten in a few plain sentences, and the Tasks README is rewritten as a short guide.
@@ -15,7 +19,7 @@ This file records source-workspace increments. It is not a published-release ann
 - A single-choice question now answers with one Enter, and a custom "Something else" answer submits when entered. The multi-question form keeps select-then-continue, since Review confirms there.
 
 - Tool calls are now one row each on a shared rail instead of a box per call: marker, name, target and a quiet detail (line count, diff counts, `exit N`), with error and live-output notes beneath. Tasks and Ask calls use the same rows (`Done`, `Started`, `Asked` with your answer). Expanding a row still opens the full card. The grouped file-tool box is retired.
-- Heavy lines (`┏━┓┃`) now mark what wants attention: the Composer, a question and the live Tasks dock. History stays light. Frame gains `weight` and a `toolRows` primitive.
+- Bolder lines (`╭━╮┃`, still rounded) now mark what wants attention: the Composer, a question and the live Tasks dock. History stays light. Frame gains `weight` and a `toolRows` primitive.
 - Question dialog: the footer no longer repeats "+ Note" (the row by the options stays), Regenerate moved to F2 More, "Write your own answer." and a lone "1 of 1" are gone, and the discard hint reads "Esc Discard note".
 - Fixed the settings preview reporting a clipped Ask element as visible on short terminals.
 

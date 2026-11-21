@@ -57,7 +57,7 @@
     ]
   },
   "egregoreSync": {
-    "requiredCommands": ["egregore", "tasks", "questions"]
+    "requiredCommands": ["egregore", "tasks", "questions", "btw", "paths"]
   },
   "dependencies": {
     "pi-agent-contracts": "0.1.0",

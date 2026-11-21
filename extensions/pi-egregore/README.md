@@ -75,6 +75,8 @@ The former standalone `/composer-preview` synthetic screen was retired because i
 | `/composer icons nerd`, `/composer icons plain` | Egregore header/fallback glyphs; frame/Sent metadata icons use `/egregore` |
 | `/composer output raw`, `/composer output readable` | Change expanded tool-card output for this session |
 | `/egregore` | Customize frame, footer, Tasks, Ask and Transcript visuals; narrow layouts show Rooms… and Ctrl+R opens all rooms |
+| `/btw <question>` | Ask a side question in a teal panel without adding to the chat. It sees the session (including a reply still being written) and has no tools. Type follow-ups below; `c` copies, `i` sends the answer into the chat, `f` forks a branch that continues with tools, `n` names the aside, `←/→` moves between asides. `/btw` alone reopens the last one; `/btw @name` reopens a named one. `/aside` is the same command |
+| `/paths` | See where you are: your messages down the left, `⑂N` where you rewound, `→` to see the other paths, Enter to go, `e` to edit and resend a message, `l` to label it, `/` to search. The Composer title shows `⑂ 2/3` while you are on one of several paths |
 | `/dictate` | Toggle microphone dictation from the keyboard; the fullscreen bottom-rail mic does the same |
 | `/sounds [on\|off\|test\|question]` | Session-only native notification controls and previews; macOS, Windows, Linux |
 | `/recaps on`, `/recaps off`, `/recaps status` | Opt-in additional activity inference; also discoverable through `/composer` → Activity recaps |

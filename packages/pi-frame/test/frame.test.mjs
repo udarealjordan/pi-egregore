@@ -128,7 +128,7 @@ test("heavy weight swaps every perimeter glyph and keeps geometry; perimeter mot
   const light = frameRows({ theme, width: 30, rows: ["body"], corners: { topLeft: " Title " } });
   const heavy = frameRows({ theme, width: 30, rows: ["body"], corners: { topLeft: " Title " }, weight: "heavy" });
   assert.deepEqual(heavy.map(row => visibleWidth(row)), light.map(row => visibleWidth(row)));
-  assert.match(plain(heavy[0]), /^┏ Title ━+┓$/); assert.match(plain(heavy[1]), /^┃body +┃$/); assert.match(plain(heavy[2]), /^┗━+┛$/);
+  assert.match(plain(heavy[0]), /^╭ Title ━+╮$/); assert.match(plain(heavy[1]), /^┃body +┃$/); assert.match(plain(heavy[2]), /^╰━+╯$/);
   assert.equal(frameGlyphs().vertical, "│"); assert.equal(frameGlyphs("heavy").vertical, "┃");
   const painted = paintFramePerimeter(heavy, { theme, width: 30, color: "#334455", accent: "#aabbcc", active: true, now: 500 });
   assert.notEqual(painted[0], heavy[0], "heavy rails are perimeter cells too");

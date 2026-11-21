@@ -19,7 +19,8 @@ const rememberRail = (row, width, columns) => {
  * (an input, a question, live work); light marks history. */
 export const FRAME_GLYPHS = Object.freeze({
   light: Object.freeze({ topLeft: "╭", topRight: "╮", bottomLeft: "╰", bottomRight: "╯", horizontal: "─", vertical: "│" }),
-  heavy: Object.freeze({ topLeft: "┏", topRight: "┓", bottomLeft: "┗", bottomRight: "┛", horizontal: "━", vertical: "┃" }),
+  // Frames are always rounded. Heavy keeps the rounded corners and bolds the edges.
+  heavy: Object.freeze({ topLeft: "╭", topRight: "╮", bottomLeft: "╰", bottomRight: "╯", horizontal: "━", vertical: "┃" }),
 });
 export const frameGlyphs = weight => FRAME_GLYPHS[weight === "heavy" ? "heavy" : "light"];
 
