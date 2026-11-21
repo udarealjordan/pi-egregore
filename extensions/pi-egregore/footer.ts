@@ -15,7 +15,6 @@ import { chooseFooter } from "./footer-settings.ts";
 import { appearanceRow } from "./appearance-render.ts";
 import { clonePrefs } from "./appearance.ts";
 import { decorateActivity, moving } from "./footer-effects.ts";
-import { registerSessionActivity } from "./session-activity.ts";
 
 const WIDGET = "pi-workspace:activity";
 export async function saveFooter(path: string, prefs: FooterPrefs, expectedSnapshot?: string): Promise<void> {
@@ -50,7 +49,6 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
   const path = join(getAgentDir(), WORKSPACE_SETTINGS);
   let unreadableSettings = false, loadedSnapshot: string | undefined;
   const refresh = () => tui?.requestRender();
-  const sessionFeed = registerSessionActivity(pi, () => ctx, () => { mountActivity(); refresh(); });
   const persist = () => { if (ctx?.mode === "tui") pi.appendEntry(FOOTER_ENTRY, clock.snapshot(Date.now())); };
   const composer = () => workspace.footerPickerOpen || workspace.prefs.enabled;
   let renderFooter: ((width: number) => string[]) | undefined;
@@ -61,15 +59,15 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
     return { now, running: clock.running && !workspace.promptDepth && workspace.prefs.motion !== "off"
       && (!composer() || shouldAnimate(workspace, now, workspace.editorFocused?.() ?? true)) };
   };
-  const activity = (width: number, includeFeed = true) => {
+  /** Timing parts for the strip above the editor, or for the footer row when aboveEditor is false. */
+  const activity = (width: number, aboveEditor = true) => {
     if (!ctx) return [];
-    const updates = includeFeed ? sessionFeed.render(prefs, ctx.ui.theme, width) : [];
-    let parts = includeFeed && prefs.timing !== "strip" ? [] : activityParts(prefs, clock, Date.now(), createdAt);
+    let parts = aboveEditor && prefs.timing !== "strip" ? [] : activityParts(prefs, clock, Date.now(), createdAt);
     // In the approved composer, run state/time belongs ONLY to the status row.
     if (composer()) parts = prefs.composerActivity === "minimal" ? []
       : parts.filter(part => !/^(working |waiting for you$|last run |failed |stopped |previous run incomplete$|ready$)/.test(part));
     const inset = composer() ? composerInset(width) : 0;
-    return [...updates, ...timingRows(decorateActivity(parts, ctx.ui.theme, prefs, frame()), ctx.ui.theme, Math.max(0, width - inset * 2))
+    return [...timingRows(decorateActivity(parts, ctx.ui.theme, prefs, frame()), ctx.ui.theme, Math.max(0, width - inset * 2))
       .map(line => " ".repeat(inset) + line)];
   };
   function tick() {
@@ -87,8 +85,8 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
     workspace.railRunElapsed = composer() ? now => clock.runElapsed(now) : undefined;
     workspace.lastUserSentAt = composer() ? () => lastUserSentAt : undefined;
     workspace.statusRows = undefined;
-    workspace.activityRows = (prefs.timing === "strip" || prefs.sessionActivity !== "off") && workspace.prefs.enabled ? activity : undefined;
-    const wanted = (prefs.timing === "strip" || prefs.sessionActivity !== "off") && !workspace.prefs.enabled;
+    workspace.activityRows = prefs.timing === "strip" && workspace.prefs.enabled ? activity : undefined;
+    const wanted = prefs.timing === "strip" && !workspace.prefs.enabled;
     if (wanted && !mountedWidget) {
       ctx.ui.setWidget(WIDGET, () => ({ invalidate() {}, render: activity }), { placement: "aboveEditor" });
     } else if (!wanted && mountedWidget) ctx.ui.setWidget(WIDGET, undefined);
@@ -129,7 +127,6 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
   }
   function restore(context: ExtensionContext) {
     let value: unknown;
-    sessionFeed.restore(context);
     const branch = context.sessionManager.getBranch();
     for (const entry of branch) if (entry.type === "custom" && entry.customType === FOOTER_ENTRY) value = entry.data;
     clock = new ActivityClock(); clock.restore(value, Date.now());
@@ -197,7 +194,6 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
     workspace.footerPickerOpen = false;
     renderFooter = undefined;
     if (mountedWidget && ctx?.mode === "tui") ctx.ui.setWidget(WIDGET, undefined);
-    sessionFeed.clear();
     mountedWidget = false; tui = undefined; ctx = undefined;
   }
   pi.on("session_start", async (_event, context) => {
@@ -300,7 +296,7 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
             workspace.appearanceHits = [];
             const editor = native?.render(width) ?? [];
             const footer = renderFooter?.(width) ?? [];
-            return { editor, footer, above: prefs.timing === "strip" || prefs.sessionActivity !== "off" ? activity(width) : [], hits: workspace.appearanceHits ?? [] };
+            return { editor, footer, above: prefs.timing === "strip" ? activity(width) : [], hits: workspace.appearanceHits ?? [] };
           },
           select: (selected, state) => { if (gen === generation) { workspace.appearancePreview = { selected, state }; refresh(); } },
           temporary: !workspace.prefs.enabled,

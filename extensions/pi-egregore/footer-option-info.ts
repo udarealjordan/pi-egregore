@@ -1,7 +1,6 @@
 import type { FooterOption } from "./footer-state.ts";
 
 export const LABELS: Record<FooterOption, string> = {
-  sessionActivity: "Session updates", activityColor: "Session update colors",
   density: "Egregore density", style: "Style preset", color: "Accent color", icons: "Icons", directory: "Directory", git: "Git detail", gitLabels: "Git notation",
   session: "Session name", model: "Model name", thinking: "Thinking level", context: "Context usage", bar: "Context bar",
   effect: "Animated treatment", motion: "Footer motion", layout: "Field layout", shape: "Context shape",
@@ -11,8 +10,6 @@ export const LABELS: Record<FooterOption, string> = {
   toolLabels: "Tool label treatment", questionLabels: "Question label treatment", selectionShimmer: "Selection shimmer",
 };
 export const DESCRIPTIONS: Partial<Record<FooterOption, string>> = {
-  sessionActivity: "Meaningful quest and task updates above the Composer. Compact shows the latest; Expanded shows three. /activity opens the session history and source details. Off hides the strip, preserving history.",
-  activityColor: "Semantic uses jade for quests, gold for discoveries/questions and the Pi accent for Tasks. Theme keeps neutral text. Labels always explain each update.",
   icons: "Nerd Font glyphs or plain text for footer/input metadata and Sent labels. Plain text needs no special font.",
   directory: "Full path, folder name or hidden. The path comes from the real working directory.",
   selectionShimmer: "One brief selection highlight on keyboard navigation. Hover stays still. Off keeps the steady focus and selection cues.",

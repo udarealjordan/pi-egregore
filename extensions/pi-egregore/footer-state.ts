@@ -8,7 +8,6 @@ export const FOOTER_ENTRY = "pi-footer:timing-v1";
 import { COMPOSER_ICONS } from "./composer-icons.ts";
 
 export const OPTIONS = {
-  sessionActivity: ["compact", "expanded", "off"], activityColor: ["semantic", "theme"],
   style: ["quiet", "powerline", "dashboard", "structured"],
   color: ["semantic", "theme", "cyan", "violet", "green", "mono"],
   layout: ["paired", "ordered"],
@@ -34,7 +33,6 @@ export const OPTIONS = {
 export type FooterOption = keyof typeof OPTIONS;
 export type FooterPrefs = { [K in FooterOption]: (typeof OPTIONS)[K][number] } & { displayName: string; appearance?: Appearance; tasks?: TaskPanelPrefs; ask?: unknown; transcript?: TranscriptAppearance | unknown };
 export const FOOTER_DEFAULTS: FooterPrefs = {
-  sessionActivity: "compact", activityColor: "semantic",
   style: "quiet", color: "semantic", layout: "paired", shape: "rail", icons: "nerd", directory: "path", git: "detailed", gitLabels: "symbols",
   session: "on", model: "on", thinking: "on", context: "adaptive", bar: "blocks",
   effect: "luminous", motion: "work", selectionShimmer: "on", density: "spaced", displayName: "jordan",

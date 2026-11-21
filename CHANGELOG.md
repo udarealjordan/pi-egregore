@@ -6,6 +6,12 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Removed Quests: the `quests` tool, `/quests`, its journal code, tests and design docs. Existing journal data in `~/.pi/agent/quests/` is left untouched.
+
+- Removed session activity (`/activity` and the General → Session updates settings). It was a feed of Quests updates and would only repeat the Tasks dock. Saved `sessionActivity` and `activityColor` values are ignored.
+
+- Moved the deploy job into `ops/sync` and renamed it Egregore sync. Each release now lists the commands it must provide in `package.json` → `egregoreSync.requiredCommands`, so removing or renaming a command no longer needs edits on every machine. `ops/sync/install.py` migrates a machine from `pi-workspace-sync`.
+
 - Extended fullscreen border-free copying to the Composer, including the existing native/pi-vim editor and fallback editor. Copy excludes recorded rails and layout padding, preserves literal border characters, indentation and internal blank lines, and leaves completion rows and unsupported/stale layouts native. No clipboard backend or input behavior changes.
 
 - Simplified Tasks to a checklist after a small local model looped on the mandatory library-revision error: every write had to echo the current revision, `create` had to reconcile pre-written requirement IDs, and an uncovered-request ledger blocked plan closure. The requirement ledger, its coverage states, the `requirements` tool op, the question gates and the one-pass `agent_before_settle` reconciliation continuation are removed. Writes now accept `revision` as an optional snapshot assertion (omitted applies to live state; stale is rejected), plans close when every task is done or cancelled, and unresolved questions remain visible attention without gating task transitions. `PlanBook` payload version 4 keeps the `pi-tasks:plans-v2` entry key and migrates v2/v3 by discarding retired `requirements` records. `requirements.ts` and `reconciliation.ts` are deleted; the panel's read-only Requests view and `V` key are gone.

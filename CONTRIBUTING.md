@@ -12,7 +12,7 @@ npm test
 npm run pack:check
 ```
 
-The root suite covers one whole-repository typecheck, Frame, Ask, Egregore, Tasks, Quests, the copyable dock example, the host-shape canary, deterministic harness checks and isolated packed-suite loading. A separately developed Chronomancer plugin is not part of this repository. `pack:check` is a dry run, not publication. The [acceptance record](docs/ACCEPTANCE.md) supplies exact historical commands/results and remaining physical/provider checks; do not turn them into a whole-repository typing or human-usability guarantee.
+The root suite covers one whole-repository typecheck, Frame, Ask, Egregore, Tasks, the copyable dock example, the host-shape canary, deterministic harness checks and isolated packed-suite loading. `pack:check` is a dry run, not publication. The [acceptance record](docs/ACCEPTANCE.md) supplies exact historical commands/results and remaining physical/provider checks; do not turn them into a whole-repository typing or human-usability guarantee.
 
 ## Windows CI and portability
 

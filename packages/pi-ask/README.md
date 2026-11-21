@@ -196,7 +196,7 @@ Earlier standalone instructions pointed to `the-sleeping-teemo/pi-context-seeker
 
 ## Questions in the collaboration
 
-Give a question a clear role: **explore a thought together**, **invite perspective needed later**, or **obtain input or a decision for a particular action**. For work questions, the agent explains why your answer matters, what waits and what can continue independently. Exploratory Quests questions remain journal invitations until they are useful to discuss; they are not automatically execution blockers.
+Give a question a clear role: **explore a thought together**, **invite perspective needed later**, or **obtain input or a decision for a particular action**. For work questions, the agent explains why your answer matters, what waits and what can continue independently.
 
 Posted-question attention distinguishes **needs you**, **can wait**, **delivery pending**, and **agent follow-up**. Once an answer is delivered, the agent applies the answer and its caveats, reports the consequence, then reassesses linked Tasks. Resolved blockers should be updated without requiring a second user request to unblock them. Remaining prerequisites stay explicit. These are agent instructions, not an automatic readiness detector: an answer is neither task completion nor evidence that external conditions changed.
 

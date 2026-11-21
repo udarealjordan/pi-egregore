@@ -14,7 +14,6 @@ import { BOOK_ENTRY, COMPLETION_MS, emptyBook, migratePlan, restoreBook, mutateB
   type PlanBook, type BookMutation } from "./book.ts";
 import { TaskPanel, type PanelResult, type PanelNavigation } from "./panel.ts";
 
-import { ACTIVITY_EVENT } from "../../lib/session-activity.ts";
 import { POSTED, isQuestionSnapshot, unresolved, type QuestionSnapshot } from "pi-agent-contracts/posted";
 import { attentionDockRows } from "./attention-dock.ts";
 
@@ -101,14 +100,7 @@ export default function tasks(pi: ExtensionAPI) {
   }
   function commit(next: PlanBook) {
     pi.appendEntry(BOOK_ENTRY, structuredClone(next)); // Persist before publishing/returning success.
-    const previous = book;
     book = next; fault = undefined; publish();
-    for (const p of next.plans) {
-      const before = previous.plans.find(x=>x.id === p.id);
-      const changed = p.state.tasks.filter(t=>!before?.state.tasks.some(old=>old.id===t.id && old.status===t.status));
-      if (!changed.length) continue;
-      pi.events.emit(ACTIVITY_EVENT, {version:1,session:sessionId(),key:`tasks:${next.revision}:${p.id}`,at:new Date().toISOString(),kind:"tasks",title:`Tasks updated: ${p.title}`,summary:changed.map(t=>`${t.status}: ${t.title}`).join("\n").slice(0,8000),sourceId:p.id});
-    }
   }
   function restore(context: ExtensionContext, preserveActivity = false) {
     ctx = context; questions = undefined;

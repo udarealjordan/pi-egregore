@@ -2,7 +2,7 @@
 
 Egregore is a **Composer-only** appearance extension verified against Pi 1.3.0. It frames Pi's native editor and transcript, hosts the optional Tasks dock, and owns the `/egregore` appearance editor. Its appearance layer does not replace the text engine or own Tasks plans or Ask answers. The separately enabled [activity recap feature](#optional-activity-recaps) can make additional model calls; it defaults off. The retired Home looks and `/home lab` gallery are not part of this checkout; their history remains in Git.
 
-**Installation status:** After explicit approval, the live Pi settings load this checkout's private suite, which explicitly loads Egregore, Tasks, Ask and Quests and bundles `pi-embeddable-frame` and `pi-agent-contracts`. The older personal Home directory was removed; the older Tasks directory remains excluded from auto-discovery. Separate Frame/Ask package declarations were replaced. An already-running Pi session needs a fresh start to use the suite. See [acceptance](../../docs/ACCEPTANCE.md) and the [switch/rollback record](../../docs/MIGRATION.md).
+**Installation:** Pi loads the suite release deployed from `main` (see [ops/sync](../../ops/sync/README.md)). Start a fresh Pi process to pick up a new release.
 
 For a first exercise, [try a reversible preview](../../docs/TRY-PREVIEW.md). For a specific task, use [workspace controls](FOOTER.md), [commands](#commands-and-preferences), or [recap consent and processing](#optional-activity-recaps). Installation belongs to the [suite setup guide](../../docs/INSTALL.md); the machine-specific migration record is not a portable recipe.
 
@@ -19,12 +19,6 @@ Composer is the fresh-install default. `/composer on` re-enables it; `/composer 
 - The optional Composer theme is a reversible runtime lease; `/composer theme off` restores preceding interface colors without changing Pi's saved theme setting. Egregore off also releases the lease. Terminal/font legibility still needs visual review.
 
 The optional Tasks extension publishes a data-only plan snapshot to Egregore. A compact sourced checklist can appear above the input, with a bold, softly highlighted active row and explicit Working/Paused wording. Fresh Tasks presentation defaults to a brief 1200 ms highlight on focus/completion changes rather than continuous border motion; saved presentation choices remain authoritative. `/tasks` opens the work list and plan library. Egregore never starts or completes a task, and Tasks retains its standalone fallback. See [DOCK.md](DOCK.md) and the [Tasks README](../pi-tasks/README.md).
-
-## Session activity
-
-Meaningful Quests and Tasks changes appear above the Composer. `/activity` opens the recent session history (up to 200 updates) and lets you inspect the referenced quest or task plan. Events are recorded on the session branch; opening another branch restores its own history. The cross-session quest journal remains separate.
-
-Use `/egregore` → **General** → **Session updates** to choose compact (latest update), expanded (three updates), or off. **Session update colors** chooses semantic jade/gold/Tasks accent or neutral theme text. These controls use the existing preview, Save, Discard and Undo transaction in `pi-egregore.json`. Off hides the strip without deleting history. Updates have text labels as well as colors. No animation, background model request, editor replacement or automatic execution is added. Source inspection is read-only; continue work in `/quests` or `/tasks`.
 
 ## Notification sounds
 
@@ -81,7 +75,6 @@ The former standalone `/composer-preview` synthetic screen was retired because i
 | `/composer icons nerd`, `/composer icons plain` | Egregore header/fallback glyphs; frame/Sent metadata icons use `/egregore` |
 | `/composer output raw`, `/composer output readable` | Change expanded tool-card output for this session |
 | `/egregore` | Customize frame, footer, Tasks, Ask and Transcript visuals; narrow layouts show Rooms… and Ctrl+R opens all rooms |
-| `/activity` | Browse recent session updates and inspect their quest or task sources |
 | `/dictate` | Toggle microphone dictation from the keyboard; the fullscreen bottom-rail mic does the same |
 | `/sounds [on\|off\|test\|question]` | Session-only native notification controls and previews; macOS, Windows, Linux |
 | `/recaps on`, `/recaps off`, `/recaps status` | Opt-in additional activity inference; also discoverable through `/composer` → Activity recaps |

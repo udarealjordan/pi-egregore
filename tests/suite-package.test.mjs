@@ -21,7 +21,7 @@ function command(file, args, options = {}) {
   return execFileSync(process.execPath, [entry, ...args], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024, ...options });
 }
 
-test("packed private suite loads its only four entry points in an isolated Pi directory", { timeout: 120_000 }, async () => {
+test("packed private suite loads its only three entry points in an isolated Pi directory", { timeout: 120_000 }, async () => {
   const sandbox = mkdtempSync(join(tmpdir(), "pi-suite-test-"));
   const agent = join(sandbox, "agent"), project = join(sandbox, "project"), runtime = join(sandbox, "runtime");
   const env = { ...process.env, PI_CODING_AGENT_DIR: agent, PI_OFFLINE: "1" };
@@ -56,7 +56,7 @@ test("packed private suite loads its only four entry points in an isolated Pi di
     }
     assert.ok(checkedHelpLinks > 0, "local help-link closure must not pass vacuously");
     assert.deepEqual(manifest.pi.extensions, [
-      "./extensions/pi-egregore/index.ts", "./extensions/pi-tasks/index.ts", "./packages/pi-ask/extensions/questions.ts", "./extensions/pi-quests/index.ts",
+      "./extensions/pi-egregore/index.ts", "./extensions/pi-tasks/index.ts", "./packages/pi-ask/extensions/questions.ts",
     ]);
     assert.ok(readFileSync(join(suite, "node_modules/pi-embeddable-frame/primitives.js"), "utf8"));
     command("pi", ["install", suite], { cwd: project, env });
@@ -80,13 +80,13 @@ test("packed private suite loads its only four entry points in an isolated Pi di
       for (let load = 0; load < 2; load++) {
         const result = await loadExtensions(entries, project);
         assert.deepEqual(result.errors, [], `load ${load + 1}: ${JSON.stringify(result.errors)}`);
-        assert.equal(result.extensions.length, 4);
+        assert.equal(result.extensions.length, 3);
         const tools = result.extensions.flatMap(extension => [...extension.tools.keys()]);
         const commands = result.extensions.flatMap(extension => [...extension.commands.keys()]);
         assert.equal(tools.length, new Set(tools).size, "one owner per tool name");
         assert.equal(commands.length, new Set(commands).size, "one owner per command name");
-        for (const name of ["tasks", "quests", "ask_user_question", "ask_questions", "question_queue"]) assert.ok(tools.includes(name), name);
-        for (const name of ["composer", "egregore", "workspace", "tasks", "quests", "questions"]) assert.ok(commands.includes(name), name);
+        for (const name of ["tasks", "ask_user_question", "ask_questions", "question_queue"]) assert.ok(tools.includes(name), name);
+        for (const name of ["composer", "egregore", "workspace", "tasks", "questions"]) assert.ok(commands.includes(name), name);
       }
       const tasksOnly = await loadExtensions([entries[1]], project);
       assert.deepEqual(tasksOnly.errors, [], "Tasks cold-loads without Egregore or Ask");

@@ -4,7 +4,7 @@ import { LABELS, DESCRIPTIONS } from "./footer-option-info.ts";
 import type { Control, RoomEditor } from "./workspace-room-types.ts";
 // Visibility/position have one authority: the part inspector. Legacy scalar
 // fallbacks remain readable but are not duplicate live controls.
-const REPLACED = new Set<FooterOption>(["density", "layout", "topOrder", "bottomOrder", "session", "model", "thinking", "railTitle", "railDetails", "railHint", "composerContext", "questionLabels", "messageTime", "toolLabels", "sessionActivity", "activityColor"]);
+const REPLACED = new Set<FooterOption>(["density", "layout", "topOrder", "bottomOrder", "session", "model", "thinking", "railTitle", "railDetails", "railHint", "composerContext", "questionLabels", "messageTime", "toolLabels"]);
 export const OTHER_OPTIONS: FooterOption[] = ["selectionShimmer", ...(Object.keys(OPTIONS) as FooterOption[]).filter(id => id !== "selectionShimmer" && !REPLACED.has(id))];
 export const PREFERENCE_GROUPS = { all: "All settings", footer: "Footer", context: "Context", git: "Git", activity: "Activity & time" } as const;
 export type PreferenceGroup = keyof typeof PREFERENCE_GROUPS;
@@ -22,7 +22,6 @@ export function preferenceControls(e: RoomEditor, room: "general" | "other", adv
   group: PreferenceGroup = "all", selectGroup: (group: PreferenceGroup) => void = () => {}): Control[] {
   const draft = e.get();
   if (room === "general") return [
-    ...(["sessionActivity", "activityColor"] as const).map(id=>({label:LABELS[id],value:draft[id],help:DESCRIPTIONS[id]!,activate:()=>e.choose(LABELS[id],OPTIONS[id].map(value=>({label:value,value})),draft[id],value=>e.change(()=>assignOption(e.get(),id,value)),e.visual((candidate,value)=>assignOption(candidate,id,value)))})),
     { label: "Your display name", inspect: { room: "general", id: "identity" }, value: draft.displayName, help: "Your sent-message label. Your account and saved messages do not change.",
       activate: () => e.text("Your display name", draft.displayName, "1–40 visible characters. Display only.", value => {
         const name = safeText(value, 40).trim();

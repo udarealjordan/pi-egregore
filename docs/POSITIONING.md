@@ -2,7 +2,7 @@
 
 **Working category:** a **Pi extension suite and agent workspace** with a reusable terminal design system. The product is **Pi Egregore**: a thinking environment shaped by what you pursue. Do not imply that it replaces Pi or that every proposed customization is already implemented.
 
-Pi describes itself as a minimal, extensible AI agent for the terminal. Pi's host and SDK own the agent session, model/tool loop, resource loading and persistence. This repository supplies extensions and packages on top of that host: Egregore (terminal presentation and session activity), Quests (persistent pursuits and directed memory), Tasks (plans, accepted requests and history), Ask (human questions and decisions) and Frame (reusable rendering/presentation primitives). The private suite currently packages these together; `/egregore` has Input, Tasks, Ask, Transcript, More settings and General sections. Shared visual preferences use `pi-egregore.json`; operational Egregore/Tasks/recap preferences retain separate authorities. A public surface-registration API remains **in design**. After explicit approval, live Pi settings load this checkout once; the old personal Home copy has been removed and the old Tasks copy remains excluded (see the migration record).
+Pi describes itself as a minimal, extensible AI agent for the terminal. Pi's host and SDK own the agent session, model/tool loop, resource loading and persistence. This repository supplies extensions and packages on top of that host: Egregore (terminal presentation), Tasks (plans and history), Ask (human questions and decisions) and Frame (reusable rendering/presentation primitives). The private suite currently packages these together; `/egregore` has Input, Tasks, Ask, Transcript, More settings and General sections. Shared visual preferences use `pi-egregore.json`; operational Egregore/Tasks/recap preferences retain separate authorities. A public surface-registration API remains **in design**. Pi loads the release deployed from `main` by the sync job in `ops/sync`.
 
 | Term | Use it when | Accurate for this work now? |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Pi describes itself as a minimal, extensible AI agent for the terminal. Pi's hos
 ## Audience-ready wording
 
 - **One sentence:** “Pi Egregore is a thinking environment shaped by what you pursue: develop ideas, make decisions, and carry understanding forward with an agent.”
-- **For technical readers:** “It’s a version-controlled Pi extension suite with explicit package entry points. Egregore, Quests, Tasks and Ask retain separate state/input ownership; Frame supplies reusable rendering primitives. The shared settings workspace currently covers Input & footer, Tasks, Ask and supported transcript frames; we’re developing additional per-surface appearance adapters without forking Pi’s agent loop or replacing its native editor.”
+- **For technical readers:** “It’s a version-controlled Pi extension suite with explicit package entry points. Egregore, Tasks and Ask retain separate state/input ownership; Frame supplies reusable rendering primitives. The shared settings workspace currently covers Input & footer, Tasks, Ask and supported transcript frames; we’re developing additional per-surface appearance adapters without forking Pi’s agent loop or replacing its native editor.”
 - **For less technical readers:** “Bring an idea, question or project into conversation. Keep promising directions, organize work you choose to pursue, answer questions when your judgment matters, and return to what you learned later.”
 - **For future contributors:** “Use the existing [Frame feature guide](../packages/pi-frame/FEATURE-GUIDE.md) to request or implement frame behavior. The [surface specification](SURFACE-WORKSPACE.md) describes proposed adapter boundaries. A public add-on API will be documented only after it is implemented and tested.”
 
@@ -24,7 +24,7 @@ Use **“built on Pi”**, **“extends Pi”** or **“Pi-based”** rather tha
 
 ## Teaching path
 
-1. Show the user outcome: a developing quest, a linked task plan, a consequential question, readable session activity and the current `/egregore` preview. Explain that the assistant's actual data remains separate from its presentation.
+1. Show the user outcome: a task plan, a consequential question and the current `/egregore` preview. Explain that the assistant's actual data remains separate from its presentation.
 2. Teach a safe customization: select an element, preview, Undo, Discard and Save. Identify the implemented Input & footer, Tasks, Ask and Transcript rooms; explain that unsupported tool renderers stay native.
 3. Show the developer boundary: Pi host → extension/tool/state owner → semantic surface adapter → Frame presentation → Pi TUI redraw. Keep keyboard, cursor and native fallbacks intact.
 4. Show how to contribute: feature request using `FEATURE-GUIDE.md`, isolated tests, design decision, versioned change, changelog and rollback. Do not promise a third-party registration API before it exists.

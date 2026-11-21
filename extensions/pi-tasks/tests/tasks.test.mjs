@@ -842,7 +842,7 @@ test("completed plans leave both dock implementations on schedule, remain in his
     assert.match(snapshot(), /Plan finished/); assert.doesNotMatch(snapshot(), /✓ One task/);
     t.mock.timers.tick(COMPLETION_MS + 10);
     assert.doesNotMatch(snapshot(), /Plan finished/);
-    assert.match(snapshot(), /Tasks updated: Ephemeral checklist/, "historical activity remains after the live task panel expires");
+    assert.doesNotMatch(snapshot(), /Ephemeral checklist/, "the finished plan leaves the dock; /tasks history keeps it");
     assert.equal(h.entries.length, saved, "expiry is UI-only, not a persistent plan edit");
     assert.equal(JSON.parse((await h.call({ op: "plans" })).content[0].text).plans[0].state, "completed");
     await h.emit("session_tree"); assert.doesNotMatch(snapshot(), /Plan finished/);

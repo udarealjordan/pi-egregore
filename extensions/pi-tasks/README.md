@@ -34,7 +34,7 @@ The compact Composer dock groups attention separately from the expanded work lis
 
 The expanded work list uses compact tree branches under the plan; completed work remains behind its counted F disclosure. Details retain full reasons, responsibility, release conditions, evidence and linked questions. This is a display of recorded state, not an independent monitor of real-world readiness.
 
-Completion guidance keeps the requested response primary. Quests can preserve and present relevant possibilities, while Deepen/Connect remain optional thinking lenses. There is no required second suggestions message and no automatic completion turn.
+Completion guidance keeps the requested response primary. There is no automatic completion turn.
 
 ## Commands
 
@@ -161,8 +161,6 @@ Every write also accepts an optional `revision`. Omit it for the live plan; pass
 Use `doneWhen` to define observable outcomes and sufficient verification before checks expand. Additional checks should address a distinct risk, changed state, inconclusive result, or known instability—not repeat successful checks for reassurance. Unfinished or unverified work stays explicitly unresolved; do not weaken conditions to stop sooner.
 
 Before finishing work on a plan, the agent is guided to compare the user's actual request and any follow-ups with its checklist, complete only verified work, revise changed steps, block with a reason, or cancel superseded steps. Continue only work already authorized; otherwise explain the remaining work or ask one consequential question. Material outcomes and unresolved gaps should be reported; the user's actual request and chosen direction remain primary.
-
-Depth (Deepen) and breadth (Connect) are optional thinking lenses. A useful possibility can be woven naturally into the main response; substantial shared developments can be retained in Quests. The full `quests present` handoff is for an explicit request to explore directions, with a compact possibility presentation and ordinary prose as alternatives. Keep, explore and make express different intent; an inquiry does not authorize implementation. Tasks retains responsibility for concrete authorized work, not for making the person choose a new pursuit at completion.
 
 The offline comparison workflow is in `eval/harness/README.md` at the suite root. No model-performance improvement is claimed by the deterministic tests.
 
