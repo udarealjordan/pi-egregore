@@ -4,7 +4,7 @@ import { foregroundAnsi, mixColors, parseColor, truncateToWidth, visibleWidth, t
 import { inheritColors } from "./composer-theme.ts";
 import { makeComposerPalette } from "./composer-palette.ts";
 import { colorToHex } from "@earendil-works/pi-tui";
-import { formatDuration, type WorkspaceState } from "./state.ts";
+import { formatDuration, type EgregoreState } from "./state.ts";
 import { clean, homePath } from "./footer-state.ts";
 import { calendarDay, sentTime, styledSentLabel } from "./sent-metadata.ts";
 import { COMPOSER_ICONS } from "./composer-icons.ts";
@@ -16,8 +16,8 @@ import { sessionBadge } from "./composer-title.ts";
 export function composerPadding(width: number, rows: number, density: "spaced" | "compact" = "spaced"): number { return density === "spaced" && width >= 44 && rows >= 34 ? 1 : 0; }
 /** Composer, assistant transcript, and Tasks use the same active Pi accent. */
 export function composerBorder(theme: Theme): Color { return theme.colors.accent; }
-export function composerThinkingBorder(theme: Theme, _level?: string, workspace?: WorkspaceState): Color {
-  return workspace ? appearanceBorder(theme, workspace) : composerBorder(theme);
+export function composerThinkingBorder(theme: Theme, _level?: string, egregore?: EgregoreState): Color {
+  return egregore ? appearanceBorder(theme, egregore) : composerBorder(theme);
 }
 /** User-send metadata uses the same red/pink identity as the user message frame. */
 export function userFrameColor(theme: Theme): Color {
@@ -31,35 +31,35 @@ export function quietFrameLabel(theme: Theme, text: string, border: Color): stri
 
 /** A bright traveling head with a soft trail, not icons or a filling progress track.
  * Motion follows real run state; errors of individual tools do not latch the frame. */
-export function composerMessageRail(theme: Theme, width: number, workspace: WorkspaceState, now: number, title: string, hint = ""): string {
-  if (workspace.layout?.appearance) return composerSurface(theme, appearanceRow(theme, width, workspace, "top", now, hint), width);
-  const busy = workspace.clock.active || workspace.compacting;
-  const border = appearanceBorder(theme, workspace);
-  const status = workspace.railStatus?.() ?? { text: busy ? "Working" : "What’s next?", tone: busy ? "toolTitle" : "muted" };
-  const runningTime = busy && workspace.promptDepth === 0 && workspace.clock.active && workspace.clock.timing
-    ? ` ${formatDuration(workspace.railRunElapsed?.(now) ?? now - workspace.clock.timing.startedAt)}` : "";
-  const label = statusWithTools(`${clean(status.text)}${runningTime}`, workspace);
-  const left = workspace.chronomancerDay ? "" : ` ${emberStatus(theme, label, currentAppearanceState(workspace), workspace, now,
+export function composerMessageRail(theme: Theme, width: number, egregore: EgregoreState, now: number, title: string, hint = ""): string {
+  if (egregore.layout?.appearance) return composerSurface(theme, appearanceRow(theme, width, egregore, "top", now, hint), width);
+  const busy = egregore.clock.active || egregore.compacting;
+  const border = appearanceBorder(theme, egregore);
+  const status = egregore.railStatus?.() ?? { text: busy ? "Working" : "What’s next?", tone: busy ? "toolTitle" : "muted" };
+  const runningTime = busy && egregore.promptDepth === 0 && egregore.clock.active && egregore.clock.timing
+    ? ` ${formatDuration(egregore.railRunElapsed?.(now) ?? now - egregore.clock.timing.startedAt)}` : "";
+  const label = statusWithTools(`${clean(status.text)}${runningTime}`, egregore);
+  const left = egregore.chronomancerDay ? "" : ` ${emberStatus(theme, label, currentAppearanceState(egregore), egregore, now,
     Math.max(0, Math.min(visibleWidth(label) + 6, width < 42 ? width - 4 : Math.floor(width * .55))), theme.colors[status.tone], true, width >= 60)} `;
-  const next = !busy && workspace.layout?.railHint !== "off" ? clean(workspace.nextHint?.() ?? "") : "";
-  const sentAt = workspace.lastUserSentAt?.();
-  const sent = sentTime(sentAt, workspace.layout, now, !!workspace.chronomancerDay && workspace.chronomancerDay !== calendarDay(now));
+  const next = !busy && egregore.layout?.railHint !== "off" ? clean(egregore.nextHint?.() ?? "") : "";
+  const sentAt = egregore.lastUserSentAt?.();
+  const sent = sentTime(sentAt, egregore.layout, now, !!egregore.chronomancerDay && egregore.chronomancerDay !== calendarDay(now));
   // The native scroll indicator wins. A real user-send time takes priority over
   // the optional task hint; the hint can return before the first recorded send.
   const right = hint ? quietFrameLabel(theme, ` ${hint} `, border)
-    : width >= 42 && sent ? styledSentLabel(theme, sent, userFrameColor(theme), "user", workspace.layout?.icons)
+    : width >= 42 && sent ? styledSentLabel(theme, sent, userFrameColor(theme), "user", egregore.layout?.icons)
     : width >= 66 && next ? quietFrameLabel(theme, ` Next: ${next} `, border) : "";
   // Center stays cell-centered. Reserve the status and a modest right slot first;
   // frameRail can shorten a long time before hiding the session identity.
   const side = Math.max(visibleWidth(left), hint ? visibleWidth(right) : Math.min(visibleWidth(right), 17));
   const titleWidth = Math.max(0, width - 2 - 2 * (side + 1));
-  const center = workspace.layout?.railTitle === "off" || width < 40 || titleWidth < 5 ? ""
+  const center = egregore.layout?.railTitle === "off" || width < 40 || titleWidth < 5 ? ""
     : sessionBadge(theme, truncateToWidth(` ${clean(title?.trim() || "Untitled session")} `, titleWidth, "…"), border);
   return composerRail(theme, width, left, right, true, border, center);
 }
 
 /** Motion belongs to the status marker, never the native input or the full perimeter. */
-export function composerFrame(_theme: Theme, rows: string[], _width: number, _workspace: WorkspaceState, _now: number, _bottom = rows.length - 1): string[] {
+export function composerFrame(_theme: Theme, rows: string[], _width: number, _egregore: EgregoreState, _now: number, _bottom = rows.length - 1): string[] {
   return rows;
 }
 
@@ -94,26 +94,26 @@ export function composerSurface(theme: Theme, text: string, width: number, _inpu
   return fg + bg + inheritColors(safe, fg, bg) + " ".repeat(Math.max(0, width - visibleWidth(safe))) + "\x1b[49m\x1b[39m";
 }
 
-export function composerBottomRail(theme: Theme, width: number, workspace: WorkspaceState,
+export function composerBottomRail(theme: Theme, width: number, egregore: EgregoreState,
   context: { cwd?: string; model?: { name?: string; id?: string } }, mode = "", nativeHint = ""): string {
-  workspace.appearanceMode = mode;
-  if (workspace.layout?.appearance) return composerSurface(theme, appearanceRow(theme, width, workspace, "bottom", Date.now(), nativeHint), width);
-  const border = appearanceBorder(theme, workspace);
+  egregore.appearanceMode = mode;
+  if (egregore.layout?.appearance) return composerSurface(theme, appearanceRow(theme, width, egregore, "bottom", Date.now(), nativeHint), width);
+  const border = appearanceBorder(theme, egregore);
   // Only a viewport TUI dispatches pointer clicks, and the widest state must
   // survive a centered Vim label; narrower or clickless terminals use /dictate.
-  const dictation = (workspace.mouseReporting?.() ?? true) && width >= 40 ? workspace.dictation : undefined;
-  const icons = workspace.layout?.icons === "plain" ? "plain" : "nerd";
+  const dictation = (egregore.mouseReporting?.() ?? true) && width >= 40 ? egregore.dictation : undefined;
+  const icons = egregore.layout?.icons === "plain" ? "plain" : "nerd";
   const mic = dictation?.label(icons) ?? "";
   const phase = dictation?.phase();
   const micText = mic ? theme.style(mic, {
     fg: phase === "recording" ? theme.colors.warning : phase === "unavailable" ? theme.colors.error : border,
     bold: phase === "recording",
   }) : "";
-  const meta = workspace.layout?.railDetails !== "off";
-  const left = meta && workspace.layout?.directory !== "off"
+  const meta = egregore.layout?.railDetails !== "off";
+  const left = meta && egregore.layout?.directory !== "off"
     ? quietFrameLabel(theme, ` ${icons === "plain" ? "" : `${COMPOSER_ICONS.directory} `}${homePath(context.cwd || "")} `, border) : "";
-  const model = meta && workspace.layout?.model !== "off" ? clean(context.model?.name || context.model?.id || "no model") : "";
-  const thinking = workspace.layout?.thinking !== "off" ? clean(workspace.thinkingLevel?.() ?? "") : "";
+  const model = meta && egregore.layout?.model !== "off" ? clean(context.model?.name || context.model?.id || "no model") : "";
+  const thinking = egregore.layout?.thinking !== "off" ? clean(egregore.thinkingLevel?.() ?? "") : "";
   // Reserve the right half around a centered Vim label. Shorten the model first
   // so the level is not silently clipped when a provider has a long model name.
   const level = thinking;

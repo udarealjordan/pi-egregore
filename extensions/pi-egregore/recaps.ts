@@ -126,7 +126,7 @@ export function registerRecaps(pi: ExtensionAPI, enabled: () => boolean, deps: {
         context.ui.notify("Recaps send bounded request, reply and tool evidence to an additional OpenAI Codex/OAuth model. Redaction is not a privacy guarantee. Uses subscription resources; no daily cap or automatic retries. pi-recaps.json saves immediately, outside /egregore Save.", "info");
         await control("status", context);
       } else if (choice === "Turn off") await control("off", context);
-      else if (choice === "Turn on…" && await context.ui.confirm("Enable additional activity inference?", "Sends bounded request/reply/tool evidence to OpenAI Codex/OAuth for recaps. Uses additional subscription resources; no daily cap. Redaction cannot guarantee privacy. Saves immediately to pi-recaps.json, separately from workspace appearance.")) await control("on", context);
+      else if (choice === "Turn on…" && await context.ui.confirm("Enable additional activity inference?", "Sends bounded request/reply/tool evidence to OpenAI Codex/OAuth for recaps. Uses additional subscription resources; no daily cap. Redaction cannot guarantee privacy. Saves immediately to pi-recaps.json, separately from Egregore appearance.")) await control("on", context);
     },
   };
 }

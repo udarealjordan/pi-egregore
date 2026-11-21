@@ -1,5 +1,5 @@
 ---
-description: Update Pi and patch this workspace suite to the new host
+description: Update Pi and patch the Egregore suite for the new host
 argument-hint: "[check|all]"
 ---
 Update the Pi host and make this checkout work on it.

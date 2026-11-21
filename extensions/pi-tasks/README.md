@@ -1,6 +1,6 @@
 # pi-tasks
 
-An **independent, optional named-plan library** for Pi 1.3.0. Keep separate plans for different requests within one session, browse earlier work, and let finished checklists leave the workspace. Egregore/Composer is an optional visual host, not the owner of state. Tasks is a checklist: named plans of tasks with statuses, notes and evidence. There is no background continuation, requirement ledger, coverage proof, network request, database or new runtime package.
+An **independent, optional named-plan library** for Pi 1.3.0. Keep separate plans for different requests within one session, browse earlier work, and let finished checklists leave the screen. Egregore/Composer is an optional visual host, not the owner of state. Tasks is a checklist: named plans of tasks with statuses, notes and evidence. There is no background continuation, requirement ledger, coverage proof, network request, database or new runtime package.
 
 ## Start
 
@@ -196,7 +196,7 @@ This is an interoperability convention among trusted extensions, not a security 
 
 ```sh
 # From the suite repository root, with dependencies and a compatible Pi host installed:
-npm run test:tasks && npm run test:workspace
+npm run test:tasks && npm run test:egregore
 ```
 
 Tests use installed pi packages rather than duplicate dependencies. Coverage includes v1/v2/v3 migration to the checklist form, plan isolation, archive protections, optional revision assertions, history pagination, no-continuation settlement, completion expiry, failed storage, branch/compaction restoration, user precedence, off/on and headless behavior, browse-only navigation, stale dialogs, explicit modal backgrounds, Unicode/narrow layouts and Egregore integration. Strict TypeScript checks cover both extensions and the bridge.

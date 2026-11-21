@@ -17,9 +17,9 @@ test("Composer reads legacy preferences without writing, then explicitly saves o
   const f = fixture();
   try {
     const legacy = '{ "enabled": false, "motion": "off", "icons": "plain", "theme": false, "look": "biolume" }\n';
-    const workspace = '{"version":1,"sentName":"Existing identity"}\n';
+    const egregore = '{"version":1,"sentName":"Existing identity"}\n';
     writeFileSync(join(f.directory, LEGACY_COMPOSER_SETTINGS), legacy);
-    writeFileSync(join(f.directory, "pi-egregore.json"), workspace);
+    writeFileSync(join(f.directory, "pi-egregore.json"), egregore);
     const prefs = await loadComposerPreferences(f.directory);
     assert.equal(prefs.enabled, false); assert.equal(prefs.icons, "plain"); assert.equal(prefs.motion, "off");
     assert.equal(prefs.look, "composer");
@@ -27,7 +27,7 @@ test("Composer reads legacy preferences without writing, then explicitly saves o
     await saveComposerPreferences({ ...prefs, enabled: true }, f.directory);
     assert.equal((await loadComposerPreferences(f.directory)).enabled, true);
     assert.equal(readFileSync(join(f.directory, LEGACY_COMPOSER_SETTINGS), "utf8"), legacy);
-    assert.equal(readFileSync(join(f.directory, "pi-egregore.json"), "utf8"), workspace);
+    assert.equal(readFileSync(join(f.directory, "pi-egregore.json"), "utf8"), egregore);
   } finally { await f.close(); }
 });
 

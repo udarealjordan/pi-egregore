@@ -6,7 +6,7 @@ import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CURSOR_MARKER, getKeybindings, visibleWidth } from "@earendil-works/pi-tui";
-import { askAppearanceDefaults, readAskAppearance, safeAskTitle, savedAskAppearance, savedWorkspaceVisuals } from "../extensions/ask-user-question/appearance.ts";
+import { askAppearanceDefaults, readAskAppearance, safeAskTitle, savedAskAppearance, savedEgregoreVisuals } from "../extensions/ask-user-question/appearance.ts";
 import { questionPreview } from "../extensions/ask-user-question/question-preview.ts";
 import { askText } from "../extensions/ask-user-question/standalone-ui.ts";
 
@@ -33,7 +33,7 @@ test("standalone Ask reads persisted visual preferences without Egregore and saf
     assert.equal(savedAskAppearance().progressPosition, "bottomRight");
     writeFileSync(join(dir, "pi-egregore.json"), JSON.stringify({ version: 1, density: "compact", ask: { version: 1, title: "Egregore questions" } }));
     assert.equal(savedAskAppearance().title, "Egregore questions");
-    assert.equal(savedWorkspaceVisuals().density, "compact");
+    assert.equal(savedEgregoreVisuals().density, "compact");
     writeFileSync(join(dir, "pi-egregore.json"), '{"version":2}');
     assert.deepEqual(savedAskAppearance(), askAppearanceDefaults());
     await rm(join(dir, "pi-egregore.json"), { force: true });

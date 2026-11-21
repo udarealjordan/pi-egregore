@@ -1,5 +1,5 @@
 import { ELEMENTS, POSITIONS, STATES, STATE_TEXT, COLORS, safeText, type AppearanceColor } from "./appearance.ts";
-import type { Selection, Control, InputRoomEditor } from "./workspace-room-types.ts";
+import type { Selection, Control, InputRoomEditor } from "./settings-room-types.ts";
 export const INFO: Record<Selection, string> = {
   frame: "The border around your input. Its color can stay the same or change with the assistant's state.",
   status: "What the assistant is doing. Preview another state to customize its text and colors without starting a run.",

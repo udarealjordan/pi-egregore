@@ -118,7 +118,7 @@ function renderMyTool(theme, width, resultRows, toolState) {
 }
 ```
 
-Call it only for renderers whose text rows you can safely wrap; pass through graphical, self-rendering or incompatible results untouched. Preserve the original component's expansion and mouse coordinates. On resize, render with the new width. For a future shared settings room, define your surface's own validated visual slots and preference authority first; Frame does not create a global workspace registration or store your tool data.
+Call it only for renderers whose text rows you can safely wrap; pass through graphical, self-rendering or incompatible results untouched. Preserve the original component's expansion and mouse coordinates. On resize, render with the new width. For a future shared settings room, define your surface's own validated visual slots and preference authority first; Frame does not create a global surface registration or store your tool data.
 
 ### Persisting settings
 
@@ -136,7 +136,7 @@ Store a `FramePresentation` as versioned JSON and validate it with `readFramePre
 
 ## Using the first integration
 
-This is the end-user appearance path for the Egregore overview. For control lookup, see [workspace controls](../../extensions/pi-egregore/FOOTER.md); for package API/setup, see [Frame reference](README.md). Suite-relative links describe the source checkout, not a separately extracted Frame tarball.
+This is the end-user appearance path for the Egregore overview. For control lookup, see [Egregore settings](../../extensions/pi-egregore/FOOTER.md); for package API/setup, see [Frame reference](README.md). Suite-relative links describe the source checkout, not a separately extracted Frame tarball.
 
 1. Start a fresh Pi process after package/export or imported-module changes; `/reload` may retain dependencies.
 2. Open `/egregore` and choose **Tasks**. Tab/Shift+Tab cycles Input → Tasks → Ask → Transcript → More settings → General. Ctrl+R opens the room selector; narrow terminals also show **Rooms…**. Input properties remain inside Input. Arrows and Enter navigate.

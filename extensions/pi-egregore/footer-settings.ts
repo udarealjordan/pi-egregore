@@ -12,8 +12,8 @@ import { ELEMENTS, POSITIONS, STATES, COLORS, appearanceDefaults, clonePrefs, sa
 import { appearanceColor } from "./appearance-render.ts";
 import { SelectionPulse, selectionHighlight, selectionRow } from "./footer-selection.ts";
 import { connectPreview } from "./preview-selection.ts";
-import { settingValue, partName, settingHeading, settingRow } from "./workspace-setting-layout.ts";
-import { generalPreview } from "./workspace-general-preview.ts";
+import { settingValue, partName, settingHeading, settingRow } from "./settings-layout.ts";
+import { generalPreview } from "./settings-general-preview.ts";
 
 export interface FooterPreview {
   render(width: number, shimmer?: number): { editor: string[]; footer: string[]; above?: string[]; hits: AppearanceHit[] };
@@ -21,13 +21,13 @@ export interface FooterPreview {
   temporary?: boolean;
   reducedMotion?: boolean;
 }
-import type { Selection, Control, Inspection, ChoiceAudition } from "./workspace-room-types.ts";
-import { inputControls, INFO, nameOf } from "./workspace-input-room.ts";
-import { askControls as buildAskControls, transcriptControls as buildTranscriptControls, askElements, transcriptElements } from "./workspace-message-rooms.ts";
-import { preferenceControls, type PreferenceGroup } from "./workspace-preference-rooms.ts";
-export { OTHER_OPTIONS } from "./workspace-preference-rooms.ts";
+import type { Selection, Control, Inspection, ChoiceAudition } from "./settings-room-types.ts";
+import { inputControls, INFO, nameOf } from "./settings-input-room.ts";
+import { askControls as buildAskControls, transcriptControls as buildTranscriptControls, askElements, transcriptElements } from "./settings-message-rooms.ts";
+import { preferenceControls, type PreferenceGroup } from "./settings-preference-rooms.ts";
+export { OTHER_OPTIONS } from "./settings-preference-rooms.ts";
 interface Target { x: number; y: number; width: number; inspect?: Inspection; choice?: number; help?: string; action(): void }
-const SECTIONS = ["elements", "tasks", "ask", "transcript", "other", "workspace"] as const;
+const SECTIONS = ["elements", "tasks", "ask", "transcript", "other", "general"] as const;
 type Section = typeof SECTIONS[number];
 const sectionOf = (pane: Section | "properties"): Section => pane === "properties" ? "elements" : pane;
 const friendlyValue = (value: string) => ({ matched: "Match frame color", quiet: "Quieter color", semantic: "Status color", hierarchy: "Quieter progress", topLeft: "Top left", topCenter: "Top center", bottomLeft: "Bottom left", bottomCenter: "Bottom center", bottomRight: "Bottom right", topRight: "Top right", rail: "Along the border", adaptive: "Automatic", work: "While working", changes: "When progress changes", on: "On", off: "Off", clockwise: "Clockwise", counterclockwise: "Counterclockwise" } as Record<string, string>)[value] ?? value;
@@ -42,8 +42,8 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
   const undo: FooterPrefs[] = [];
   let release = () => {};
   try { return await ctx.ui.custom<FooterPrefs | undefined>((tui, theme, _kb, done) => {
-    let selected: Selection = "status", state: AppearanceState | undefined, pane: "elements" | "properties" | "workspace" | "other" | "tasks" | "ask" | "transcript" = "elements";
-    let elementIndex = 0, propertyIndex = 0, workspaceIndex = 0, otherIndex = 0, more = false, taskAdvanced = false, otherAdvanced = false, query = "", message = "";
+    let selected: Selection = "status", state: AppearanceState | undefined, pane: "elements" | "properties" | "general" | "other" | "tasks" | "ask" | "transcript" = "elements";
+    let elementIndex = 0, propertyIndex = 0, generalIndex = 0, otherIndex = 0, more = false, taskAdvanced = false, otherAdvanced = false, query = "", message = "";
     let targets: Target[] = [], inputY = -1, inputX = 0, inputWidth = 0;
     let preferenceGroup: PreferenceGroup = "all";
     let edit: { input: Input; title: string; help: string; accept(value: string): boolean } | undefined;
@@ -66,7 +66,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
     };
     const clearHover = () => { hovered = undefined; hoverHelp = ""; hoverKey = ""; if (choiceHover !== undefined) { choiceHover = undefined; restoreChoice(); auditionChoice(); } syncNativeSelection(); };
     const rooms = [{ label: "Input", value: "elements" }, { label: "Tasks", value: "tasks" }, { label: "Ask", value: "ask" },
-      { label: "Transcript", value: "transcript" }, { label: "More settings", value: "other" }, { label: "General", value: "workspace" }];
+      { label: "Transcript", value: "transcript" }, { label: "More settings", value: "other" }, { label: "General", value: "general" }];
     const chooseRoom = () => choose("Choose a room", rooms, sectionOf(pane), next => { pane = next as typeof pane; });
     let taskIndex = 0, taskSelected: TaskElementId = "frame", taskFocus: "elements" | "properties" = "properties";
     let askSelected: AskElementId = "title", askIndex = 0, askFocus: "elements" | "properties" = "properties";
@@ -79,7 +79,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
       if (closed || !focused || edit || discardConfirm || draft.selectionShimmer === "off") { pulse.stop(); return; }
       tui.requestRender();
     });
-    const focusKey = () => choices ? `choice:${choices.title}:${choices.index}` : `${pane}:${pane === "tasks" ? `${taskSelected}:${taskFocus}:${taskIndex}` : pane === "ask" ? `${askSelected}:${askFocus}:${askIndex}` : pane === "transcript" ? `${transcriptSelected}:${transcriptFocus}:${transcriptIndex}` : `${selected}:${pane === "properties" ? propertyIndex : pane === "workspace" ? workspaceIndex : pane === "other" ? otherIndex : elementIndex}`}`;
+    const focusKey = () => choices ? `choice:${choices.title}:${choices.index}` : `${pane}:${pane === "tasks" ? `${taskSelected}:${taskFocus}:${taskIndex}` : pane === "ask" ? `${askSelected}:${askFocus}:${askIndex}` : pane === "transcript" ? `${transcriptSelected}:${transcriptFocus}:${transcriptIndex}` : `${selected}:${pane === "properties" ? propertyIndex : pane === "general" ? generalIndex : pane === "other" ? otherIndex : elementIndex}`}`;
     const afterInteraction = (before: string, previous: Selection, previousTask: TaskElementId, previousAsk: AskElementId, previousTranscript: TranscriptElementId) => {
       clearHover();
       if (before !== focusKey()) message = "";
@@ -156,7 +156,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
       if (next < 0 || next >= peers.length) { message = "Already at the end of this group."; return; }
       changed(() => { [peers[at], peers[next]] = [peers[next], peers[at]]; peers.forEach((k, i) => { design().elements[k].order = i; }); });
     }
-    const workspaceControls = () => preferenceControls(roomEditor, "general", otherAdvanced, value => { otherAdvanced = value; otherIndex = 0; });
+    const generalControls = () => preferenceControls(roomEditor, "general", otherAdvanced, value => { otherAdvanced = value; otherIndex = 0; });
     const otherControls = () => preferenceControls(roomEditor, "other", otherAdvanced, value => { otherAdvanced = value; otherIndex = 0; },
       preferenceGroup, value => { preferenceGroup = value; otherIndex = 0; });
     const close = (save: boolean) => {
@@ -193,7 +193,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
             const text = `[${label}]`;
             if (visibleWidth(line) + visibleWidth(text) > inner) break;
             targets.push({ x: visibleWidth(line) + 1, y, width: visibleWidth(text), action });
-            const active = !edit && !choices && !discardConfirm && (label === "Input" && (pane === "elements" || pane === "properties") || label === "Tasks" && pane === "tasks" || label === "Ask" && pane === "ask" || label === "Transcript" && pane === "transcript" || label === "General" && pane === "workspace" || label === "More settings" && pane === "other");
+            const active = !edit && !choices && !discardConfirm && (label === "Input" && (pane === "elements" || pane === "properties") || label === "Tasks" && pane === "tasks" || label === "Ask" && pane === "ask" || label === "Transcript" && pane === "transcript" || label === "General" && pane === "general" || label === "More settings" && pane === "other");
             line += (active ? selectionHighlight(theme, theme.style(text, { fg: theme.colors.text, bold: true })) : theme.fg("accent", text)) + " ";
           }
           return line;
@@ -204,7 +204,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           suspended: !focused || !!edit || !!choices || discardConfirm, reducedMotion: displayPrefs.motion === "off" || surface?.reducedMotion, visible: width >= 16 && height >= 12 }, displayPrefs.tasks!.presentation) : undefined;
         const inspected: Inspection | undefined = hovered ?? (pane === "tasks" ? { room: "tasks", id: taskSelected }
           : pane === "ask" ? { room: "ask", id: askSelected } : pane === "transcript" ? { room: "transcript", id: transcriptSelected }
-          : pane === "workspace" ? { room: "general", id: workspaceIndex === 0 ? "identity" : "spacing" }
+          : pane === "general" ? { room: "general", id: generalIndex === 0 ? "identity" : "spacing" }
           : pane === "other" ? otherControls()[otherIndex]?.inspect : pane === "elements" || pane === "properties" ? inputInspection() : undefined);
         const targetPhase = !hovered && pulse.kind === "element" ? phase : undefined;
         const taskTarget = inspected?.room === "tasks" ? inspected.id : taskSelected;
@@ -219,7 +219,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
         const transcriptView = pane === "transcript" && transcriptStyle(true) ? connectPreview(theme,
           transcriptPreview(theme, width, transcriptStyle(true)!, transcriptTarget.startsWith("chat") ? "chat" : "tools", draft.icons, (auditionPrefs ?? draft).density),
           transcriptTarget, { frameId: transcriptTarget.startsWith("chat") ? "chatFrame" : "toolFrame", phase: targetPhase }) : undefined;
-        const generalView = pane === "workspace" ? connectPreview(theme, generalPreview(theme, width, displayPrefs),
+        const generalView = pane === "general" ? connectPreview(theme, generalPreview(theme, width, displayPrefs),
           inspected?.room === "general" ? inspected.id : "identity", { frameId: "spacing", phase: targetPhase }) : undefined;
         const live = taskView || askView || transcriptView || generalView ? { editor: [], footer: [], hits: [], above: (taskView ?? askView ?? transcriptView ?? generalView)!.rows }
           : pane === "ask" || pane === "transcript" ? { editor: [], footer: [], hits: [], above: [] }
@@ -240,7 +240,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
         const contentRows = choices ? choices.items.length + 1 : pane === "tasks" ? Math.max(TASK_ELEMENTS.length, taskProperties().length)
           : pane === "ask" ? Math.max(askElements.length, askControls().length)
           : pane === "transcript" ? Math.max(transcriptElements.length, transcriptControls().length)
-          : pane === "workspace" ? workspaceControls().length : pane === "other" ? otherControls().length
+          : pane === "general" ? generalControls().length : pane === "other" ? otherControls().length
           : Math.max(elements().length, propertyControls().length);
         const desiredHeight = Math.max(5, Math.min(choices ? 26 : wide ? 20 : 18, height - previewHeight - 1, Math.max(8, contentRows + 9)));
         const controlsHeight = choices?.geometry?.size === size ? choices.geometry.height : desiredHeight;
@@ -277,7 +277,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
             if (pane === "tasks") { taskIndex = Math.max(0, taskProperties().findIndex(c => c.label === control.label)); taskSelected = taskControlElement(control); taskFocus = "properties"; }
             else if (pane === "ask") { askIndex = Math.max(0, askControls().findIndex(c => c.label === control.label)); askFocus = "properties"; }
             else if (pane === "transcript") { transcriptIndex = Math.max(0, transcriptControls().findIndex(c => c.label === control.label)); transcriptFocus = "properties"; }
-            else if (pane === "workspace") workspaceIndex = Math.max(0, workspaceControls().findIndex(c => c.label === control.label));
+            else if (pane === "general") generalIndex = Math.max(0, generalControls().findIndex(c => c.label === control.label));
             else if (pane !== "other") { pane = "properties"; propertyIndex = Math.max(0, propertyControls().findIndex(c => c.label === control.label)); }
             else otherIndex = Math.max(0, otherControls().findIndex(c => c.label === control.label));
             control.activate();
@@ -340,11 +340,11 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
         } else if (pane === "transcript") {
           const controls = transcriptControls(); transcriptIndex = Math.min(transcriptIndex, controls.length - 1);
           roomRows(transcriptElements, transcriptSelected, transcriptFocus === "elements", controls, transcriptIndex, selectTranscript, id => ({ room: "transcript", id }));
-        } else if (pane === "workspace") {
+        } else if (pane === "general") {
           rows.push(settingHeading(theme, Math.min(inner, 90)));
-          const controls = workspaceControls(); workspaceIndex = Math.min(workspaceIndex, controls.length - 1);
-          for (const [index, control] of controls.entries()) rows.push(addControl(control, rows.length + 1, 1, inner, index === workspaceIndex));
-          helpLines.push(controls[workspaceIndex].help);
+          const controls = generalControls(); generalIndex = Math.min(generalIndex, controls.length - 1);
+          for (const [index, control] of controls.entries()) rows.push(addControl(control, rows.length + 1, 1, inner, index === generalIndex));
+          helpLines.push(controls[generalIndex].help);
         } else if (pane === "other") {
           rows.push(settingHeading(theme, Math.min(inner, 90)));
           const controls = otherControls(); otherIndex = Math.min(otherIndex, controls.length - 1);
@@ -392,7 +392,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           corners: { topLeft: theme.fg("accent", pane === "tasks" ? ` Egregore · Tasks · ${TASK_ELEMENTS.find(item => item.id === taskSelected)?.name} `
             : pane === "ask" ? ` Egregore · Ask · ${askElements.find(item => item.id === askSelected)?.name} `
             : pane === "transcript" ? ` Egregore · Transcript · ${transcriptElements.find(item => item.id === transcriptSelected)?.name} `
-            : pane === "workspace" ? " Egregore · General " : pane === "other" ? " Egregore · More settings "
+            : pane === "general" ? " Egregore · General " : pane === "other" ? " Egregore · More settings "
             : pane === "properties" ? ` Egregore · Input & footer · ${nameOf(selected)} ` : " Egregore · Input & footer "),
             topRight: theme.fg(dirty() ? "warning" : "muted", dirty() ? " Unsaved changes " : " Saved settings ") } });
         for (const target of targets) target.x += padding;
@@ -402,7 +402,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
         const sampleNote = height < 12 ? " · enlarge terminal for preview" : omitted ? " · shortened vertically" : "";
         const label = pane === "tasks" ? `Example Tasks · no real task changes · ${shownDemo}${demoAudition ? " · hover or keyboard preview" : ""}${sampleNote}`
           : pane === "ask" ? `Example question · no real answer changes${!askView ? " · Ask settings unavailable or newer version" : sampleNote}`
-          : pane === "workspace" ? `Example messages · nothing is sent${sampleNote}`
+          : pane === "general" ? `Example messages · nothing is sent${sampleNote}`
           : pane === "transcript" ? `Example messages · nothing is sent${!transcriptView ? " · transcript settings unavailable or newer version" : sampleNote}`
           : !native.length ? "Native input preview unavailable; settings still support Save / Discard"
           : height < 12 ? "Enlarge the terminal to see your input preview" : previewLabel + (omitted ? " · shortened vertically" : surface?.temporary ? " · temporary Composer view" : "");
@@ -415,7 +415,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           for (const hit of generalView.hits) if (hit.y < aboveRows.length && (hit.id === "identity" || hit.id === "spacing")) {
             const id = hit.id;
             targets.push({ x: hit.x, y: top + hit.y, width: hit.width, inspect: { room: "general", id },
-              action: () => { workspaceIndex = id === "identity" ? 0 : 1; tui.requestRender(); } });
+              action: () => { generalIndex = id === "identity" ? 0 : 1; tui.requestRender(); } });
           }
         }
         if (taskView && aboveRows.length && height >= 12) {
@@ -501,7 +501,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           } else if (pane === "tasks") {
             taskIndex = Math.max(0, Math.min(taskProperties().length - 1, taskIndex + delta));
             taskSelected = taskControlElement(taskProperties()[taskIndex]);
-          } else if (pane === "workspace") workspaceIndex = Math.max(0, Math.min(workspaceControls().length - 1, workspaceIndex + delta));
+          } else if (pane === "general") generalIndex = Math.max(0, Math.min(generalControls().length - 1, generalIndex + delta));
           else otherIndex = Math.max(0, Math.min(otherControls().length - 1, otherIndex + delta));
         } else if (matchesKey(data, Key.enter) || data === " ") {
           if (pane === "elements") pane = "properties";
@@ -512,7 +512,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           else if (pane === "ask") { const control = askControls()[askIndex]; if (control?.readonly) message = control.help; else control?.activate(); }
           else if (pane === "tasks" && taskFocus === "elements") selectTask(taskSelected);
           else if (pane === "tasks") taskProperties()[taskIndex]?.activate();
-          else if (pane === "workspace") workspaceControls()[workspaceIndex]?.activate();
+          else if (pane === "general") generalControls()[generalIndex]?.activate();
           else otherControls()[otherIndex]?.activate();
         }
         afterInteraction(before, previous, previousTask, previousAsk, previousTranscript);

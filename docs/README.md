@@ -30,7 +30,7 @@ Choose the path that matches what you need now. These guides cover the suite: Eg
 ## Understand the design
 
 - [Architecture and separate owners](ARCHITECTURE.md): why visual composition does not merge domain state or input ownership.
-- [Supported surface workspace and proposed adapters](SURFACE-WORKSPACE.md): current scope versus design direction.
+- [Settings surfaces and proposed adapters](SURFACES.md): current scope versus design direction.
 - [Frame feature guide](../packages/pi-frame/FEATURE-GUIDE.md): describe a meaningful integration and its safety/lifecycle facts.
 - [Project terminology](POSITIONING.md): what the suite is and is not.
 - [Ownership decision record](decisions/0001-one-repo-separate-owners.md): historical decision with later outcome links.

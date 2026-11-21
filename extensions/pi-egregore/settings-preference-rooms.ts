@@ -1,7 +1,7 @@
 import { OPTIONS, type FooterOption, type FooterPrefs } from "./footer-state.ts";
 import { safeText } from "./appearance.ts";
 import { LABELS, DESCRIPTIONS } from "./footer-option-info.ts";
-import type { Control, RoomEditor } from "./workspace-room-types.ts";
+import type { Control, RoomEditor } from "./settings-room-types.ts";
 // Visibility/position have one authority: the part inspector. Legacy scalar
 // fallbacks remain readable but are not duplicate live controls.
 const REPLACED = new Set<FooterOption>(["density", "layout", "topOrder", "bottomOrder", "session", "model", "thinking", "railTitle", "railDetails", "railHint", "composerContext", "questionLabels", "messageTime", "toolLabels"]);

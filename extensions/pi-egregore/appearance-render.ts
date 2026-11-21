@@ -7,15 +7,15 @@ import { clean, duration, gitLabel, homePath, FOOTER_DEFAULTS } from "./footer-s
 import { calendarDay, sentTime } from "./sent-metadata.ts";
 import { contextText, decorateFooterPart } from "./footer-view.ts";
 import { COMPOSER_ICONS } from "./composer-icons.ts";
-import type { WorkspaceState } from "./state.ts";
+import type { EgregoreState } from "./state.ts";
 import { selectionHighlight } from "./footer-selection.ts";
 import { emberStatus, statusWithTools } from "./composer-ember.ts";
 import { sessionBadge } from "./composer-title.ts";
 
-export function currentAppearanceState(workspace: WorkspaceState): AppearanceState {
-  if (workspace.footerPickerOpen && workspace.appearancePreview?.state) return workspace.appearancePreview.state;
-  return workspace.railStatus?.().state ?? (workspace.compacting ? "compacting" : workspace.clock.active ? (workspace.blockingPromptDepth ?? workspace.promptDepth) && !workspace.footerPickerOpen ? "waiting" : workspace.tools.size ? "tools" : workspace.phase
-    : workspace.clock.interrupted ? "interrupted" : workspace.clock.timing?.outcome === "error" ? "error" : workspace.clock.timing?.outcome === "stopped" ? "stopped" : workspace.clock.timing?.outcome === "done" ? "done" : "idle");
+export function currentAppearanceState(egregore: EgregoreState): AppearanceState {
+  if (egregore.footerPickerOpen && egregore.appearancePreview?.state) return egregore.appearancePreview.state;
+  return egregore.railStatus?.().state ?? (egregore.compacting ? "compacting" : egregore.clock.active ? (egregore.blockingPromptDepth ?? egregore.promptDepth) && !egregore.footerPickerOpen ? "waiting" : egregore.tools.size ? "tools" : egregore.phase
+    : egregore.clock.interrupted ? "interrupted" : egregore.clock.timing?.outcome === "error" ? "error" : egregore.clock.timing?.outcome === "stopped" ? "stopped" : egregore.clock.timing?.outcome === "done" ? "done" : "idle");
 }
 export function appearanceColor(theme: Theme, value: AppearanceColor | undefined, frame: Color = theme.colors.accent, automatic = frame): Color {
   if (!value || value === "auto") return automatic;
@@ -28,47 +28,47 @@ export function appearanceColor(theme: Theme, value: AppearanceColor | undefined
   if (Object.hasOwn(palette, value)) return parseColor(palette[value as keyof typeof palette]);
   return theme.colors[value as "accent" | "text" | "muted" | "warning"] ?? frame;
 }
-export function appearanceBorder(theme: Theme, workspace: WorkspaceState): Color {
-  const design = workspace.layout?.appearance;
-  const override = design?.states[currentAppearanceState(workspace)]?.frameColor;
+export function appearanceBorder(theme: Theme, egregore: EgregoreState): Color {
+  const design = egregore.layout?.appearance;
+  const override = design?.states[currentAppearanceState(egregore)]?.frameColor;
   // Chronomancer borrows the user-message red for the native composer only.
   // Explicit /egregore frame and state colors, and its live preview, win.
-  const modeRed = workspace.chronomancerDay && !workspace.footerPickerOpen &&
+  const modeRed = egregore.chronomancerDay && !egregore.footerPickerOpen &&
     (!design?.frameColor || design.frameColor === "accent") && !override;
   const base = appearanceColor(theme, modeRed ? "red" : design?.frameColor);
   return override ? appearanceColor(theme, override, base, base) : base;
 }
 interface Piece { id: ElementId; text: string; priority: number; color: Color; bold: boolean }
-export function appearanceValues(workspace: WorkspaceState, width: number, now: number): Record<ElementId, string> {
-  const p = workspace.layout ?? FOOTER_DEFAULTS, data = workspace.appearanceData?.();
-  const state = currentAppearanceState(workspace), simulated = workspace.footerPickerOpen && !!workspace.appearancePreview?.state;
-  let status = simulated ? STATE_TEXT[state] : workspace.railStatus?.().text ?? STATE_TEXT[state];
+export function appearanceValues(egregore: EgregoreState, width: number, now: number): Record<ElementId, string> {
+  const p = egregore.layout ?? FOOTER_DEFAULTS, data = egregore.appearanceData?.();
+  const state = currentAppearanceState(egregore), simulated = egregore.footerPickerOpen && !!egregore.appearancePreview?.state;
+  let status = simulated ? STATE_TEXT[state] : egregore.railStatus?.().text ?? STATE_TEXT[state];
   status = p.appearance?.states[state]?.text ?? status;
-  if (!simulated && workspace.clock.active && !workspace.promptDepth && state !== "waiting" && p.run !== "off" && p.timing !== "hidden") {
-    status += ` ${duration(workspace.railRunElapsed?.(now) ?? workspace.clock.elapsed(now))}`;
+  if (!simulated && egregore.clock.active && !egregore.promptDepth && state !== "waiting" && p.run !== "off" && p.timing !== "hidden") {
+    status += ` ${duration(egregore.railRunElapsed?.(now) ?? egregore.clock.elapsed(now))}`;
   }
-  if (!simulated && state === "tools") status = statusWithTools(status, workspace);
-  const sent = workspace.lastUserSentAt?.();
-  const lastSendTime = sentTime(sent, p, now, !!workspace.chronomancerDay && workspace.chronomancerDay !== calendarDay(now));
+  if (!simulated && state === "tools") status = statusWithTools(status, egregore);
+  const sent = egregore.lastUserSentAt?.();
+  const lastSendTime = sentTime(sent, p, now, !!egregore.chronomancerDay && egregore.chronomancerDay !== calendarDay(now));
   return {
-    status: !simulated && workspace.chronomancerDay ? "" : status, session: data?.session || "Untitled session", sentTime: lastSendTime,
+    status: !simulated && egregore.chronomancerDay ? "" : status, session: data?.session || "Untitled session", sentTime: lastSendTime,
     directory: p.directory === "folder" ? basename(data?.cwd ?? "") : homePath(data?.cwd ?? ""),
-    vim: workspace.appearanceMode ?? "", model: data?.model ?? "", thinking: workspace.thinkingLevel?.() ?? data?.thinking ?? "",
+    vim: egregore.appearanceMode ?? "", model: data?.model ?? "", thinking: egregore.thinkingLevel?.() ?? data?.thinking ?? "",
     context: contextText(p, data?.usage, width), git: data?.git ? gitLabel(data.git, p, width < 75) : data?.gitUnavailable ? "—" : "",
-    hint: !workspace.clock.active && !lastSendTime ? clean(workspace.nextHint?.() ?? "") : "",
+    hint: !egregore.clock.active && !lastSendTime ? clean(egregore.nextHint?.() ?? "") : "",
   };
 }
-/** Same layout and hit rectangles serve normal rendering and the editing workspace. */
-export function appearanceRow(theme: Theme, width: number, workspace: WorkspaceState, row: "top" | "bottom" | "footer1" | "footer2", now: number,
+/** Same layout and hit rectangles serve normal rendering and the editing egregore. */
+export function appearanceRow(theme: Theme, width: number, egregore: EgregoreState, row: "top" | "bottom" | "footer1" | "footer2", now: number,
   nativeHint = ""): string {
-  const design = workspace.layout?.appearance;
+  const design = egregore.layout?.appearance;
   if (!design || width <= 0) return "";
-  const border = appearanceBorder(theme, workspace), framed = row === "top" || row === "bottom";
+  const border = appearanceBorder(theme, egregore), framed = row === "top" || row === "bottom";
   const inner = Math.max(0, width - (framed ? 2 : 0));
-  const values = appearanceValues(workspace, width, now), state = currentAppearanceState(workspace);
-  const data = workspace.appearanceData?.(), stateStyle = design.states[state];
+  const values = appearanceValues(egregore, width, now), state = currentAppearanceState(egregore);
+  const data = egregore.appearanceData?.(), stateStyle = design.states[state];
   const positions = ["Left", "Center", "Right"].map(side => `${row}${side}` as Position);
-  workspace.appearanceHits = (workspace.appearanceHits ?? []).filter(hit => !positions.includes(hit.position));
+  egregore.appearanceHits = (egregore.appearanceHits ?? []).filter(hit => !positions.includes(hit.position));
   const pieces = (position: Position): Piece[] => (Object.keys(ELEMENTS) as ElementId[])
     .filter(id => design.elements[id].visible && design.elements[id].position === position && values[id])
     .sort((a, b) => design.elements[a].order - design.elements[b].order)
@@ -78,7 +78,7 @@ export function appearanceRow(theme: Theme, width: number, workspace: WorkspaceS
         : id === "context" && (data?.usage?.percent ?? 0) >= 75 ? theme.colors[(data?.usage?.percent ?? 0) >= 90 ? "error" : "warning"]
         : id === "git" ? theme.colors[data?.git?.conflicts ? "error" : data?.git && data.git.staged + data.git.changed + data.git.untracked ? "warning" : "success"] : border;
       const color = appearanceColor(theme, id === "status" ? stateStyle?.color ?? e.color : e.color, border, automatic);
-      const p = workspace.layout!;
+      const p = egregore.layout!;
       // Existing saved defaults still say "Sent {value}". Hide only that stock
       // word in Nerd mode; leave deliberate custom templates intact.
       const template = id === "sentTime" && p.icons === "nerd" && e.text === "Sent {value}" ? "{value}" : e.text;
@@ -122,13 +122,13 @@ export function appearanceRow(theme: Theme, width: number, workspace: WorkspaceS
       if (!sizes[i]) continue;
       if (content) { content += theme.style(separator, { fg: border }); x += visibleWidth(separator); }
       const part = parts[i];
-      const selected = workspace.footerPickerOpen && workspace.appearancePreview?.selected === part.id;
+      const selected = egregore.footerPickerOpen && egregore.appearancePreview?.selected === part.id;
       const styled = part.id === "status"
-        ? emberStatus(theme, part.text, state, workspace, now, sizes[i], part.color, part.bold)
+        ? emberStatus(theme, part.text, state, egregore, now, sizes[i], part.color, part.bold)
         : part.id === "session" ? sessionBadge(theme, truncateToWidth(part.text, sizes[i], "…"), part.color, part.bold)
         : theme.style(truncateToWidth(part.text, sizes[i], "…"), { fg: part.color, bold: part.bold });
       const text = styled;
-      content += selected ? selectionHighlight(theme, styled, { underline: true, foreground: part.color, phase: workspace.appearancePreview?.shimmer }) : styled;
+      content += selected ? selectionHighlight(theme, styled, { underline: true, foreground: part.color, phase: egregore.appearancePreview?.shimmer }) : styled;
       hits.push({ id: part.id, x, width: visibleWidth(text) }); x += visibleWidth(text);
     }
     return { text: content && budget >= 3 ? ` ${content} ` : "", hits };
@@ -138,15 +138,15 @@ export function appearanceRow(theme: Theme, width: number, workspace: WorkspaceS
   const [left, center, right] = rendered.map(group => group.text);
   const starts = [0, Math.floor((inner - visibleWidth(center)) / 2), inner - visibleWidth(right)];
   for (let i = 0; i < rendered.length; i++) if (rendered[i].text) {
-    workspace.appearanceHits.push(...rendered[i].hits.map(hit => ({ ...hit, x: hit.x + starts[i] + (framed ? 1 : 0), position: positions[i] } as AppearanceHit)));
+    egregore.appearanceHits.push(...rendered[i].hits.map(hit => ({ ...hit, x: hit.x + starts[i] + (framed ? 1 : 0), position: positions[i] } as AppearanceHit)));
   }
   if (framed) {
     const rail = frameRail({ theme, width, left, center, right, color: border, side: row });
-    if (!workspace.footerPickerOpen || workspace.appearancePreview?.selected !== "frame") return rail;
+    if (!egregore.footerPickerOpen || egregore.appearancePreview?.selected !== "frame") return rail;
     // Highlight the border, not unrelated labels whose custom colors may differ.
     let painted = "", x = 0;
-    const gaps = (start: number, size: number) => selectionHighlight(theme, sliceByColumn(rail, start, size), { foreground: border, phase: workspace.appearancePreview?.shimmer });
-    for (const hit of workspace.appearanceHits.filter(hit => hit.position.startsWith(row)).sort((a, b) => a.x - b.x)) {
+    const gaps = (start: number, size: number) => selectionHighlight(theme, sliceByColumn(rail, start, size), { foreground: border, phase: egregore.appearancePreview?.shimmer });
+    for (const hit of egregore.appearanceHits.filter(hit => hit.position.startsWith(row)).sort((a, b) => a.x - b.x)) {
       painted += gaps(x, Math.max(0, hit.x - x)) + sliceByColumn(rail, hit.x, hit.width);
       x = hit.x + hit.width;
     }

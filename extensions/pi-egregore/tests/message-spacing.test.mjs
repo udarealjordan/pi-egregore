@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { jiti, source, root, theme, plain, visibleWidth } from './host.mjs';
 const { messageBodyRows } = await jiti.import(join(source, 'message-spacing.ts'));
-const { generalPreview } = await jiti.import(join(source, 'workspace-general-preview.ts'));
+const { generalPreview } = await jiti.import(join(source, 'settings-general-preview.ts'));
 const { transcriptPreview, transcriptDefaults } = await jiti.import(join(source, 'transcript-presentation.ts'));
 const { SentMessageFrames } = await jiti.import(join(source, 'sent-messages.ts'));
 const { AssistantMessageComponent, UserMessageComponent, initTheme } = await import(pathToFileURL(join(root, '@earendil-works/pi-coding-agent/dist/index.js')));

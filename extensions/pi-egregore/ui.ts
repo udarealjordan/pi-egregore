@@ -6,12 +6,12 @@ import {
   type Component, type EditorTheme, type TUI, type TuiMouseEvent,
 } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
-import type { WorkspaceState } from "./state.ts";
+import type { EgregoreState } from "./state.ts";
 import { dictationSpan } from "./dictation.ts";
 import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
 import { composerBottomRail, composerFrame, composerThinkingBorder, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
 
-const BOTTOM = "\0pi-workspace:bottom\0"; // Internal layout sentinel; replaced before render returns.
+const BOTTOM = "\0pi-egregore:bottom\0"; // Internal layout sentinel; replaced before render returns.
 const NERD = { home: "\uf015", folder: "\uf07b", branch: "\ue725", clock: "\uf017" };
 const PLAIN = { home: "⌂", folder: "dir", branch: "git", clock: "◷" };
 
@@ -47,7 +47,7 @@ export class ComposerEditor extends CustomEditor {
 
   constructor(tui: TUI, theme: EditorTheme, kb: KeybindingsManager,
     private ctx: () => ExtensionContext,
-    private homeState: WorkspaceState,
+    private homeState: EgregoreState,
     private thinking: () => string,
     private now: () => number = Date.now,
   ) {
@@ -95,7 +95,7 @@ export class ComposerEditor extends CustomEditor {
     super.setPaddingX(Math.min(2, Math.max(0, Math.floor((inner - 4) / 2))));
     const lines = super.render(inner);
     this.baseBottom = lines.indexOf(BOTTOM);
-    if (this.baseBottom < 0) throw new Error("pi-workspace: editor border contract changed");
+    if (this.baseBottom < 0) throw new Error("pi-egregore: editor border contract changed");
     const topRight = this.hiddenAbove ? theme.fg("muted", ` ↑ ${this.hiddenAbove} more `) : "";
     const bottomRight = this.hiddenBelow ? theme.fg("muted", ` ↓ ${this.hiddenBelow} more `) : "";
     const edge = theme.style("│", { fg: composerThinkingBorder(theme, this.homeState.thinkingLevel?.()) });
@@ -145,7 +145,7 @@ export class ComposerEditor extends CustomEditor {
   }
 }
 
-export function createFooter(tui: TUI, ctx: () => ExtensionContext, state: WorkspaceState,
+export function createFooter(tui: TUI, ctx: () => ExtensionContext, state: EgregoreState,
   data: ReadonlyFooterDataProvider, now: () => number = Date.now): Component & { dispose(): void } {
   const unsubscribe = data.onBranchChange(() => tui.requestRender());
   return {
@@ -169,7 +169,7 @@ export function createFooter(tui: TUI, ctx: () => ExtensionContext, state: Works
   };
 }
 
-export function createIdentity(ctx: () => ExtensionContext, state: WorkspaceState): Component {
+export function createIdentity(ctx: () => ExtensionContext, state: EgregoreState): Component {
   return {
     invalidate() {},
     render(width) {
@@ -182,14 +182,14 @@ export function createIdentity(ctx: () => ExtensionContext, state: WorkspaceStat
   };
 }
 
-export function createHeader(ctx: () => ExtensionContext, state: WorkspaceState): Component {
+export function createHeader(ctx: () => ExtensionContext, state: EgregoreState): Component {
   return {
     invalidate() {},
     render(width) {
       if (width <= 0) return [];
       const theme = ctx().ui.theme;
       const icon = (state.prefs.icons === "nerd" ? NERD : PLAIN).home;
-      return [truncateToWidth(` ${theme.style(icon + " pi / composer", { fg: theme.colors.accent })}  ${theme.fg("muted", "a calmer workspace")}`, width), ""];
+      return [truncateToWidth(` ${theme.style(icon + " pi / egregore", { fg: theme.colors.accent })}`, width), ""];
     },
   };
 }

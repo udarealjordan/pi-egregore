@@ -5,7 +5,7 @@ import { join } from "node:path";
 // Unique per test process, intentionally retained for manual visual inspection.
 let directory;
 export function writeCapture(name, content) {
-  directory ??= mkdtempSync(join(tmpdir(), "pi-workspace-captures-"));
+  directory ??= mkdtempSync(join(tmpdir(), "pi-egregore-captures-"));
   const path = join(directory, name);
   writeFileSync(path, content);
   console.log(`Capture: ${path}`);

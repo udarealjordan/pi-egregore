@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { writeCapture } from './captures.mjs';
 import { join } from 'node:path';
 import { jiti, source, theme, initTheme, plain, visibleWidth } from './host.mjs';
-import { workspace } from './workspace-harness.mjs';
+import { egregore } from './egregore-harness.mjs';
 const { TaskPanel, taskPanelDefaults, readTaskPanel, taskPanelRows, taskPanelPreview, taskDemo } = await jiti.import(join(source, 'task-presentation.ts'));
 const { TASK_ELEMENTS, taskControlElement } = await jiti.import(join(source, 'task-settings.ts'));
 const { DEFAULTS, RunClock } = await jiti.import(join(source, 'state.ts'));
@@ -28,17 +28,17 @@ test('overview is derived without mutating authored task order or inferring acti
   assert.equal(isSnapshot({ ...dock, overview: { ...o, activeTitle: '' } }), false);
 });
 test('task panel preserves exact counts and bounded geometry, prioritizes open work, and stays still on pause', () => {
-  const workspace = state(), panel = new TaskPanel(); workspace.clock.begin(2000);
+  const egregore = state(), panel = new TaskPanel(); egregore.clock.begin(2000);
   const dock = taskDemo('working'), before = structuredClone(dock);
-  const render = time => panel.render(theme, 90, dock, workspace, time, true, 7);
+  const render = time => panel.render(theme, 90, dock, egregore, time, true, 7);
   const a = render(3000), b = render(3500);
   assert.deepEqual(a, b, "steady emphasis does not animate continuously");
   assert.match(a.map(plain).join('\n'), /1 needs you · 3 of 6 done · 1 blocked/); assert.match(a.map(plain).join('\n'), /\+ 1 more · \/questions q1/);
-  workspace.promptDepth = 1; const paused = render(4000); assert.deepEqual(paused, render(4500)); assert.equal(panel.tick(workspace, 4600, true), false);
-  workspace.promptDepth = 0; workspace.lastInputAt = 4700; render(4700); assert.equal(panel.tick(workspace, 4800, true), false);
-  workspace.lastInputAt = 0; workspace.prefs.motion = 'off'; render(6000); assert.equal(panel.tick(workspace, 6500, true), false);
-  workspace.prefs.motion = 'work'; workspace.footerPickerOpen = true; render(7000); assert.equal(panel.tick(workspace, 7500, true), false);
-  workspace.footerPickerOpen = false; render(8000); panel.setVisible(false); assert.equal(panel.tick(workspace, 8500, true), false);
+  egregore.promptDepth = 1; const paused = render(4000); assert.deepEqual(paused, render(4500)); assert.equal(panel.tick(egregore, 4600, true), false);
+  egregore.promptDepth = 0; egregore.lastInputAt = 4700; render(4700); assert.equal(panel.tick(egregore, 4800, true), false);
+  egregore.lastInputAt = 0; egregore.prefs.motion = 'off'; render(6000); assert.equal(panel.tick(egregore, 6500, true), false);
+  egregore.prefs.motion = 'work'; egregore.footerPickerOpen = true; render(7000); assert.equal(panel.tick(egregore, 7500, true), false);
+  egregore.footerPickerOpen = false; render(8000); panel.setVisible(false); assert.equal(panel.tick(egregore, 8500, true), false);
   assert.deepEqual(dock, before);
   for (const appearance of ['dark', 'light']) {
     initTheme(appearance, false);
@@ -86,15 +86,15 @@ test('the settings demo is shaped exactly like a real snapshot', () => {
   initTheme('dark', false);
 });
 test('changes-only motion ignores mount/history, plan switches and narrow unframed layouts', () => {
-  const workspace = state(), panel = new TaskPanel(); workspace.layout = { ...FOOTER_DEFAULTS, tasks: taskPanelDefaults() }; workspace.layout.tasks.presentation.motion = 'changes';
+  const egregore = state(), panel = new TaskPanel(); egregore.layout = { ...FOOTER_DEFAULTS, tasks: taskPanelDefaults() }; egregore.layout.tasks.presentation.motion = 'changes';
   const dock = taskDemo('idle'); dock.overview.planId = 'p1';
-  panel.render(theme, 90, dock, workspace, 3000, true, 7); assert.equal(panel.tick(workspace, 3100, true), false);
+  panel.render(theme, 90, dock, egregore, 3000, true, 7); assert.equal(panel.tick(egregore, 3100, true), false);
   const next = structuredClone(dock); next.overview.revision = 'next'; next.overview.done++;
-  panel.render(theme, 90, next, workspace, 3200, true, 7); assert.equal(panel.tick(workspace, 3300, true), true);
-  panel.tick(workspace, 8000, true); assert.equal(panel.tick(workspace, 9000, true), false);
+  panel.render(theme, 90, next, egregore, 3200, true, 7); assert.equal(panel.tick(egregore, 3300, true), true);
+  panel.tick(egregore, 8000, true); assert.equal(panel.tick(egregore, 9000, true), false);
   next.overview.planId = 'p2'; next.overview.revision = 'new-plan';
-  panel.render(theme, 90, next, workspace, 10000, true, 7); assert.equal(panel.tick(workspace, 10100, true), false);
-  next.overview.revision = 'changed'; panel.render(theme, 12, next, workspace, 11000, true, 7); assert.equal(panel.tick(workspace, 11100, true), false);
+  panel.render(theme, 90, next, egregore, 10000, true, 7); assert.equal(panel.tick(egregore, 10100, true), false);
+  next.overview.revision = 'changed'; panel.render(theme, 12, next, egregore, 11000, true, 7); assert.equal(panel.tick(egregore, 11100, true), false);
 });
 test('settings validation preserves old fields and bounds new data', () => {
   const p = footerPrefs({ ...FOOTER_DEFAULTS, tasks: { version: 1, title: '\x1b[31mTasks\n', rows: 999, presentation: { version: 1, intensity: -1, periodMs: Infinity } } });
@@ -105,7 +105,7 @@ test('settings validation preserves old fields and bounds new data', () => {
   assert.equal('title' in readTaskPanel({ version: 2 }), false);
 });
 test('Tasks settings preview supports keyboard, colors, undo, save and untouched native draft', async () => {
-  const h = workspace();
+  const h = egregore();
   h.click('[Tasks]');
   assert.match(h.rows().join('\n'), /Example Tasks · no real task changes · working/);
   assert.match(h.rows().join('\n'), /1 needs you · 3 of 6 done · 1 blocked/);
@@ -122,19 +122,19 @@ test('Tasks settings preview supports keyboard, colors, undo, save and untouched
   assert.equal(footerPrefs(saved).tasks.presentation.borderColor, '#aabbcc');
 });
 test('demo state is not persisted; discard, focus loss, abort and disposal are safe', async () => {
-  const abort = new AbortController(), h = workspace(undefined, 120, 40, abort.signal);
+  const abort = new AbortController(), h = egregore(undefined, 120, 40, abort.signal);
   h.panel.handleInput('\t');
   assert.match(h.rows().join('\n'), /Example Tasks/);
   h.click('Demo state'); h.pick('blocked'); assert.match(h.rows().join('\n'), /\? Your input/);
-  assert.equal(h.workspace.clock.active, false); assert.equal(h.workspace.tools.size, 0);
+  assert.equal(h.egregore.clock.active, false); assert.equal(h.egregore.tools.size, 0);
   h.panel.focused = false; h.panel.render(120); h.panel.focused = true; h.panel.invalidate(); h.panel.render(120);
   abort.abort(); assert.equal(await h.pending, undefined); h.panel.dispose();
-  const h2 = workspace(); h2.click('[Tasks]'); h2.click('Advanced settings'); h2.click('Border effect'); h2.pick('pulse');
+  const h2 = egregore(); h2.click('[Tasks]'); h2.click('Advanced settings'); h2.click('Border effect'); h2.pick('pulse');
   assert.equal(await h2.discard(), undefined); assert.equal(h2.editor.getText(), 'Unsent native draft 界面');
 });
 test('Tasks room synchronizes list and rendered preview selection without editing a plan or native draft', async () => {
-  const h = workspace();
-  const before = JSON.stringify(h.workspace.clock);
+  const h = egregore();
+  const before = JSON.stringify(h.egregore.clock);
   h.click('[Tasks]');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Border and motion/);
   h.click('Progress');
@@ -157,7 +157,7 @@ test('Tasks room synchronizes list and rendered preview selection without editin
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Plan name/);
   h.panel.handleInput('\x1b[C');
   assert.match(h.rows().join('\n'), /› Title position/);
-  assert.equal(JSON.stringify(h.workspace.clock), before);
+  assert.equal(JSON.stringify(h.egregore.clock), before);
   assert.equal(h.editor.getText(), 'Unsent native draft 界面');
   assert.equal(await h.discard(), undefined);
 });
@@ -191,7 +191,7 @@ test('Tasks positions keep clickable labels on all six rails; omitted narrow lab
   initTheme('dark', false);
   assert.equal(taskControlElement({ label: 'Any display name', element: 'summary' }), 'summary');
   assert.equal(TASK_ELEMENTS.length, 6);
-  const h = workspace(); h.click('[Tasks]'); h.click('Progress');
+  const h = egregore(); h.click('[Tasks]'); h.click('Progress');
   h.click('Count position'); h.pick('bottomCenter');
   const countRow = h.rows().findIndex(row => row.startsWith('╰') && row.includes('3 of 6 done'));
   assert.ok(countRow > 0);
@@ -201,7 +201,7 @@ test('Tasks positions keep clickable labels on all six rails; omitted narrow lab
 });
 
 test('narrow Tasks room keeps a keyboard path and restores native input when returning to Elements', async () => {
-  const h = workspace(undefined, 24, 22);
+  const h = egregore(undefined, 24, 22);
   assert.match(h.rows().join('\n'), /\[Rooms…\]/);
   h.click('[Tasks]'); h.panel.handleInput('\x1b[D');
   h.panel.handleInput('\x1b[B'); h.panel.handleInput('\x1b[B');

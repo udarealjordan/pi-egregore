@@ -1,7 +1,7 @@
 import { readAskAppearance, safeAskTitle, type AskAppearance } from "../../packages/pi-ask/extensions/ask-user-question/appearance.ts";
 import type { AskElementId } from "../../packages/pi-ask/extensions/ask-user-question/question-preview.ts";
 import { readTranscript, type TranscriptAppearance, type TranscriptElementId } from "./transcript-presentation.ts";
-import type { Control, RoomEditor } from "./workspace-room-types.ts";
+import type { Control, RoomEditor } from "./settings-room-types.ts";
 export const askElements: Array<{ id: AskElementId; name: string; help: string }> = [
   { id: "frame", name: "Question frame", help: "Pi's theme accent identifies questions. It is not a warning or error color." },
   { id: "title", name: "Question title", help: "The shell's display label; the question itself stays unchanged." },

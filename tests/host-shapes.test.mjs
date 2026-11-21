@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const install = join(homedir(), ".pi/agent/install");
-const hostModules = process.env.PI_WORKSPACE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES ||
+const hostModules = process.env.PI_EGREGORE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES ||
   join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
 const load = path => import(pathToFileURL(join(hostModules, path)).href);
 

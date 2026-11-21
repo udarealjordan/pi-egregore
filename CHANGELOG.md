@@ -6,6 +6,8 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Renamed the remaining Pi Workspace names to Egregore. `/workspace` is gone; use `/egregore`. Source files `workspace-*.ts` are now `runtime.ts` and `settings-*.ts`, runtime IDs use `pi-egregore:` (including the `pi-egregore:interaction:v1` event), and the test host override is `PI_EGREGORE_HOST_MODULES`. The legacy `pi-workspace.json` is still read as a fallback.
+
 - Removed Quests: the `quests` tool, `/quests`, its journal code, tests and design docs. Existing journal data in `~/.pi/agent/quests/` is left untouched.
 
 - Removed session activity (`/activity` and the General → Session updates settings). It was a feed of Quests updates and would only repeat the Tasks dock. Saved `sessionActivity` and `activityColor` values are ignored.

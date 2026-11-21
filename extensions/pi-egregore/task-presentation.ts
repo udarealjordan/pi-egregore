@@ -4,7 +4,7 @@ import { mixColors, parseColor, sliceByColumn, truncateToWidth, visibleWidth, wr
 import { createFrameController, framePresentationDefaults, readFramePresentation, presentationRows,
   type FramePresentation, type FrameSample, type FrameState } from "../../lib/frame.ts";
 import { cleanText, type DockSnapshot } from "pi-agent-contracts/dock";
-import type { WorkspaceState } from "./state.ts";
+import type { EgregoreState } from "./state.ts";
 import { selectionHighlight } from "./footer-selection.ts";
 
 export interface TaskPanelPrefs { version: 1; rows: number; presentation: FramePresentation }
@@ -108,30 +108,30 @@ export class TaskPanel {
   private visible = false;
   setVisible(value: boolean) { this.visible = value; if (!value) this.reset(); }
   reset() { this.controller.reset(); this.dock = undefined; this.identity = undefined; }
-  private update(workspace: WorkspaceState, now: number, focused: boolean) {
+  private update(egregore: EgregoreState, now: number, focused: boolean) {
     const dock = this.dock, info = dock?.overview;
     if (!dock || !this.visible) {
       this.controller.reset();
       return { active: false, elapsed: 0, progress: 0, state: "idle" as FrameState, once: false };
     }
-    const busy = workspace.clock.active || workspace.compacting;
+    const busy = egregore.clock.active || egregore.compacting;
     const active = info ? !!info.activeId : dock?.rows.some(r => r.tone === "accent");
-    const state: FrameState = workspace.promptDepth ? "waiting" : dock?.rows.some(r => r.tone === "error") ? "error"
+    const state: FrameState = egregore.promptDepth ? "waiting" : dock?.rows.some(r => r.tone === "error") ? "error"
       : info?.blocked ? "blocked" : busy && active ? "working" : info && info.done === info.total && info.total > 0 ? "done" : active ? "waiting" : "idle";
     // Notes/evidence edits are not progress. Only focus and completed/cancelled counts trigger feedback.
     const revision = info ? `${info.activeId ?? ""}:${info.done}:${info.cancelled}` : JSON.stringify([dock?.summary, dock?.rows]);
     return this.controller.update({ state, revision,
-      visible: this.visible && !!dock, reducedMotion: workspace.prefs.motion === "off" || workspace.layout?.motion === "off",
-      suspended: workspace.promptDepth > 0 || !!workspace.footerPickerOpen || !focused },
-      workspace.layout?.tasks?.presentation ?? taskPanelDefaults().presentation, now);
+      visible: this.visible && !!dock, reducedMotion: egregore.prefs.motion === "off" || egregore.layout?.motion === "off",
+      suspended: egregore.promptDepth > 0 || !!egregore.footerPickerOpen || !focused },
+      egregore.layout?.tasks?.presentation ?? taskPanelDefaults().presentation, now);
   }
-  tick(workspace: WorkspaceState, now: number, focused: boolean): boolean { return this.update(workspace, now, focused).active; }
-  render(theme: Theme, width: number, dock: DockSnapshot, workspace: WorkspaceState, now: number, focused: boolean, budget: number) {
+  tick(egregore: EgregoreState, now: number, focused: boolean): boolean { return this.update(egregore, now, focused).active; }
+  render(theme: Theme, width: number, dock: DockSnapshot, egregore: EgregoreState, now: number, focused: boolean, budget: number) {
     const identity = `${dock.sessionId}:${dock.overview?.planId ?? "legacy"}`;
     if (this.identity !== undefined && this.identity !== identity) this.reset();
     this.identity = identity;
     this.dock = dock; this.visible = width >= 16 && budget >= 3;
-    return taskPanelRows(theme, width, dock, workspace.layout?.tasks ?? taskPanelDefaults(), this.update(workspace, now, focused), budget);
+    return taskPanelRows(theme, width, dock, egregore.layout?.tasks ?? taskPanelDefaults(), this.update(egregore, now, focused), budget);
   }
 }
 

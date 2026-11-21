@@ -4,15 +4,15 @@ import { join } from "node:path";
 import { writeCapture } from "./captures.mjs";
 import { pathToFileURL } from "node:url";
 import { root, plain } from "./host.mjs";
-import { workspace } from "./workspace-harness.mjs";
+import { egregore } from "./egregore-harness.mjs";
 const { TuiAltScreen, TuiMainScreen, Container, Text } = await import(pathToFileURL(join(root, "@earendil-works/pi-tui/dist/index.js")));
 function terminal() {
   return { columns: 100, rows: 40, kittyProtocolActive: false, start() {}, stop() {}, async drainInput() {},
     write() {}, moveBy() {}, hideCursor() {}, showCursor() {}, clearLine() {}, clearFromCursor() {},
     clearScreen() {}, setTitle() {}, setProgress() {} };
 }
-for (const Renderer of [TuiAltScreen, TuiMainScreen]) for (const history of [0, 80]) test(`${Renderer.name}: workspace owns its whole rectangle with ${history} transcript lines, including resize`, async () => {
-  const h = workspace(), term = terminal(), tui = new Renderer(term, true), transcript = new Container();
+for (const Renderer of [TuiAltScreen, TuiMainScreen]) for (const history of [0, 80]) test(`${Renderer.name}: Egregore owns its whole rectangle with ${history} transcript lines, including resize`, async () => {
+  const h = egregore(), term = terminal(), tui = new Renderer(term, true), transcript = new Container();
   transcript.addChild(new Text(Array.from({ length: history }, () => "TRANSCRIPT-MUST-NOT-LEAK").join("\n"), 0, 0));
   tui.addChild(transcript); tui.addChild(h.editor); tui.start();
   const handle = tui.showOverlay(h.panel, h.options.overlayOptions);
@@ -30,7 +30,7 @@ for (const Renderer of [TuiAltScreen, TuiMainScreen]) for (const history of [0, 
       assert.ok(note > 0 && draft > note && draft - note <= 3);
       assert.equal(handle.getBounds().col, 0); assert.equal(handle.getBounds().row, 0);
       assert.equal(handle.getBounds().width, columns); assert.equal(handle.getBounds().height, rows);
-      if (process.env.PI_FOOTER_SNAPSHOTS) writeCapture(`pi-footer-workspace-${Renderer.name}-${history}-${columns}x${rows}.txt`, screen.join("\n") + "\n");
+      if (process.env.PI_FOOTER_SNAPSHOTS) writeCapture(`pi-footer-egregore-${Renderer.name}-${history}-${columns}x${rows}.txt`, screen.join("\n") + "\n");
     }
   } finally {
     h.panel.handleInput("\x13"); await h.pending; handle.hide(); tui.stop();

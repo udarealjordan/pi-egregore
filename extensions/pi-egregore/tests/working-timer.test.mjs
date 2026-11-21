@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { jiti, source, root, theme, plain, kb } from "./host.mjs";
-const { registerWorkspaceAppearance } = await jiti.import(join(source, "footer.ts"));
+const { registerEgregoreAppearance } = await jiti.import(join(source, "footer.ts"));
 const { createDock } = await jiti.import(join(source, "dock.ts"));
 const { ComposerEditor } = await jiti.import(join(source, "ui.ts"));
 const { installPaintGuard } = await jiti.import(join(source, "paint-guard.ts"));
@@ -18,24 +18,24 @@ const { Container, Text, TuiMainScreen, TuiAltScreen } = await import(pathToFile
 const { getEditorTheme } = await import(pathToFileURL(join(host, "modes/interactive/theme/theme.js")));
 
 for (const Renderer of [TuiMainScreen, TuiAltScreen]) test(`${Renderer.name}: live composer timer paints during silent work through Pi's TUI reference`, async () => {
-  const scratch = mkdtempSync(join(tmpdir(), "pi-workspace-timer-"));
+  const scratch = mkdtempSync(join(tmpdir(), "pi-egregore-timer-"));
   const previous = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = scratch;
   const writes = [];
   const terminal = { columns: 100, rows: 40, kittyProtocolActive: false, start() {}, stop() {}, async drainInput() {}, write(s) { writes.push(s); }, moveBy() {}, hideCursor() {}, showCursor() {}, clearLine() {}, clearFromCursor() {}, clearScreen() {}, setTitle() {}, setProgress() {} };
   const renderer = new Renderer(terminal, false), tui = createInteractiveTuiReference(() => renderer);
-  const workspace = { prefs: { ...DEFAULTS, look: "composer", motion: "off" }, clock: new RunClock(), tools: new Map(), phase: "thinking", promptDepth: 0, compacting: false, lastInputAt: 0, editorFocused: () => false };
+  const egregore = { prefs: { ...DEFAULTS, look: "composer", motion: "off" }, clock: new RunClock(), tools: new Map(), phase: "thinking", promptDepth: 0, compacting: false, lastInputAt: 0, editorFocused: () => false };
   const handlers = new Map(), entries = [], widgets = new Container(), footer = new Container();
   const ctx = { mode: "tui", cwd: scratch, model: { name: "fixture" }, getContextUsage: () => undefined,
     sessionManager: { getBranch: () => entries, getSessionId: () => "fixture", getSessionName: () => "Fixture", getHeader: () => undefined },
     ui: { theme, notify() {}, setWidget() {}, setFooter(factory) { footer.clear(); footer.addChild(factory(tui, theme, { onBranchChange: () => () => {}, getExtensionStatuses: () => new Map() })); } },
   };
   const pi = { events: { on() {} }, getThinkingLevel: () => "high", registerCommand() {}, on(name, fn) { handlers.set(name, fn); }, appendEntry(customType, data) { entries.push({ type: "custom", customType, data }); } };
-  registerWorkspaceAppearance(pi, workspace);
+  registerEgregoreAppearance(pi, egregore);
   const emit = async name => handlers.get(name)?.({ type: name }, ctx);
-  const dock = createDock(tui, () => ctx, workspace, new Map(), () => false);
+  const dock = createDock(tui, () => ctx, egregore, new Map(), () => false);
   widgets.addChild(dock);
-  const editor = new ComposerEditor(tui, getEditorTheme(), kb, () => ctx, workspace, () => "high");
+  const editor = new ComposerEditor(tui, getEditorTheme(), kb, () => ctx, egregore, () => "high");
   editor.setText("draft");
   if (Renderer === TuiAltScreen) {
     const view = createChatViewport({ document: new Text("Transcript", 0, 0), pendingMessages: new Container(), status: new Container(), widgetsAbove: widgets, editor, footer });
@@ -45,13 +45,13 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) test(`${Renderer.name}: li
   try {
     await emit("session_start");
     renderer.start();
-    workspace.clock.begin(Date.now());
+    egregore.clock.begin(Date.now());
     await emit("agent_start");
     await new Promise(resolve => setTimeout(resolve, 2300));
     const output = writes.map(plain).join("");
     assert.match(output, /Thinking\s+0s/);
     assert.match(output, /Thinking\s+2s/, "no stream/input/tool events are needed for the live timer");
-    workspace.clock.settle(Date.now(), "done");
+    egregore.clock.settle(Date.now(), "done");
     await emit("agent_settled");
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.match(writes.map(plain).join(""), /your turn/);

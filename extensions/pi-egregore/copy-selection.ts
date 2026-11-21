@@ -117,7 +117,7 @@ function selectedText(host: Host, native: string | undefined): string | undefine
 export function installFrameAwareCopy(reference: unknown): () => void {
   const noop = () => {};
   if (!reference || typeof reference !== "object") return noop;
-  const key = Symbol("pi-workspace:copy-receiver");
+  const key = Symbol("pi-egregore:copy-receiver");
   const proxy = reference as Host & { [key]?: () => Host };
   let host: Host | undefined;
   try {

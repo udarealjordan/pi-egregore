@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { STATES } from "./appearance.ts";
 import { selectionRow } from "./footer-selection.ts";
-import type { Control } from "./workspace-room-types.ts";
+import type { Control } from "./settings-room-types.ts";
 
 // Display vocabulary only: persisted values and internal control identities stay unchanged.
 const settingNames: Record<string, string> = {

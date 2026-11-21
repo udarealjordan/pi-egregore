@@ -2,7 +2,7 @@
 export const POSTED = {
   probe: 'pi-ask:posted:v1:probe', update: 'pi-ask:posted:v1:update', open: 'pi-ask:posted:v1:open',
   catalogue: 'pi-tasks:links:v1:update', catalogueProbe: 'pi-tasks:links:v1:probe',
-  interaction: 'pi-workspace:interaction:v1', needed: 'pi-ask:posted:v1:needed',
+  interaction: 'pi-egregore:interaction:v1', needed: 'pi-ask:posted:v1:needed',
 } as const;
 export type QuestionStage = 'awaiting' | 'submitted' | 'delivered' | 'applied' | 'withdrawn' | 'replaced';
 export const STAGE_LABELS: Record<QuestionStage, string> = {

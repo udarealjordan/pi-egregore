@@ -54,7 +54,7 @@ batch status. Both pausing tools return `unavailable` outside an interactive TUI
 | `POSTED.needed` | `pi-ask:posted:v1:needed` | consumer → Ask: linked work reached, make it blocking |
 | `POSTED.catalogueProbe` | `pi-tasks:links:v1:probe` | Ask → Tasks: publish your plan catalogue |
 | `POSTED.catalogue` | `pi-tasks:links:v1:update` | Tasks → consumers: `TaskCatalogue` |
-| `POSTED.interaction` | `pi-workspace:interaction:v1` | any → all: `{ sessionId, id, active }`, an overlay is open |
+| `POSTED.interaction` | `pi-egregore:interaction:v1` | any → all: `{ sessionId, id, active }`, an overlay is open |
 
 `QuestionSnapshot = { version: 1; sessionId: string; available: boolean; questions: QuestionProjection[]; fault?: string }`.
 `QuestionProjection` carries `id, revision, question, urgency ("blocking" | "deferred"), state, boundary, planId?, taskIds, responseStatus?, consequence?, replacementId?, neededNow?`.

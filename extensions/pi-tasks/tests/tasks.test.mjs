@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { stripVTControlCharacters } from "node:util";
 const source = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const install = join(homedir(), ".pi/agent/install");
-const root = process.env.PI_WORKSPACE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
+const root = process.env.PI_EGREGORE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
 const host = join(root, "@earendil-works/pi-coding-agent/dist");
 const { createJiti } = await import(pathToFileURL(join(root, "jiti/lib/jiti.mjs")));
 const jiti = createJiti(import.meta.url, { alias: {
@@ -26,7 +26,7 @@ const askPackage = join(source, "../../packages/pi-ask");
 const askEntry = JSON.parse(readFileSync(join(askPackage, "package.json"), "utf8")).pi.extensions[0];
 const askFactory = await jiti.import(join(askPackage, askEntry), { default: true });
 const { POSTED } = await jiti.import("pi-agent-contracts/posted");
-const workspaceFactory = await jiti.import(join(source, "../pi-egregore/index.ts"), { default: true });
+const egregoreFactory = await jiti.import(join(source, "../pi-egregore/index.ts"), { default: true });
 const { TaskPanel } = await jiti.import(join(source, "panel.ts"));
 const { layoutDock } = await jiti.import("pi-agent-contracts/dock");
 const { createDock } = await jiti.import(join(source, "../pi-egregore/dock.ts"));
@@ -161,7 +161,7 @@ test("persisted data, bounds and terminal controls are validated; memory is boun
   assert.match(dockRows(p, true)[0].text, /Working/);
 });
 
-async function harness({ workspace = false, ask = false, order = "workspace-first", mode = "tui", prefs } = {}) {
+async function harness({ egregore = false, ask = false, order = "egregore-first", mode = "tui", prefs } = {}) {
   const scratch = mkdtempSync(join(tmpdir(), "pi-tasks-test-"));
   const previousDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = scratch;
@@ -191,14 +191,14 @@ async function harness({ workspace = false, ask = false, order = "workspace-firs
     getThinkingLevel: () => "high",
     appendEntry(customType, value) { if (failStorage) throw new Error("disk failed"); const entry = { type: "custom", customType, data: structuredClone(value) }; branch.push(entry); },
   };
-  if (workspace && order === "workspace-first") await workspaceFactory(api);
+  if (egregore && order === "egregore-first") await egregoreFactory(api);
   if (ask && order === "ask-first") await askFactory(api);
   await factory(api);
   if (ask && order !== "ask-first") await askFactory(api);
-  if (workspace && order !== "workspace-first") await workspaceFactory(api);
+  if (egregore && order !== "egregore-first") await egregoreFactory(api);
   const emit = async (name, value = {}) => { const results = []; for (const fn of handlers.get(name) ?? []) results.push(await fn({ type: name, ...value }, context)); return results; };
   const command = (name, args = "") => commands.get(name).handler(args, context);
-  if (workspace) await command("sounds", "off"); // Task fixtures do not require an audio device.
+  if (egregore) await command("sounds", "off"); // Task fixtures do not require an audio device.
   const call = (params, signal) => tools.get("tasks").execute("task-test", params, signal, undefined, context);
   return { scratch, context, tools, handlers, entries, messages, widgets, notices, events, active, tui, emit, command, call,
     callQuestion: params => tools.get("question_queue").execute("question-test", params, undefined, undefined, context),
@@ -209,8 +209,8 @@ async function harness({ workspace = false, ask = false, order = "workspace-firs
 }
 
 test("both dock hosts show the same plan title, work rows and summary", async () => {
-  for (const workspace of [false, true]) {
-    const h = await harness({ workspace });
+  for (const egregore of [false, true]) {
+    const h = await harness({ egregore });
     try {
       await h.emit("session_start");
       const initial = JSON.parse((await h.call({ op: "list" })).content[0].text);
@@ -238,8 +238,8 @@ test("both dock hosts show the same plan title, work rows and summary", async ()
 });
 
 test("the dock leads with the plan, counts open work and keeps its facts when hidden", async () => {
-  for (const workspace of [false, true]) {
-    const h = await harness({ workspace, ask: true });
+  for (const egregore of [false, true]) {
+    const h = await harness({ egregore, ask: true });
     let last;
     try {
       await h.emit("session_start");
@@ -257,7 +257,7 @@ test("the dock leads with the plan, counts open work and keeps its facts when hi
       assert.deepEqual(last.rows, []);
       assert.equal(last.overview.activeTitle, "Print", "the composer hint still receives the active title");
       assert.equal(last.title, "Photos for Mom");
-      if (workspace) {
+      if (egregore) {
         await h.emit("agent_settled");
         const rail = h.editor.render(80).map(plain).join("\n");
         assert.match(rail, /Next: Print/, "the composer hint carries the active task while the dock is hidden");
@@ -282,8 +282,8 @@ test("legacy task appearance is read without disabling Tasks and dropped on the 
 });
 
 test("hide/unhide only controls the dock, persists, and leaves tracking and panel available", async () => {
-  for (const workspace of [false, true]) {
-    const h = await harness({ workspace });
+  for (const egregore of [false, true]) {
+    const h = await harness({ egregore });
     try {
       await h.emit("session_start");
       await h.command("tasks", "add Visibility test task");
@@ -312,7 +312,7 @@ test("hide/unhide only controls the dock, persists, and leaves tracking and pane
       assert.doesNotMatch(render(), /Visibility test task/);
       await h.emit("session_start");
       assert.doesNotMatch(render(), /Visibility test task/);
-      if (workspace) {
+      if (egregore) {
         await h.command("composer", "off");
         assert.equal(h.widgets.has("pi-tasks:fallback"), false);
         await h.command("composer", "on");
@@ -380,34 +380,34 @@ test("tool lists are paginated and completion-note attribution survives unrelate
 });
 
 test("Egregore and Tasks remain independent in both extension startup orders", async () => {
-  for (const order of ["workspace-first", "tasks-first"]) {
-    const h = await harness({ workspace: true, order });
+  for (const order of ["egregore-first", "tasks-first"]) {
+    const h = await harness({ egregore: true, order });
     try {
       await h.emit("session_start");
       await h.command("tasks", "add A real task");
       const editor = h.editor; editor.setText("draft stays intact");
       assert.equal(h.widgets.has("pi-tasks:fallback"), false);
-      let workspace = h.widgets.get("pi-workspace:dock").render(100).map(plain).join("\n");
-      assert.match(workspace, /A real task/);
+      let egregore = h.widgets.get("pi-egregore:dock").render(100).map(plain).join("\n");
+      assert.match(egregore, /A real task/);
       assert.match(h.editor.render(100).map(plain).join("\n"), /Current session/, "identity belongs in Composer's native editor rail");
-      assert.match(workspace, /╭ Session plan .*╮[\s\S]*╰─/);
+      assert.match(egregore, /╭ Session plan .*╮[\s\S]*╰─/);
       await h.command("tasks", "off");
       assert.equal(h.editor, editor);
       assert.equal(h.editor.getText(), "draft stays intact");
-      workspace = h.widgets.get("pi-workspace:dock").render(100).map(plain).join("\n");
-      assert.doesNotMatch(workspace, /A real task/);
+      egregore = h.widgets.get("pi-egregore:dock").render(100).map(plain).join("\n");
+      assert.doesNotMatch(egregore, /A real task/);
       assert.match(h.editor.render(100).map(plain).join("\n"), /Current session/);
       await h.command("tasks", "on");
       await h.command("composer", "off");
       assert.ok(h.widgets.has("pi-tasks:fallback"));
       assert.match(h.widgets.get("pi-tasks:fallback").render(100).map(plain).join("\n"), /^╭ Session plan .*╮[\s\S]*╰─/);
       assert.ok(h.active.has("tasks"));
-      assert.equal(h.widgets.has("pi-workspace:dock"), false);
+      assert.equal(h.widgets.has("pi-egregore:dock"), false);
       await h.command("composer", "on");
       assert.equal(h.widgets.has("pi-tasks:fallback"), false);
-      assert.match(h.widgets.get("pi-workspace:dock").render(100).map(plain).join("\n"), /A real task/);
+      assert.match(h.widgets.get("pi-egregore:dock").render(100).map(plain).join("\n"), /A real task/);
       await h.command("composer", "motion off");
-      assert.match(h.widgets.get("pi-workspace:dock").render(100).map(plain).join("\n"), /A real task/);
+      assert.match(h.widgets.get("pi-egregore:dock").render(100).map(plain).join("\n"), /A real task/);
       await h.command("tasks", "");
       assert.equal(h.notices.filter((n) => n.tone === "warning").length, 0);
     } finally { await h.close(); }
@@ -831,8 +831,8 @@ test("v2/v3 libraries migrate to the checklist form and discard the retired requ
 
 
 test("completed plans leave both dock implementations on schedule, remain in history, and do not flash again on resume", async (t) => {
-  const h = await harness({ workspace: true });
-  const snapshot = () => h.widgets.get("pi-workspace:dock").render(110).map(plain).join("\n");
+  const h = await harness({ egregore: true });
+  const snapshot = () => h.widgets.get("pi-egregore:dock").render(110).map(plain).join("\n");
   try {
     await h.emit("session_start"); await h.command("tasks", "new Ephemeral checklist"); await h.command("tasks", "add One task");
     const p = (await h.call({ op: "list" })).details.plan;
@@ -912,17 +912,17 @@ test("Composer dock is responsive, motion-off stays still, and shows only source
   const ctx = { ui: { theme }, sessionManager: { getSessionName: () => "My 界面 plan" } };
   const docks = new Map([["test", { title: "Plan", rows: [{ text: "○ Real work" }], hint: "/tasks" }]]);
   let now = 1000;
-  const workspace = createDock(tui, () => ctx, state, docks, () => true, () => now);
-  const first = workspace.render(100); now = 5000;
-  assert.deepEqual(workspace.render(100), first);
+  const egregore = createDock(tui, () => ctx, state, docks, () => true, () => now);
+  const first = egregore.render(100); now = 5000;
+  assert.deepEqual(egregore.render(100), first);
   assert.match(first.map(plain).join("\n"), /Real work/);
   assert.doesNotMatch(first.map(plain).join("\n"), /DEMO|Finding the shape|mission/i);
   for (const height of [16, 24, 30, 40]) {
     tui.terminal.rows = height;
-    for (const width of [1, 2, 8, 20, 48, 80, 140]) for (const line of workspace.render(width)) assert.ok(visibleWidth(line) <= width);
+    for (const width of [1, 2, 8, 20, 48, 80, 140]) for (const line of egregore.render(width)) assert.ok(visibleWidth(line) <= width);
   }
   docks.clear();
-  assert.deepEqual(workspace.render(100), [], "without a real provider, no demo or artwork appears");
+  assert.deepEqual(egregore.render(100), [], "without a real provider, no demo or artwork appears");
   assert.equal(isSnapshot({ version: 1, sessionId: "test", id: "id", title: "Okay", rows: [{ text: "x", tone: "invalid" }] }), false);
   assert.equal(isHost({ version: 1, sessionId: "test", available: true, colors: {} }), false);
 });
@@ -1069,8 +1069,8 @@ test("both hosts render the same rows, title and summary for one snapshot at wid
   const plan = { title: "Parity plan", tasks: [["Print 4x6 copies", "active"], ["Choose cover", "blocked"], ["Mail album", "pending"]] };
   const facts = { title: plan.title, rows: ["● Working · Print 4x6 copies", "! Choose cover · waiting", "○ Mail album"], summary: "0 of 3 done · 1 blocked" };
   const rendered = {};
-  for (const workspace of [false, true]) {
-    const h = await harness({ workspace });
+  for (const egregore of [false, true]) {
+    const h = await harness({ egregore });
     try {
       await h.emit("session_start");
       let p = JSON.parse((await h.call({ op: "list" })).content[0].text);
@@ -1081,8 +1081,8 @@ test("both hosts render the same rows, title and summary for one snapshot at wid
       const text = [...h.widgets.values()].flatMap(w => w.render(80)).map(plain).join("\n");
       assert.match(text, /Parity plan/);
       assert.match(text, /0 of 3 done · 1 blocked/);
-      for (const row of ["● Agent working · Print 4x6 copies", "! Waiting · owner unspecified · 1 task · waiting", "○ Not started · 1 task · Mail album"]) assert.ok(text.includes(row), `${workspace ? "workspace" : "fallback"}: ${row}`);
-      rendered[workspace] = text;
+      for (const row of ["● Agent working · Print 4x6 copies", "! Waiting · owner unspecified · 1 task · waiting", "○ Not started · 1 task · Mail album"]) assert.ok(text.includes(row), `${egregore ? "egregore" : "fallback"}: ${row}`);
+      rendered[egregore] = text;
     } finally { await h.close(); }
   }
   assert.deepEqual(facts.rows.length, 3);
@@ -1091,7 +1091,7 @@ test("both hosts render the same rows, title and summary for one snapshot at wid
 
 test("native question bridge shows attention without gating task starts or completions", async () => {
   for (const order of ["ask-first", "tasks-first"]) {
-    const h = await harness({ ask: true, workspace: true, order });
+    const h = await harness({ ask: true, egregore: true, order });
     try {
       await h.emit("session_start");
       const initial = JSON.parse((await h.call({ op: "list" })).content[0].text);

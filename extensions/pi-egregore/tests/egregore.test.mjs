@@ -10,7 +10,7 @@ import { stripVTControlCharacters } from "node:util";
 // No installed dependencies: exercise the same host packages/jiti mapping that pi uses.
 const source = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const install = join(homedir(), ".pi/agent/install");
-const root = process.env.PI_WORKSPACE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
+const root = process.env.PI_EGREGORE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
 const host = join(root, "@earendil-works/pi-coding-agent/dist");
 const { createJiti } = await import(pathToFileURL(join(root, "jiti/lib/jiti.mjs")));
 const jiti = createJiti(import.meta.url, {
@@ -53,7 +53,7 @@ test("host loader accepts the extension without starting session resources", asy
   const result = await loadExtensions([join(source, "index.ts")], source);
   assert.deepEqual(result.errors, []);
   assert.equal(result.extensions.length, 1);
-  assert.ok(result.extensions[0].commands.has("workspace"));
+  assert.ok(result.extensions[0].commands.has("egregore"));
   assert.ok(result.extensions[0].commands.has("composer"));
   assert.equal(result.extensions[0].commands.has("home"), false, "retired command is not registered");
 });
@@ -169,7 +169,7 @@ test("completion menu stays outside box and remains keyboard/mouse selectable", 
     const { editor } = setup();
     editor.setAutocompleteProvider({
       triggerCharacters: ["/"],
-      async getSuggestions() { return { prefix: "/", items: [{ value: "/hello", label: "hello" }, { value: "/composer", label: "workspace" }] }; },
+      async getSuggestions() { return { prefix: "/", items: [{ value: "/hello", label: "hello" }, { value: "/composer", label: "egregore" }] }; },
       applyCompletion(_lines, _row, _col, item) { return { lines: [item.value], cursorLine: 0, cursorCol: item.value.length }; },
     });
     editor.handleInput("/");
@@ -179,7 +179,7 @@ test("completion menu stays outside box and remains keyboard/mouse selectable", 
     assert.ok(bottom >= 2);
     assert.ok(lines.slice(bottom + 1).some((line) => plain(line).includes("hello")));
     assert.equal(lines.join("").split(CURSOR_MARKER).length - 1, 1);
-    const itemRow = lines.findIndex((line, i) => i > bottom && plain(line).includes("workspace"));
+    const itemRow = lines.findIndex((line, i) => i > bottom && plain(line).includes("egregore"));
     assert.ok(itemRow > bottom);
     editor.handleMouse(mouse(80, 6, itemRow, lines.length));
     assert.equal(editor.getText(), "/composer");
@@ -230,7 +230,7 @@ test("theme invalidation, path boundaries and metadata sanitization", () => {
 });
 
 async function harness(mode = "tui", savedComposerPrefs) {
-  const scratch = mkdtempSync(join(tmpdir(), "pi-workspace-test-"));
+  const scratch = mkdtempSync(join(tmpdir(), "pi-egregore-test-"));
   const previousDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = scratch;
   writeFileSync(join(scratch, "pi-recaps.json"), JSON.stringify({ enabled: false }));
@@ -243,7 +243,7 @@ async function harness(mode = "tui", savedComposerPrefs) {
   const data = { getGitBranch: () => "main", getExtensionStatuses: () => new Map(), onBranchChange() { subscribed++; return () => subscribed--; } };
   const ctx = {
     mode, cwd: scratch, model: { id: "test-model" },
-    sessionManager: { getLeafId: () => null, getBranch: () => entries, getSessionName: () => name, getSessionId: () => "workspace-test", getHeader: () => ({ timestamp: new Date().toISOString() }) },
+    sessionManager: { getLeafId: () => null, getBranch: () => entries, getSessionName: () => name, getSessionId: () => "egregore-test", getHeader: () => ({ timestamp: new Date().toISOString() }) },
     getContextUsage: () => ({ percent: 10 }),
     ui: {
       theme, getTheme: getThemeByName, setTheme(value) { setThemeInstance(value); return { success: true }; },
@@ -283,7 +283,7 @@ async function harness(mode = "tui", savedComposerPrefs) {
     completions(prefix) { return commands.get("composer").getArgumentCompletions(prefix).map(item => item.value); },
     rename(value) { name = value; },
     get picker() { return picker; },
-    workspaceCommand: () => commands.get("workspace").handler("", ctx),
+    egregoreCommand: () => commands.get("egregore").handler("", ctx),
     get editor() { return editor; }, get footer() { return footer; }, get header() { return header; },
     get renders() { return renders; }, get subscribed() { return subscribed; }, get visible() { return visible; },
     async close() {
@@ -295,9 +295,9 @@ async function harness(mode = "tui", savedComposerPrefs) {
 }
 
 test("completion audio follows settled success and question cues do not repeat for nested dialogs", async t => {
-  const { WorkspaceSounds } = await jiti.import(join(source, "sounds.ts"));
+  const { EgregoreSounds } = await jiti.import(join(source, "sounds.ts"));
   const played = [];
-  t.mock.method(WorkspaceSounds.prototype, "play", async kind => { played.push(kind); });
+  t.mock.method(EgregoreSounds.prototype, "play", async kind => { played.push(kind); });
   const h = await harness();
   try {
     await h.emit("session_start");
@@ -349,7 +349,7 @@ test("fresh and retired Egregore preferences render only Composer, with migratio
     const h = await harness("tui", saved);
     try {
       await h.emit("session_start");
-      assert.match(h.header.render(100).map(plain).join("\n"), /pi \/ composer/);
+      assert.match(h.header.render(100).map(plain).join("\n"), /pi \/ egregore/);
       assert.match(h.editor.render(100).map(plain).join("\n"), /What’s next\?/);
       for (const old of ["biolume", "hearth", "studio", "orbit", "lab", "scene", "gaze", "motion ambient"])
         assert.deepEqual(h.completions(old), [], `${old} must not be offered`);
@@ -367,13 +367,13 @@ test("fresh and retired Egregore preferences render only Composer, with migratio
   }
 });
 
-test("questions stay above the complete Egregore workspace and restore placement after nested prompts", async () => {
+test("questions stay above the complete Egregore surface and restore placement after nested prompts", async () => {
   const h = await harness();
   try {
     await h.emit("session_start");
     await h.command("composer");
     await h.emit("agent_start");
-    const key = "pi-workspace:dock";
+    const key = "pi-egregore:dock";
     const draft = h.editor;
     draft.setText("Keep this draft");
     assert.equal(h.placements.get(key), "aboveEditor");
@@ -405,9 +405,9 @@ test("lifecycle: timings, parallel tools, prompts, command persistence, restore 
     assert.equal(h.subscribed, 1);
     assert.equal(h.visible, false);
     assert.match(h.editor.render(100).map(plain).join(""), /Untitled session/);
-    h.rename("Our new workspace 界面");
-    await h.emit("session_info_changed", { name: "Our new workspace 界面" });
-    assert.match(h.editor.render(100).map(plain).join(""), /Our new workspace 界面/);
+    h.rename("Our new egregore 界面");
+    await h.emit("session_info_changed", { name: "Our new egregore 界面" });
+    assert.match(h.editor.render(100).map(plain).join(""), /Our new egregore 界面/);
     const original = h.editor;
     h.editor.setText("draft");
     await h.command("motion off");
@@ -428,14 +428,14 @@ test("lifecycle: timings, parallel tools, prompts, command persistence, restore 
     await h.emit("message_end", { message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "done" }] } });
     await h.emit("agent_settled");
     assert.equal(h.entries.filter(e => e.customType === TIMING_ENTRY).length, 2);
-    assert.match(h.editor.render(100).map(plain).join(" "), /Our new workspace 界面/);
+    assert.match(h.editor.render(100).map(plain).join(" "), /Our new egregore 界面/);
     await h.command("motion off");
     await h.command("icons plain");
     await h.command("off");
     assert.equal(h.editor, undefined);
-    assert.equal(h.widgets.size, 1, "independent activity strip stays when workspace is off");
+    assert.equal(h.widgets.size, 1, "independent activity strip stays when Egregore is off");
     assert.equal(h.visible, true);
-    assert.equal(h.subscribed, 1, "custom footer stays when workspace is off");
+    assert.equal(h.subscribed, 1, "custom footer stays when Egregore is off");
     await h.command("on");
     assert.equal(h.subscribed, 1);
     h.entries.length = 0;
@@ -458,7 +458,7 @@ test("/egregore overlay keeps the real Composer editor visible and previews rail
     editor.setText("Unsent draft 界面");
     const frame = () => editor.render(100).map(plain).join("\n");
     assert.match(frame(), /Actual session/);
-    const open = h.workspaceCommand();
+    const open = h.egregoreCommand();
     for (let i = 0; i < 20 && !h.picker?.component; i++) await new Promise(resolve => setTimeout(resolve, 5));
     const panel = h.picker.component;
     assert.equal(h.picker.options.overlay, true);
@@ -493,7 +493,7 @@ test("approved composer has one real working indicator, no context capsule, and 
     await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.editor, editor);
     assert.equal(editor.getText(), "Real draft 界面");
-    assert.equal(theme.name, "pi-workspace-composer");
+    assert.equal(theme.name, "pi-egregore-composer");
     const all = () => [...h.widgets.values()].flatMap(c => c.render(120)).concat(h.editor.render(120), h.footer.render(120)).map(plain).join("\n");
     await h.emit("agent_start");
     assert.equal(h.visible, false, "Pi's default working display must be hidden");
@@ -521,7 +521,7 @@ test("approved composer has one real working indicator, no context capsule, and 
     assert.doesNotMatch(all(), /last run /, "last-run clutter stays hidden in the minimal Composer view");
     const rail = h.editor.render(120).map(plain).find(line => line.startsWith("╰"));
     assert.match(rail, /test-model/);
-    assert.match(rail, /pi-workspace-test/, "directory and model belong to the bottom rail");
+    assert.match(rail, /pi-egregore-test/, "directory and model belong to the bottom rail");
     await h.command("motion off");
     await h.emit("agent_start");
     const still = h.editor.render(120);
@@ -623,14 +623,14 @@ test("footer and Egregore exclude only actual blocking time, including nested pa
   const h = await harness(), originalNow = Date.now; let time = 1000; Date.now = () => time;
   try {
     await h.emit("session_start"); await h.emit("agent_start");
-    h.events.emit("pi-workspace:interaction:v1", { version: 1, sessionId: "workspace-test", id: "pi-ask:posted", active: true });
+    h.events.emit("pi-egregore:interaction:v1", { version: 1, sessionId: "egregore-test", id: "pi-ask:posted", active: true });
     time = 2000; await h.emit("ui_prompt_start", { kind: "custom" });
     time = 3000; await h.emit("tool_execution_start", { toolCallId: "sync", toolName: "ask_questions" });
     await h.emit("ui_prompt_start", { kind: "custom" });
     time = 8000; await h.emit("ui_prompt_end", { kind: "custom" }); await h.emit("tool_execution_end", { toolCallId: "sync", toolName: "ask_questions" });
     time = 9000; await h.emit("ui_prompt_end", { kind: "custom" });
     time = 11000; await h.emit("agent_settled");
-    const footer = h.entries.filter(e => e.customType === "pi-workspace:footer-v1").at(-1)?.data;
+    const footer = h.entries.filter(e => e.customType === "pi-egregore:footer-v1").at(-1)?.data;
     const clock = h.editor.homeState.clock;
     assert.equal(clock.timing.activeMs, 5000);
     const snapshot = h.entries.filter(e => e.data?.lastRunBasis === "active").at(-1)?.data;
@@ -644,7 +644,7 @@ test("posted-question and Tasks overlays keep real work timing active but pause 
     await h.emit("session_start"); await h.emit("agent_start");
     const state = h.editor.homeState;
     for (const id of ["pi-tasks:browser", "pi-ask:posted"]) {
-      h.events.emit("pi-workspace:interaction:v1", { version: 1, sessionId: "workspace-test", id, active: true });
+      h.events.emit("pi-egregore:interaction:v1", { version: 1, sessionId: "egregore-test", id, active: true });
       await h.emit("ui_prompt_start", { kind: "custom" });
       assert.equal(state.promptDepth, 1); assert.equal(state.blockingPromptDepth, 0);
       assert.notEqual(state.railStatus().state, "waiting", "footer status shares the passive-dialog policy");
@@ -658,9 +658,9 @@ test("posted-question and Tasks overlays keep real work timing active but pause 
       await h.emit("tool_execution_end", { toolCallId: "synchronous", toolName: "ask_user_question" });
       assert.match(state.clock.label(Date.now()), /^working /);
       await h.emit("ui_prompt_end", { kind: "custom" });
-      h.events.emit("pi-workspace:interaction:v1", { version: 1, sessionId: "workspace-test", id, active: false });
+      h.events.emit("pi-egregore:interaction:v1", { version: 1, sessionId: "egregore-test", id, active: false });
     }
-    h.events.emit("pi-workspace:interaction:v1", { version: 1, sessionId: "wrong-session", id: "pi-ask:posted", active: true });
+    h.events.emit("pi-egregore:interaction:v1", { version: 1, sessionId: "wrong-session", id: "pi-ask:posted", active: true });
     await h.emit("ui_prompt_start", { kind: "custom" });
     assert.equal(state.clock.label(Date.now()), "waiting for you", "foreign sessions cannot suppress a blocking clock pause");
     await h.emit("ui_prompt_end", { kind: "custom" });
@@ -672,12 +672,12 @@ test("session replacement detaches owned mounts and makes queued old renders ine
   try {
     for (const reason of ["new", "resume", "reload", "quit"]) {
       await h.emit("session_start", { reason: "new" });
-      const old = [h.header, h.widgets.get("pi-workspace:dock"), h.editor, h.footer];
+      const old = [h.header, h.widgets.get("pi-egregore:dock"), h.editor, h.footer];
       const paints = old.map(component => component.render);
       const nativeWorking = h.visible;
       await h.emit("session_shutdown", { reason });
       assert.equal(h.header, undefined);
-      assert.equal(h.widgets.has("pi-workspace:dock"), false);
+      assert.equal(h.widgets.has("pi-egregore:dock"), false);
       assert.equal(h.editor, undefined);
       assert.equal(h.subscribed, 0);
       assert.equal(h.visible, nativeWorking, "teardown must not resurrect the native working loader");
@@ -701,7 +701,7 @@ test("shutdown disposes a temporary native Composer preview before invalidating 
     await h.command("off");
     const native = h.editor;
     native.setText("Unsent preview draft 界面");
-    const picker = h.workspaceCommand();
+    const picker = h.egregoreCommand();
     const deadline = Date.now() + 3000;
     while (!h.picker && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
     assert.ok(h.picker, "preview must actually be mounted before testing teardown");
@@ -720,7 +720,7 @@ test("Composer off/on leaves old queued components inert without replacing the c
   const h = await harness();
   try {
     await h.emit("session_start");
-    const stale = h.widgets.get("pi-workspace:dock");
+    const stale = h.widgets.get("pi-egregore:dock");
     await h.command("off");
     assert.deepEqual(stale.render(100), []);
     await h.command("on");

@@ -4,7 +4,7 @@ import { isKeyRelease, sliceByColumn, truncateToWidth, visibleWidth, type Editor
 import { composerBottomRail, composerFrame, composerThinkingBorder, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
 import { dictationSpan } from "./dictation.ts";
 import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
-import type { WorkspaceState } from "./state.ts";
+import type { EgregoreState } from "./state.ts";
 
 export function isEditorComponent(value: unknown): value is EditorComponent & { focused?: boolean } {
   const c = value as EditorComponent | undefined;
@@ -15,7 +15,7 @@ export function isEditorComponent(value: unknown): value is EditorComponent & { 
  * registers, cursor, callbacks, visual selection, paste storage and completions.
  * Only public render/input/mouse methods are wrapped; cleanup is reversible.
  */
-export function dressComposerEditor(editor: EditorComponent, ctx: () => ExtensionContext, workspace: WorkspaceState, now: () => number = Date.now, terminalRows: () => number = () => 24): () => void {
+export function dressComposerEditor(editor: EditorComponent, ctx: () => ExtensionContext, egregore: EgregoreState, now: () => number = Date.now, terminalRows: () => number = () => 24): () => void {
   const original = { render: editor.render, handleInput: editor.handleInput, handleMouse: editor.handleMouse, setText: editor.setText };
   const padded = editor as EditorComponent & { getPaddingX?: () => number; setPaddingX?: (n: number) => void };
   const oldPadding = padded.getPaddingX?.();
@@ -30,11 +30,11 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
     forgetCopyFrame(editor);
     verticalPad = 0;
     bottomRailWidth = -1;
-    framed = canFrame && (workspace.footerPickerOpen || workspace.prefs.enabled) && width >= 8;
+    framed = canFrame && (egregore.footerPickerOpen || egregore.prefs.enabled) && width >= 8;
     if (canFrame) {
       const nativeWidth = framed ? width - 2 : Math.max(3, width);
       // The native wrapper needs at least three content cells for CJK + cursor.
-      appliedPadding = workspace.footerPickerOpen || workspace.prefs.enabled
+      appliedPadding = egregore.footerPickerOpen || egregore.prefs.enabled
         ? Math.min(2, Math.max(0, Math.floor((nativeWidth - 3) / 2))) : oldPadding;
       padded.setPaddingX!(appliedPadding!);
     }
@@ -53,17 +53,17 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
       framed = false;
       return original.render.call(editor, width);
     }
-    verticalPad = composerPadding(width, terminalRows(), workspace.layout?.density);
+    verticalPad = composerPadding(width, terminalRows(), egregore.layout?.density);
     nativeBottom = bottom;
-    const edge = theme.style("│", { fg: composerThinkingBorder(theme, workspace.thinkingLevel?.(), workspace) });
+    const edge = theme.style("│", { fg: composerThinkingBorder(theme, egregore.thinkingLevel?.(), egregore) });
     const blank = composerSurface(theme, edge + composerSurface(theme, "", inner, true) + edge, width);
     const caption = (line: string) => plain(line).replace(/^[─━\s]+|[─━\s]+$/gu, "").trim();
     const topHint = caption(lines[0]);
     const bottomCaption = caption(lines[bottom]);
     const bottomHint = bottomCaption.match(/↓\s+\d+\s+more/)?.[0] ?? "";
     const mode = bottomCaption.replace(bottomHint, "").replace(/[─━]/g, "").trim();
-    workspace.appearanceMode = mode;
-    const result = [composerMessageRail(theme, width, workspace, now(),
+    egregore.appearanceMode = mode;
+    const result = [composerMessageRail(theme, width, egregore, now(),
       ctx().sessionManager.getSessionName?.() ?? "Untitled session", topHint)];
     if (verticalPad) result.push(blank);
     for (let i = 1; i < bottom; i++) {
@@ -73,25 +73,25 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
       result.push(composerSurface(theme, edge + composerSurface(theme, safe, inner, true) + edge, width));
     }
     if (verticalPad) result.push(blank);
-    bottomRail = composerBottomRail(theme, width, workspace, ctx(), mode, bottomHint);
+    bottomRail = composerBottomRail(theme, width, egregore, ctx(), mode, bottomHint);
     bottomRailWidth = width;
     result.push(bottomRail);
     for (const line of lines.slice(bottom + 1)) result.push(composerSurface(theme, " " + line + " ", width, true));
     return rememberCopyFrame(editor, width,
-      composerFrame(theme, result, width, workspace, now(), bottom + 2 * verticalPad),
+      composerFrame(theme, result, width, egregore, now(), bottom + 2 * verticalPad),
       appliedPadding ?? 0, verticalPad, bottom + 2 * verticalPad);
   };
   const handleInput = function(data: string) {
-    if (active && !isKeyRelease(data)) workspace.lastInputAt = now();
+    if (active && !isKeyRelease(data)) egregore.lastInputAt = now();
     return original.handleInput?.call(editor, data);
   };
   const handleMouse = function(event: TuiMouseEvent) {
     if (!active || !framed) return original.handleMouse?.call(editor, event);
     const bottom = nativeBottom + 2 * verticalPad;
     if (event.type === "click" && event.y === bottom) {
-      const dictation = workspace.dictation;
-      if (dictation && bottomRailWidth === event.width && workspace.mouseReporting?.() !== false && !workspace.layout?.appearance) {
-        const icons = workspace.layout?.icons === "plain" ? "plain" : "nerd";
+      const dictation = egregore.dictation;
+      if (dictation && bottomRailWidth === event.width && egregore.mouseReporting?.() !== false && !egregore.layout?.appearance) {
+        const icons = egregore.layout?.icons === "plain" ? "plain" : "nerd";
         const span = dictationSpan(bottomRail, dictation.label(icons), icons);
         if (span && event.x >= span.start && event.x < span.end) {
           // The mic is operational: clicking it must not move keyboard focus.
@@ -108,7 +108,7 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
   const setText = function(text: string) {
     // Native custom-screen restoration writes the unchanged draft back. Avoid
     // resetting Vim undo/repeat/cursor for that no-op while a dialog owns input.
-    if (active && workspace.promptDepth > 0 && text === editor.getText()) return;
+    if (active && egregore.promptDepth > 0 && text === editor.getText()) return;
     return original.setText.call(editor, text);
   };
   editor.setText = setText;

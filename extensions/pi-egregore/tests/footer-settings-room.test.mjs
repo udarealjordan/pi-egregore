@@ -11,7 +11,7 @@ const { appearanceRow, appearanceBorder } = await jiti.import(join(source, "appe
 const { COMPOSER_ICONS } = await jiti.import(join(source, "composer-icons.ts"));
 const { ComposerEditor } = await jiti.import(join(source, "ui.ts"));
 const { getEditorTheme } = await import(pathToFileURL(join(root, "@earendil-works/pi-coding-agent/dist/modes/interactive/theme/theme.js")));
-import { workspace } from "./workspace-harness.mjs";
+import { egregore } from "./egregore-harness.mjs";
 
 test("visual layout migration is optional, validates nested data and never mutates old preferences", () => {
   const old = { ...FOOTER_DEFAULTS, railTitle: "off", composerContext: "off" };
@@ -34,7 +34,7 @@ test("visual layout migration is optional, validates nested data and never mutat
 });
 
 test("Tab and Shift-Tab follow the six top sections without entering Input properties", async () => {
-  const h = workspace(undefined, 60, 24);
+  const h = egregore(undefined, 60, 24);
   const section = () => h.rows()[2];
   assert.match(section(), /1\/6 Input/);
   for (const label of ["2/6 Tasks", "3/6 Ask", "4/6 Transcript", "5/6 More settings", "6/6 General", "1/6 Input"]) {
@@ -51,7 +51,7 @@ test("Tab and Shift-Tab follow the six top sections without entering Input prope
 });
 
 test("clear sections, contextual controls and fixed information preserve settings", async () => {
-  const h = workspace(undefined, 120, 40);
+  const h = egregore(undefined, 120, 40);
   assert.match(h.rows()[1], /\[Input\].*\[More settings\].*\[General\]/);
   assert.doesNotMatch(h.rows()[1], /\[Undo\]/);
   assert.match(h.rows().join("\n"), /\[Undo\] \[Discard\] \[Save\]/);
@@ -71,7 +71,7 @@ test("clear sections, contextual controls and fixed information preserve setting
 });
 
 test("advanced choices stay available without crowding the first view", async () => {
-  const h = workspace();
+  const h = egregore();
   h.click("[Tasks]");
   assert.doesNotMatch(h.rows().join("\n"), /Cycle duration/);
   h.click("Advanced settings"); assert.match(h.rows().join("\n"), /Border effect/);
@@ -88,8 +88,8 @@ test("advanced choices stay available without crowding the first view", async ()
   await h.discard();
 });
 
-test("workspace identity and density edit, undo and save transactionally", async () => {
-  const h = workspace();
+test("Egregore identity and density edit, undo and save transactionally", async () => {
+  const h = egregore();
   h.click("[Egregore]"); h.click("Your display name"); h.text("Alex 界面");
   assert.equal(h.latest.displayName, "Alex 界面");
   h.click("Egregore density"); h.pick("Compact");
@@ -101,33 +101,33 @@ test("workspace identity and density edit, undo and save transactionally", async
 });
 
 test("stock Sent and directory rails follow the existing icon preference without rewriting templates", async () => {
-  const h = workspace();
-  const top = () => plain(appearanceRow(theme, 140, h.workspace, "top", new Date(2026, 9, 8, 12, 31).valueOf()));
-  const bottom = () => plain(appearanceRow(theme, 140, h.workspace, "bottom", 0));
+  const h = egregore();
+  const top = () => plain(appearanceRow(theme, 140, h.egregore, "top", new Date(2026, 9, 8, 12, 31).valueOf()));
+  const bottom = () => plain(appearanceRow(theme, 140, h.egregore, "bottom", 0));
   assert.match(top(), new RegExp(`${COMPOSER_ICONS.sent} \\d{2}:\\d{2}:\\d{2}`));
   assert.doesNotMatch(top(), /Sent \d/);
   assert.ok(bottom().includes(`${COMPOSER_ICONS.directory} /project/界面`));
-  assert.equal(h.workspace.layout.appearance.elements.model.color, "frame");
-  h.workspace.layout.icons = "plain";
+  assert.equal(h.egregore.layout.appearance.elements.model.color, "frame");
+  h.egregore.layout.icons = "plain";
   assert.match(top(), /Sent \d{2}:\d{2}:\d{2}/);
   assert.doesNotMatch(bottom(), new RegExp(COMPOSER_ICONS.directory));
   assert.ok(bottom().includes("/project/界面"));
-  h.workspace.layout.icons = "nerd";
-  h.workspace.layout.appearance.elements.sentTime.text = "Posted {value}";
+  h.egregore.layout.icons = "nerd";
+  h.egregore.layout.appearance.elements.sentTime.text = "Posted {value}";
   assert.match(top(), new RegExp(`${COMPOSER_ICONS.sent} Posted \\d`), "custom text remains intact");
   await h.discard();
 });
 
 test("native full-width preview, disabled elements and synced direct/list selection", async () => {
-  const h = workspace();
+  const h = egregore();
   assert.equal(h.options.overlayOptions.width, "100%");
   assert.match(h.rows().join("\n"), /Unsent native draft 界面/);
   assert.match(h.rows().join("\n"), /Context usage · Off/);
   assert.doesNotMatch(h.rows().join("\n"), /37%|42%|thinking high|Live preview|Waiting for you/);
   const titleY = h.rows().findIndex(row => row.includes("Actual chat 界面"));
-  const hit = h.workspace.appearanceHits.find(hit => hit.id === "session");
+  const hit = h.egregore.appearanceHits.find(hit => hit.id === "session");
   h.clickAt(hit.x, titleY);
-  assert.equal(h.workspace.appearancePreview.selected, "session");
+  assert.equal(h.egregore.appearancePreview.selected, "session");
   assert.match(h.rows().join("\n"), /• Chat title/);
   assert.match(h.rows().join("\n"), /› Visible/);
   h.click("Show this element");
@@ -140,7 +140,7 @@ test("native full-width preview, disabled elements and synced direct/list select
 });
 
 test("change your turn wording, color and frame; state demonstration never changes clocks", async () => {
-  const h = workspace(), before = JSON.stringify(h.workspace.clock);
+  const h = egregore(), before = JSON.stringify(h.egregore.clock);
   h.click("Assistant status"); h.click("Preview appearance"); h.pick("When the assistant finishes");
   h.click("Text for this state"); h.text("Your turn 界面");
   assert.match(h.rows().join("\n"), /Your turn 界面/);
@@ -149,19 +149,19 @@ test("change your turn wording, color and frame; state demonstration never chang
   h.click("Frame color for this state"); h.pick("Blue");
   assert.equal(h.latest.appearance.states.done.color, "green");
   assert.equal(h.latest.appearance.states.done.frameColor, "blue");
-  assert.equal(JSON.stringify(h.workspace.clock), before);
+  assert.equal(JSON.stringify(h.egregore.clock), before);
   h.click("Preview appearance"); h.pick("While waiting for your answer");
   assert.match(h.rows().join("\n"), /Waiting for you/);
-  assert.equal(h.workspace.clock.active, false);
+  assert.equal(h.egregore.clock.active, false);
   h.click("[Save]");
   const saved = await h.pending;
   assert.equal(saved.appearance.states.done.text, "Your turn 界面");
-  assert.equal(h.workspace.appearancePreview.state, undefined, "simulation is not saved");
+  assert.equal(h.egregore.appearancePreview.state, undefined, "simulation is not saved");
   assert.equal(saved.appearance.states.waiting, undefined);
 });
 
 test("move model to footer; edit text; keep thinking level without a thinking prefix", async () => {
-  const h = workspace();
+  const h = egregore();
   h.click("Model name"); h.click("Position"); h.pick("Footer row 2 · right");
   const rows = h.rows(), modelAt = rows.findIndex(row => row.includes("Model Name")), bottom = rows.findIndex(row => row.startsWith("╰") && row.includes("high"));
   assert.ok(modelAt > bottom);
@@ -175,7 +175,7 @@ test("move model to footer; edit text; keep thinking level without a thinking pr
 });
 
 test("invalid custom color stays editable; Escape cancels a field; Discard needs confirmation", async () => {
-  const h = workspace();
+  const h = egregore();
   h.click("Input box border"); h.click("Frame color"); h.pick("More color options"); h.text("nonsense");
   assert.match(h.rows().join("\n"), /Use # followed by six digits/);
   h.panel.handleInput("\x1b");
@@ -187,7 +187,7 @@ test("invalid custom color stays editable; Escape cancels a field; Discard needs
 });
 
 test("keyboard search finds hidden fields and editing inputs keep a single IME marker", async () => {
-  const h = workspace();
+  const h = egregore();
   h.panel.handleInput("/"); h.text("context");
   assert.match(h.rows().join("\n"), /Context usage · Off/);
   h.panel.handleInput("\r"); h.panel.handleInput("\r");
@@ -199,29 +199,29 @@ test("keyboard search finds hidden fields and editing inputs keep a single IME m
 });
 
 test("all placements, light/dark colors and wide Unicode respect width and native scroll priority", async () => {
-  const h = workspace();
+  const h = egregore();
   for (const name of ["dark", "light"]) {
     initTheme(name, false);
     for (const position of Object.keys(POSITIONS)) {
-      h.workspace.layout.appearance.elements.session.position = position;
-      h.workspace.layout.appearance.elements.session.text = "界面 🌈 é {value}";
+      h.egregore.layout.appearance.elements.session.position = position;
+      h.egregore.layout.appearance.elements.session.text = "界面 🌈 é {value}";
       for (const width of [1, 4, 8, 20, 42, 65, 100, 160]) for (const row of ["top", "bottom", "footer1", "footer2"]) {
-        const line = appearanceRow(theme, width, h.workspace, row, 3000);
+        const line = appearanceRow(theme, width, h.egregore, row, 3000);
         assert.ok(visibleWidth(line) <= width, `${row}/${position}/${width}: ${plain(line)}`);
-        assert.ok(h.workspace.appearanceHits.every(hit => hit.x >= 0 && hit.width >= 0));
+        assert.ok(h.egregore.appearanceHits.every(hit => hit.x >= 0 && hit.width >= 0));
       }
     }
     for (const state of Object.keys(STATES)) {
-      h.workspace.appearancePreview.state = state;
-      assert.ok(appearanceBorder(theme, h.workspace));
+      h.egregore.appearancePreview.state = state;
+      assert.ok(appearanceBorder(theme, h.egregore));
     }
-    assert.match(plain(appearanceRow(theme, 100, h.workspace, "top", 3000, "↑ 4 more")), /↑ 4 more/);
+    assert.match(plain(appearanceRow(theme, 100, h.egregore, "top", 3000, "↑ 4 more")), /↑ 4 more/);
   }
   initTheme("dark", false); await h.discard();
 });
 
-test("short/narrow workspaces keep Save, Discard and keyboard navigation; one native draft after resize", async () => {
-  const h = workspace();
+test("short/narrow settings panels keep Save, Discard and keyboard navigation; one native draft after resize", async () => {
+  const h = egregore();
   for (const [width, height] of [[120, 40], [60, 18], [48, 12], [100, 40], [8, 10], [1, 5]]) {
     h.tui.terminal.columns = width; h.tui.terminal.rows = height;
     const rows = h.panel.render(width);
@@ -239,12 +239,12 @@ test("short/narrow workspaces keep Save, Discard and keyboard navigation; one na
 test("temporary Composer preview dresses disabled pi-vim without changing its draft, mode, undo or padding", async () => {
   const { ModalEditor } = await jiti.import(join(source, "../../node_modules/pi-vim/index.ts"));
   const { dressComposerEditor } = await jiti.import(join(source, "composer-editor.ts"));
-  const h = workspace();
-  h.workspace.prefs.enabled = false; // Preview temporarily dresses the disabled native editor.
+  const h = egregore();
+  h.egregore.prefs.enabled = false; // Preview temporarily dresses the disabled native editor.
   const vim = new ModalEditor(h.tui, getEditorTheme(), kb); vim.setClipboardMirrorPolicy("never");
   vim.setText("one two 界面"); vim.handleInput("\x1b"); vim.handleInput("0"); vim.handleInput("x");
   const draft = vim.getText(), cursor = vim.getCursor(), padding = vim.getPaddingX(), original = vim.render;
-  const cleanup = dressComposerEditor(vim, () => ({ ui: { theme }, sessionManager: { getSessionName: () => "Vim preview" } }), h.workspace, () => 3000, () => h.tui.terminal.rows);
+  const cleanup = dressComposerEditor(vim, () => ({ ui: { theme }, sessionManager: { getSessionName: () => "Vim preview" } }), h.egregore, () => 3000, () => h.tui.terminal.rows);
   try {
     for (const width of [60, 120]) {
       const lines = vim.render(width).map(plain);
@@ -259,13 +259,13 @@ test("temporary Composer preview dresses disabled pi-vim without changing its dr
   await h.discard();
 });
 test("live activity strip stays above the input and preview label clicks retain correct coordinates", async () => {
-  const h = workspace(), render = h.surface.render;
+  const h = egregore(), render = h.surface.render;
   h.surface.render = width => ({ ...render(width), above: ["Real activity strip"] });
   const rows = h.rows(), strip = rows.findIndex(line => line.includes("Real activity strip"));
   const title = rows.findIndex(line => line.includes("Actual chat 界面"));
   assert.ok(strip > 0 && strip < title);
-  const hit = h.workspace.appearanceHits.find(hit => hit.id === "session");
+  const hit = h.egregore.appearanceHits.find(hit => hit.id === "session");
   h.clickAt(hit.x, title);
-  assert.equal(h.workspace.appearancePreview.selected, "session");
+  assert.equal(h.egregore.appearancePreview.selected, "session");
   await h.discard();
 });

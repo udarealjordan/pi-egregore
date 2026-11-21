@@ -5,32 +5,32 @@ import { join } from "node:path";
 import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { wrapTextWithAnsi, type TUI } from "@earendil-works/pi-tui";
 import { DOCK } from "pi-agent-contracts/dock";
-import { shouldAnimate, type WorkspaceState } from "./state.ts";
+import { shouldAnimate, type EgregoreState } from "./state.ts";
 import { composerStatus } from "./composer-live.ts";
 import { composerInset, composerPadding, composerSurface } from "./composer-style.ts";
 import { ActivityClock, FOOTER_DEFAULTS, FOOTER_ENTRY, activityParts, clean, parseGit, type FooterPrefs, type GitState } from "./footer-state.ts";
-import { loadWorkspacePrefs, workspaceSnapshot, WORKSPACE_SETTINGS, WORKSPACE_VERSION } from "./workspace-preferences.ts";
+import { loadEgregorePrefs, egregoreSnapshot, EGREGORE_SETTINGS, EGREGORE_VERSION } from "./settings-files.ts";
 import { footerRows, timingRows } from "./footer-view.ts";
 import { chooseFooter } from "./footer-settings.ts";
 import { appearanceRow } from "./appearance-render.ts";
 import { clonePrefs } from "./appearance.ts";
 import { decorateActivity, moving } from "./footer-effects.ts";
 
-const WIDGET = "pi-workspace:activity";
+const WIDGET = "pi-egregore:activity";
 export async function saveFooter(path: string, prefs: FooterPrefs, expectedSnapshot?: string): Promise<void> {
   const temp = `${path}.${randomUUID()}.tmp`;
   try {
     await mkdir(join(path, ".."), { recursive: true });
-    await writeFile(temp, JSON.stringify({ version: WORKSPACE_VERSION, ...prefs }, null, 2) + "\n", { mode: 0o600 });
-    if (expectedSnapshot !== undefined && await workspaceSnapshot(join(path, "..")) !== expectedSnapshot)
+    await writeFile(temp, JSON.stringify({ version: EGREGORE_VERSION, ...prefs }, null, 2) + "\n", { mode: 0o600 });
+    if (expectedSnapshot !== undefined && await egregoreSnapshot(join(path, "..")) !== expectedSnapshot)
       throw new Error("Egregore settings changed in another session. Nothing was saved; reload and try again.");
     await rename(temp, path);
   } finally { await rm(temp, { force: true }).catch(() => {}); }
 }
 
 /** Egregore owns the appearance transaction and footer, not native input, Tasks state or theme. */
-export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: WorkspaceState): void {
-  workspace.footerManaged = true;
+export function registerEgregoreAppearance(pi: ExtensionAPI, egregore: EgregoreState): void {
+  egregore.footerManaged = true;
   let prefs = { ...FOOTER_DEFAULTS }, ctx: ExtensionContext | undefined, tui: TUI | undefined;
   let clock = new ActivityClock();
   const promptPauses: boolean[] = [];
@@ -40,24 +40,24 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
   const gitProcesses = new Set<Promise<void>>();
   let pickerAbort: AbortController | undefined, pickerBaseline: FooterPrefs | undefined;
   const cancelPicker = () => {
-    if (pickerBaseline) { prefs = pickerBaseline; workspace.layout = prefs; }
-    pickerBaseline = undefined; workspace.footerPickerOpen = false;
+    if (pickerBaseline) { prefs = pickerBaseline; egregore.layout = prefs; }
+    pickerBaseline = undefined; egregore.footerPickerOpen = false;
     pickerAbort?.abort(); pickerAbort = undefined;
   };
   let mountedWidget = false, unsubscribe: (() => void) | undefined;
   let createdAt: number | undefined, lastUserSentAt: number | undefined, outcome = "done";
-  const path = join(getAgentDir(), WORKSPACE_SETTINGS);
+  const path = join(getAgentDir(), EGREGORE_SETTINGS);
   let unreadableSettings = false, loadedSnapshot: string | undefined;
   const refresh = () => tui?.requestRender();
   const persist = () => { if (ctx?.mode === "tui") pi.appendEntry(FOOTER_ENTRY, clock.snapshot(Date.now())); };
-  const composer = () => workspace.footerPickerOpen || workspace.prefs.enabled;
+  const composer = () => egregore.footerPickerOpen || egregore.prefs.enabled;
   let renderFooter: ((width: number) => string[]) | undefined;
-  workspace.appearanceData = () => ({ cwd: ctx?.cwd ?? "", model: ctx?.model?.name || ctx?.model?.id || "no model", thinking: pi.getThinkingLevel(),
+  egregore.appearanceData = () => ({ cwd: ctx?.cwd ?? "", model: ctx?.model?.name || ctx?.model?.id || "no model", thinking: pi.getThinkingLevel(),
     session: ctx?.sessionManager.getSessionName() ?? "", usage: ctx?.getContextUsage(), git, gitUnavailable, frame: frame() });
   const frame = () => {
     const now = Date.now();
-    return { now, running: clock.running && !workspace.promptDepth && workspace.prefs.motion !== "off"
-      && (!composer() || shouldAnimate(workspace, now, workspace.editorFocused?.() ?? true)) };
+    return { now, running: clock.running && !egregore.promptDepth && egregore.prefs.motion !== "off"
+      && (!composer() || shouldAnimate(egregore, now, egregore.editorFocused?.() ?? true)) };
   };
   /** Timing parts for the strip above the editor, or for the footer row when aboveEditor is false. */
   const activity = (width: number, aboveEditor = true) => {
@@ -80,13 +80,13 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
   function wake() { if (timer) clearTimeout(timer); timer = undefined; if (ctx) tick(); }
   function mountActivity() {
     if (!ctx || ctx.mode !== "tui") return;
-    workspace.layout = prefs;
-    workspace.railStatus = composer() ? () => composerStatus(workspace, clock) : undefined;
-    workspace.railRunElapsed = composer() ? now => clock.runElapsed(now) : undefined;
-    workspace.lastUserSentAt = composer() ? () => lastUserSentAt : undefined;
-    workspace.statusRows = undefined;
-    workspace.activityRows = prefs.timing === "strip" && workspace.prefs.enabled ? activity : undefined;
-    const wanted = prefs.timing === "strip" && !workspace.prefs.enabled;
+    egregore.layout = prefs;
+    egregore.railStatus = composer() ? () => composerStatus(egregore, clock) : undefined;
+    egregore.railRunElapsed = composer() ? now => clock.runElapsed(now) : undefined;
+    egregore.lastUserSentAt = composer() ? () => lastUserSentAt : undefined;
+    egregore.statusRows = undefined;
+    egregore.activityRows = prefs.timing === "strip" && egregore.prefs.enabled ? activity : undefined;
+    const wanted = prefs.timing === "strip" && !egregore.prefs.enabled;
     if (wanted && !mountedWidget) {
       ctx.ui.setWidget(WIDGET, () => ({ invalidate() {}, render: activity }), { placement: "aboveEditor" });
     } else if (!wanted && mountedWidget) ctx.ui.setWidget(WIDGET, undefined);
@@ -100,7 +100,7 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
     // so activity stays below Tasks even when the Egregore appearance is disabled.
     queueMicrotask(() => {
       if (gen !== generation || !ctx) return;
-      if (mountedWidget && !workspace.prefs.enabled) { ctx.ui.setWidget(WIDGET, undefined); mountedWidget = false; }
+      if (mountedWidget && !egregore.prefs.enabled) { ctx.ui.setWidget(WIDGET, undefined); mountedWidget = false; }
       mountActivity();
     });
   }
@@ -163,14 +163,14 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
             thinking: "off" as const,
             context: prefs.composerContext === "off" ? "off" as const : prefs.context } : prefs;
           const rows = composer() && prefs.appearance
-            ? [appearanceRow(ctx.ui.theme, width, workspace, "footer1", Date.now()), appearanceRow(ctx.ui.theme, width, workspace, "footer2", Date.now())]
-            : footerRows(display, workspace.appearanceData!(), ctx.ui.theme, Math.max(1, width - 2 * inset));
+            ? [appearanceRow(ctx.ui.theme, width, egregore, "footer1", Date.now()), appearanceRow(ctx.ui.theme, width, egregore, "footer2", Date.now())]
+            : footerRows(display, egregore.appearanceData!(), ctx.ui.theme, Math.max(1, width - 2 * inset));
           if (composer()) for (let i = rows.length - 1; i >= 0; i--) if (!clean(rows[i]).trim()) rows.splice(i, 1);
           if (inset && !prefs.appearance) for (let i = 0; i < rows.length; i++) rows[i] = " ".repeat(inset) + rows[i];
           if (prefs.timing === "footer") rows.push(...activity(width, false));
           const statuses = [...data.getExtensionStatuses().values()].map(clean).filter(Boolean);
           if (statuses.length) rows.push(...wrapTextWithAnsi(ctx.ui.theme.fg("dim", statuses.join("  ")), width));
-          if (composer() && !workspace.footerPickerOpen && composerPadding(width, ui.terminal.rows, prefs.density)) rows.unshift("");
+          if (composer() && !egregore.footerPickerOpen && composerPadding(width, ui.terminal.rows, prefs.density)) rows.unshift("");
           return composer() ? rows.map(row => composerSurface(ctx!.ui.theme, row, width)) : rows;
         },
       };
@@ -183,15 +183,15 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
     if (timer) clearTimeout(timer); timer = undefined;
     gitJob?.abort(); gitJob = undefined;
     unsubscribe?.(); unsubscribe = undefined;
-    workspace.activityRows = undefined;
-    workspace.statusRows = undefined;
-    workspace.railStatus = undefined;
-    workspace.railRunElapsed = undefined;
-    workspace.lastUserSentAt = undefined;
-    workspace.layout = undefined;
-    workspace.appearancePreview = undefined;
-    workspace.appearanceHits = undefined;
-    workspace.footerPickerOpen = false;
+    egregore.activityRows = undefined;
+    egregore.statusRows = undefined;
+    egregore.railStatus = undefined;
+    egregore.railRunElapsed = undefined;
+    egregore.lastUserSentAt = undefined;
+    egregore.layout = undefined;
+    egregore.appearancePreview = undefined;
+    egregore.appearanceHits = undefined;
+    egregore.footerPickerOpen = false;
     renderFooter = undefined;
     if (mountedWidget && ctx?.mode === "tui") ctx.ui.setWidget(WIDGET, undefined);
     mountedWidget = false; tui = undefined; ctx = undefined;
@@ -200,7 +200,7 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
     stop();
     if (context.mode !== "tui") return;
     ctx = context;
-    try { prefs = await loadWorkspacePrefs(); loadedSnapshot = await workspaceSnapshot(); unreadableSettings = false; }
+    try { prefs = await loadEgregorePrefs(); loadedSnapshot = await egregoreSnapshot(); unreadableSettings = false; }
     catch (error) {
       prefs = { ...FOOTER_DEFAULTS }; loadedSnapshot = undefined; unreadableSettings = true;
       context.ui.notify(`Egregore settings could not be read: ${String(error)}. Using defaults; saved files are unchanged.`, "warning");
@@ -254,7 +254,7 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
   });
   pi.on("ui_prompt_start", (event, context) => {
     if (context.mode !== "tui") return;
-    const pauses = workspace.promptBlocksWork?.(event.kind) ?? true;
+    const pauses = egregore.promptBlocksWork?.(event.kind) ?? true;
     promptPauses.push(pauses);
     if (pauses) { clock.pause(Date.now()); if (clock.running) persist(); }
   });
@@ -269,8 +269,7 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
   pi.on("session_info_changed", contextChanged);
   pi.on("session_compact", contextChanged);
   pi.on("session_compact_failed", contextChanged);
-  // Keep the old command as an alias for existing habits and integrations.
-  for (const command of ["egregore", "workspace"]) pi.registerCommand(command, {
+  pi.registerCommand("egregore", {
     description: "Customize input, footer, Tasks, Ask and Transcript visuals. Save / Discard.",
     handler: async (_args, context) => {
       if (context.mode !== "tui") { context.ui.notify("/egregore requires terminal UI mode.", "info"); return; }
@@ -278,42 +277,42 @@ export function registerWorkspaceAppearance(pi: ExtensionAPI, workspace: Workspa
       if (pickerOpen) return;
       let openedSnapshot: string;
       try {
-        openedSnapshot = await workspaceSnapshot();
+        openedSnapshot = await egregoreSnapshot();
         if (openedSnapshot !== loadedSnapshot) {
           context.ui.notify("Egregore settings changed since this session loaded. Run /reload before editing.", "warning"); return;
         }
       } catch (error) { context.ui.notify(`Egregore settings could not be checked: ${String(error)}`, "error"); return; }
-      pickerOpen = true; workspace.footerPickerOpen = true; ctx = context; wake();
+      pickerOpen = true; egregore.footerPickerOpen = true; ctx = context; wake();
       const original = clonePrefs(prefs), gen = generation;
       const abort = new AbortController(); pickerAbort = abort; pickerBaseline = original;
-      const native = tui ? workspace.openAppearancePreview?.(tui) : undefined;
+      const native = tui ? egregore.openAppearancePreview?.(tui) : undefined;
       let committed = false;
       mountActivity();
       try {
         const selected = await chooseFooter(context, prefs, next => { if (gen === generation) { prefs = next; mountActivity(); pollGit(); wake(); } }, {
           render: (width, shimmer) => {
-            if (workspace.appearancePreview) workspace.appearancePreview.shimmer = shimmer;
-            workspace.appearanceHits = [];
+            if (egregore.appearancePreview) egregore.appearancePreview.shimmer = shimmer;
+            egregore.appearanceHits = [];
             const editor = native?.render(width) ?? [];
             const footer = renderFooter?.(width) ?? [];
-            return { editor, footer, above: prefs.timing === "strip" ? activity(width) : [], hits: workspace.appearanceHits ?? [] };
+            return { editor, footer, above: prefs.timing === "strip" ? activity(width) : [], hits: egregore.appearanceHits ?? [] };
           },
-          select: (selected, state) => { if (gen === generation) { workspace.appearancePreview = { selected, state }; refresh(); } },
-          temporary: !workspace.prefs.enabled,
-          reducedMotion: workspace.prefs.motion === "off",
+          select: (selected, state) => { if (gen === generation) { egregore.appearancePreview = { selected, state }; refresh(); } },
+          temporary: !egregore.prefs.enabled,
+          reducedMotion: egregore.prefs.motion === "off",
         }, abort.signal);
         if (gen !== generation || !selected) return;
         // Persist first. A failed write cancels the preview rather than pretending it was saved.
         await saveFooter(path, selected, openedSnapshot);
         if (gen !== generation) return;
         prefs = selected; committed = true;
-        loadedSnapshot = await workspaceSnapshot();
+        loadedSnapshot = await egregoreSnapshot();
         context.ui.notify("Egregore saved for all Pi sessions. Other open sessions adopt it after /reload.", "info");
       } catch (error) { context.ui.notify(`Egregore settings were not saved: ${String(error)}`, "error"); }
       finally {
         if (pickerAbort === abort) { pickerAbort = undefined; pickerBaseline = undefined; }
         native?.dispose();
-        pickerOpen = false; workspace.footerPickerOpen = false; workspace.appearancePreview = undefined; workspace.appearanceHits = undefined;
+        pickerOpen = false; egregore.footerPickerOpen = false; egregore.appearancePreview = undefined; egregore.appearanceHits = undefined;
         if (gen === generation) { if (!committed) prefs = original; mountActivity(); pollGit(); wake(); }
       }
     },

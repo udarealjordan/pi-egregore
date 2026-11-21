@@ -120,7 +120,7 @@ export class RunClock {
   }
 }
 
-export interface WorkspaceState {
+export interface EgregoreState {
   taskPanel?: TaskPanel;
   dictation?: DictationController;
   /** True only where the host dispatches pointer clicks (viewport TUI). */
@@ -159,7 +159,7 @@ export interface WorkspaceState {
   activityEventAt?: number;
 }
 
-export function activity(state: WorkspaceState): string {
+export function activity(state: EgregoreState): string {
   if ((state.blockingPromptDepth ?? state.promptDepth) && state.clock.active) return "your turn";
   if (state.compacting) return "compacting";
   if (state.tools.size) {
@@ -172,7 +172,7 @@ export function activity(state: WorkspaceState): string {
   return state.clock.timing?.outcome === "error" ? "error" : state.clock.timing?.outcome === "stopped" ? "stopped" : "ready";
 }
 
-export function shouldAnimate(state: WorkspaceState, now: number, focused: boolean): boolean {
+export function shouldAnimate(state: EgregoreState, now: number, focused: boolean): boolean {
   return !state.footerPickerOpen && state.prefs.enabled && state.prefs.motion !== "off" && state.layout?.motion !== "off" &&
     state.promptDepth === 0 && (state.clock.active || state.compacting);
 }

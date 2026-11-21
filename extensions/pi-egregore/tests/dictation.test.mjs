@@ -57,7 +57,7 @@ function harness(options = {}) {
   };
 }
 
-function workspace(dictation) {
+function egregore(dictation) {
   return {
     prefs: { ...DEFAULTS, motion: "off" }, clock: new RunClock(), tools: new Map(), phase: "working",
     promptDepth: 0, compacting: false, lastInputAt: 0, layout: { ...FOOTER_DEFAULTS },
@@ -153,8 +153,8 @@ test("transcripts lose whisper's artefacts but keep every spoken word", () => {
 
 test("the click span covers the rendered control and nothing around it", async () => {
   const run = harness();
-  const rail = plain(composerBottomRail(theme, 58, workspace(run.controller), context, "NORMAL"));
-  const span = dictationSpan(composerBottomRail(theme, 58, workspace(run.controller), context, "NORMAL"),
+  const rail = plain(composerBottomRail(theme, 58, egregore(run.controller), context, "NORMAL"));
+  const span = dictationSpan(composerBottomRail(theme, 58, egregore(run.controller), context, "NORMAL"),
     run.controller.label("nerd"), "nerd");
   assert.ok(span, rail);
   assert.ok(span.start >= 0 && span.end > span.start);
@@ -162,7 +162,7 @@ test("the click span covers the rendered control and nothing around it", async (
   assert.notEqual(at(rail, { start: span.start - 1, end: span.start }), COMPOSER_ICONS.mic);
   assert.notEqual(at(rail, { start: span.end, end: span.end + 1 }), COMPOSER_ICONS.mic);
 
-  const plainIcons = workspace(run.controller);
+  const plainIcons = egregore(run.controller);
   plainIcons.layout.icons = "plain";
   const plainRail = composerBottomRail(theme, 58, plainIcons, context, "NORMAL");
   const plainSpan = dictationSpan(plainRail, run.controller.label("plain"), "plain");
@@ -171,7 +171,7 @@ test("the click span covers the rendered control and nothing around it", async (
 
   await run.controller.toggle();
   run.advance(2_500);
-  const recording = composerBottomRail(theme, 58, workspace(run.controller), context, "NORMAL");
+  const recording = composerBottomRail(theme, 58, egregore(run.controller), context, "NORMAL");
   const recordingSpan = dictationSpan(recording, run.controller.label("nerd"), "nerd");
   assert.equal(at(plain(recording), recordingSpan).trim(), `${COMPOSER_ICONS.mic} REC 2s`);
   run.controller.cancel("user");
@@ -179,7 +179,7 @@ test("the click span covers the rendered control and nothing around it", async (
 
 test("the rail renders the mic only with a pointer, enough width and no appearance editor", async () => {
   const run = harness();
-  const plain_ = (icons = "plain") => { const state = workspace(run.controller); state.layout.icons = icons; return state; };
+  const plain_ = (icons = "plain") => { const state = egregore(run.controller); state.layout.icons = icons; return state; };
 
   const wide = composerBottomRail(theme, 58, plain_(), context, "NORMAL");
   assert.match(plain(wide), / mic /);
@@ -199,9 +199,9 @@ test("the rail renders the mic only with a pointer, enough width and no appearan
   appearance.layout.appearance = appearanceDefaults(appearance.layout);
   assert.doesNotMatch(plain(composerBottomRail(theme, 58, appearance, context, "NORMAL")), / mic /);
 
-  // A workspace without a controller renders exactly as it did before the mic existed.
-  const bare = workspace();
-  assert.equal(composerBottomRail(theme, 58, bare, context, "NORMAL"), composerBottomRail(theme, 58, { ...workspace(), dictation: undefined }, context, "NORMAL"));
+  // A egregore without a controller renders exactly as it did before the mic existed.
+  const bare = egregore();
+  assert.equal(composerBottomRail(theme, 58, bare, context, "NORMAL"), composerBottomRail(theme, 58, { ...egregore(), dictation: undefined }, context, "NORMAL"));
   assert.doesNotMatch(plain(composerBottomRail(theme, 58, bare, context, "NORMAL")), /mic/);
 
   // The native scroll hint keeps priority; the mic still leads the right slot.
@@ -385,7 +385,7 @@ test("both editor wrappers route a rail click to the mic without taking focus", 
 
   // The fallback editor owns its own render and rail row.
   const tui = { terminal: { rows: 40 }, requestRender() {}, addChild() {}, setFocus() {} };
-  const state = workspace(fake); state.layout.icons = "plain";
+  const state = egregore(fake); state.layout.icons = "plain";
   const native = new ComposerEditor(tui, getEditorTheme(), nativeKb, () => fullCtx, state, () => "medium", () => 10_000);
   native.focused = true; native.setText("draft");
   let rows = native.render(60);
@@ -408,7 +408,7 @@ test("both editor wrappers route a rail click to the mic without taking focus", 
     invalidate() {}, getPaddingX: () => 2, setPaddingX(value) { width = value; },
     render: cells => { const rule = "─".repeat(Math.max(0, cells)); return [rule, "draft".padEnd(Math.max(0, cells)), `${rule} NORMAL`]; },
   };
-  const live = workspace(fake); live.layout.icons = "plain";
+  const live = egregore(fake); live.layout.icons = "plain";
   const undress = dressComposerEditor(foreign, () => fullCtx, live, () => 10_000, () => 40);
   try {
     rows = foreign.render(60);

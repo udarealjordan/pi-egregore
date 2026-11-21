@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-const root = process.env.PI_FRAME_HOST_MODULES || process.env.PI_WORKSPACE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || process.env.PI_ASK_HOST_MODULES || (() => {
+const root = process.env.PI_FRAME_HOST_MODULES || process.env.PI_EGREGORE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || process.env.PI_ASK_HOST_MODULES || (() => {
   const install = join(homedir(), ".pi/agent/install");
   try { return join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules"); }
-  catch { throw new Error("Pi test host unavailable. Set PI_FRAME_HOST_MODULES (or PI_WORKSPACE_HOST_MODULES / PI_ASK_HOST_MODULES) to a compatible host node_modules directory."); }
+  catch { throw new Error("Pi test host unavailable. Set PI_FRAME_HOST_MODULES (or PI_EGREGORE_HOST_MODULES / PI_ASK_HOST_MODULES) to a compatible host node_modules directory."); }
 })();
 const { createJiti } = await import(pathToFileURL(join(root, 'jiti/lib/jiti.mjs')));
 const jiti = createJiti(import.meta.url, { alias: { '@earendil-works/pi-tui': join(root, '@earendil-works/pi-tui/dist/index.js') } });

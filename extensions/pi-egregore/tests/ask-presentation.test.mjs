@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { workspace } from './workspace-harness.mjs';
+import { egregore } from './egregore-harness.mjs';
 import { jiti, source, visibleWidth } from './host.mjs';
 import { join } from 'node:path';
 const { footerPrefs } = await jiti.import(join(source, 'footer-state.ts'));
 
 test('Ask room selects real shell preview labels and retains native input through Undo/Discard', async () => {
-  const h = workspace();
+  const h = egregore();
   const original = h.editor.getText();
   h.click('[Ask]');
   assert.match(h.rows().join('\n'), /Example question · no real answer changes/);
@@ -15,7 +15,7 @@ test('Ask room selects real shell preview labels and retains native input throug
   h.click('Question emphasis'); h.pick('normal');
   assert.equal(h.latest.ask.questionText, 'normal');
   assert.equal(h.editor.getText(), original);
-  h.panel.handleInput('\x1a'); // Ctrl+Z is the workspace Undo, not editor Undo.
+  h.panel.handleInput('\x1a'); // Ctrl+Z is the egregore Undo, not editor Undo.
   assert.equal(h.latest.ask, undefined);
   h.click('Question progress');
   h.click('Progress position'); h.pick('bottomRight');
@@ -26,7 +26,7 @@ test('Ask room selects real shell preview labels and retains native input throug
 });
 
 test('Ask room saves only validated visual settings, preserves future versions and keeps a narrow keyboard path', async () => {
-  const h = workspace(undefined, 120, 40);
+  const h = egregore(undefined, 120, 40);
   h.click('[Ask]'); h.click('Question title');
   h.click('Title text'); h.text('Questions 界面');
   assert.equal(h.latest.ask.title, 'Questions 界面');
@@ -45,7 +45,7 @@ test('Ask room saves only validated visual settings, preserves future versions a
   assert.equal(h.editor.getText(), 'Unsent native draft 界面');
 
   const future = { version: 2, newField: { unknown: true } };
-  const unknown = workspace(footerPrefs({ ask: future }));
+  const unknown = egregore(footerPrefs({ ask: future }));
   unknown.click('[Ask]');
   assert.match(unknown.rows().join('\n'), /Ask settings unavailable or newer version/);
   unknown.panel.handleInput('\x13');

@@ -42,9 +42,9 @@ Use a normal, non-elevated Git Bash session. The suite does not require Administ
 2. Clone and install as above. In Git Bash, select your actual Pi host directory using a Windows-compatible absolute path:
 
    ```sh
-   export PI_WORKSPACE_HOST_MODULES="C:/Users/<user>/.pi/agent/install/releases/1.3.0/node_modules"
-   export PI_ASK_HOST_MODULES="$PI_WORKSPACE_HOST_MODULES"
-   export PI_FRAME_HOST_MODULES="$PI_WORKSPACE_HOST_MODULES"
+   export PI_EGREGORE_HOST_MODULES="C:/Users/<user>/.pi/agent/install/releases/1.3.0/node_modules"
+   export PI_ASK_HOST_MODULES="$PI_EGREGORE_HOST_MODULES"
+   export PI_FRAME_HOST_MODULES="$PI_EGREGORE_HOST_MODULES"
    npm ci
    npm test
    npm run typecheck --workspace=pi-ask

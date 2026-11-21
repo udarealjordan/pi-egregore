@@ -91,7 +91,7 @@ test("zone markers stay at column 0 of the frame edges, never inside a content r
   } finally { frames.dispose(); }
 });
 
-test("live workspace identity and density balance the user and assistant frame interiors", () => {
+test("live Egregore identity and density balance the user and assistant frame interiors", () => {
   const root = new Container(), frames = new SentMessageFrames();
   const user = new UserMessageComponent("hello");
   const assistant = new AssistantMessageComponent({ role: "assistant", content: [{ type: "text", text: "reply" }],

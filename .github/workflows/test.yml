@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           HOST="$(node -p 'require("node:path").resolve("node_modules").split(require("node:path").sep).join("/")')"
-          echo "PI_WORKSPACE_HOST_MODULES=$HOST" >> "$GITHUB_ENV"
+          echo "PI_EGREGORE_HOST_MODULES=$HOST" >> "$GITHUB_ENV"
           echo "PI_ASK_HOST_MODULES=$HOST" >> "$GITHUB_ENV"
           echo "PI_FRAME_HOST_MODULES=$HOST" >> "$GITHUB_ENV"
           echo "PI_CODING_AGENT_DIR=$RUNNER_TEMP/pi-suite-ci" >> "$GITHUB_ENV"

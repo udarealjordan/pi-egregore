@@ -30,7 +30,7 @@ export class ThemeLease {
       colorToHex(named.colors[key as ThemeToken]) === colorToHex(current.colors[key as ThemeToken]));
     this.previous = identical ? named : fromColors(Object.fromEntries(Object.entries(current.colors).map(([key, value]) => [key, colorToHex(value)])),
       current.getColorMode(), current.name, current.appearance);
-    const next = fromColors(composerThemeColors(current.appearance === "light"), current.getColorMode(), "pi-workspace-composer", current.appearance);
+    const next = fromColors(composerThemeColors(current.appearance === "light"), current.getColorMode(), "pi-egregore-composer", current.appearance);
     const result = ctx.ui.setTheme(next);
     if (result.success) this.applied = next;
     else { this.previous = undefined; ctx.ui.notify(`Egregore theme: ${result.error}`, "warning"); }

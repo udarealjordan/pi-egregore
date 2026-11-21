@@ -1,12 +1,12 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type Component, type TUI } from "@earendil-works/pi-tui";
 import { cleanText, layoutDock, type DockSnapshot } from "pi-agent-contracts/dock";
-import type { WorkspaceState } from "./state.ts";
+import type { EgregoreState } from "./state.ts";
 import { composerPadding, composerSurface } from "./composer-style.ts";
 import { TaskPanel } from "./task-presentation.ts";
 
 /** Composer's optional dock sits above the native editor; no art or idle animation. */
-export function createDock(tui: TUI, ctx: () => ExtensionContext, state: WorkspaceState,
+export function createDock(tui: TUI, ctx: () => ExtensionContext, state: EgregoreState,
   docks: Map<string, DockSnapshot>, focused: () => boolean, now: () => number = Date.now): Component {
   state.taskPanel ??= new TaskPanel();
   return {

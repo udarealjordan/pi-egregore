@@ -16,7 +16,7 @@ export function installPaintGuard(root: Component, before: () => void, enabled: 
   // that reference prevents identity-based cleanup and stacks wrappers on /new.
   // A temporary instance method obtains the actual receiver without accessing
   // private fields, changing prototypes or retaining a global renderer cache.
-  const receiver = Symbol("pi-workspace:paint-receiver");
+  const receiver = Symbol("pi-egregore:paint-receiver");
   const reference = root as Host & { [receiver]?: () => Host };
   reference[receiver] = function() { return this; };
   let host: Host;

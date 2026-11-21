@@ -1,6 +1,6 @@
 # Settings review: intent, demonstration and scope
 
-Reference for the **current suite-owned settings**, their preview behavior and persistence scope. Use it to look up a control; for steps, read [workspace controls](../extensions/pi-egregore/FOOTER.md), and for an exercise, [try a reversible preview](TRY-PREVIEW.md). It does not replace Pi's native settings, third-party editors or tool-owned self-renderers.
+Reference for the **current suite-owned settings**, their preview behavior and persistence scope. Use it to look up a control; for steps, read [Egregore settings](../extensions/pi-egregore/FOOTER.md), and for an exercise, [try a reversible preview](TRY-PREVIEW.md). It does not replace Pi's native settings, third-party editors or tool-owned self-renderers.
 
 ## Preference authorities
 
@@ -8,14 +8,14 @@ Files live in the configured Pi agent directory (default `~/.pi/agent`), not in 
 
 | Authority | Owns | When it changes |
 | --- | --- | --- |
-| `pi-egregore.json` | Input/footer, Tasks overview, Ask shell, eligible Transcript visuals, General name/density | One workspace Save; Undo/Discard/audition do not write it |
-| `pi-footer.json` | Legacy visual fallback only when workspace settings are absent | Read-only fallback; first workspace Save writes the new file |
+| `pi-egregore.json` | Input/footer, Tasks overview, Ask shell, eligible Transcript visuals, General name/density | One Save; Undo/Discard/audition do not write it |
+| `pi-footer.json` | Legacy visual fallback only when Egregore settings are absent | Read-only fallback; first Egregore Save writes the new file |
 | `pi-composer.json` | Composer enablement, work motion, header icons, runtime palette and work-summary preferences; read-only `pi-home.json` fallback if absent | `/composer` controls save immediately, separately |
 | `pi-tasks.json` | Tasks enablement/hidden state and independent fallback appearance | Tasks companion controls save separately |
-| `pi-recaps.json` | Explicit recap enablement | `/recaps` or Egregore's owner-native recap picker saves immediately; not workspace Save |
+| `pi-recaps.json` | Explicit recap enablement | `/recaps` or Egregore's owner-native recap picker saves immediately; not the Egregore Save |
 | Active session branch entries | Plans, accepted requests, posted questions/responses and recorded run facts | Owner-controlled domain mutations; appearance previews do not write these facts |
 
-An atomic workspace Save is not an atomic transaction across these authorities. Unreadable/unsupported visual settings fail closed; see [saving and compatibility](../extensions/pi-egregore/FOOTER.md#saving-and-compatibility).
+An atomic Egregore Save is not an atomic transaction across these authorities. Unreadable/unsupported visual settings fail closed; see [saving and compatibility](../extensions/pi-egregore/FOOTER.md#saving-and-compatibility).
 
 ## Decisions
 
@@ -155,9 +155,9 @@ Removed duplicate controls remain compatible read fallbacks: density maps to Gen
 | General: Your name | Sample user frame shows the edited name, without changing an account or sending a message |
 | General: Spacing | Hover representative compact/spaced sample messages; affects supported integrated whitespace, not Task row counts |
 | `/composer`: Work motion | Native selector retained; wording distinguishes animation from live timing |
-| `/composer`: Header icons | Explicitly distinguishes Egregore's header/fallback icons from workspace metadata icons |
+| `/composer`: Header icons | Explicitly distinguishes Egregore's header/fallback icons from footer metadata icons |
 | `/composer`: Matching palette | Reversible runtime lease; off restores preceding colors |
-| `/composer`: Activity recaps / `/recaps` | Off by default; explicit enable/disclosure of additional bounded OAuth inference. Immediate separate `pi-recaps.json` authority, cancellation on off, not workspace Save |
+| `/composer`: Activity recaps / `/recaps` | Off by default; explicit enable/disclosure of additional bounded OAuth inference. Immediate separate `pi-recaps.json` authority, cancellation on off, not the Egregore Save |
 | `/composer`: On/off | Explicit shell enablement; other suite owners remain independent |
 | `/composer output raw/readable` | Session-only expanded output, not persisted appearance |
 | `/tasks hide/unhide` | Dock visibility only, persisted separately |

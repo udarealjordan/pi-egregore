@@ -113,11 +113,11 @@ test("custom interfaces, images, hidden tools, narrow views and later decorators
 });
 
 test("Composer perimeter stays still without changing draft, cursor, menu or dimensions", () => {
-  const workspace = { prefs: { ...DEFAULTS, look: "composer" }, clock: new RunClock(), tools: new Map(), phase: "thinking", promptDepth: 0, compacting: false, lastInputAt: 0 };
-  workspace.clock.begin(1000);
+  const egregore = { prefs: { ...DEFAULTS, look: "composer" }, clock: new RunClock(), tools: new Map(), phase: "thinking", promptDepth: 0, compacting: false, lastInputAt: 0 };
+  egregore.clock.begin(1000);
   for (const width of [8, 24, 90, 140]) {
     const rows = [composerRail(theme, width, " Composer "), composerSurface(theme, "│" + "x".repeat(width - 2) + "│", width), composerSurface(theme, "│" + CURSOR_MARKER + " ".repeat(width - 2) + "│", width), composerRail(theme, width, "", "", false), "completion menu"];
-    const frames = Array.from({ length: 30 }, (_, i) => composerFrame(theme, rows, width, workspace, 4000 + i * 100, 3));
+    const frames = Array.from({ length: 30 }, (_, i) => composerFrame(theme, rows, width, egregore, 4000 + i * 100, 3));
     assert.equal(new Set(frames.map(f => f[0])).size, 1); assert.equal(new Set(frames.map(f => f[3])).size, 1);
     assert.equal(new Set(frames.map(f => f[1])).size, 1, "motion is confined to the status marker, not side edges");
     for (const frame of frames) {
@@ -125,11 +125,11 @@ test("Composer perimeter stays still without changing draft, cursor, menu or dim
       assert.equal(frame.join("").split(CURSOR_MARKER).length - 1, 1);
       for (const row of frame.slice(0, 4)) assert.equal(visibleWidth(row), width);
     }
-    workspace.prefs.motion = "off";
-    assert.deepEqual(composerFrame(theme, rows, width, workspace, 4100, 3), composerFrame(theme, rows, width, workspace, 4700, 3));
-    workspace.prefs.motion = "work"; workspace.promptDepth = 1;
-    assert.deepEqual(composerFrame(theme, rows, width, workspace, 4100, 3), composerFrame(theme, rows, width, workspace, 4700, 3));
-    workspace.promptDepth = 0;
+    egregore.prefs.motion = "off";
+    assert.deepEqual(composerFrame(theme, rows, width, egregore, 4100, 3), composerFrame(theme, rows, width, egregore, 4700, 3));
+    egregore.prefs.motion = "work"; egregore.promptDepth = 1;
+    assert.deepEqual(composerFrame(theme, rows, width, egregore, 4100, 3), composerFrame(theme, rows, width, egregore, 4700, 3));
+    egregore.promptDepth = 0;
   }
 });
 

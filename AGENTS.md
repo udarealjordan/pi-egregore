@@ -11,7 +11,7 @@ Before editing, inspect `git status --short`, the current branch and staged chan
 ## Ownership
 
 - **Frame** (`packages/pi-frame`): reusable drawing primitives and opt-in presentation rules. It does not own application state, native input, layout, or tool execution.
-- **Egregore** (`extensions/pi-egregore`): Composer, transcript adapters, workspace host, and the `/egregore` appearance editor. Preserve Pi's native editor and the installed pi-vim instance.
+- **Egregore** (`extensions/pi-egregore`): Composer, transcript adapters, the UI host, and the `/egregore` appearance editor. Preserve Pi's native editor and the installed pi-vim instance.
 - **Tasks** (`extensions/pi-tasks`): plans, history, the `tasks` tool, and the independent no-Egregore fallback. Egregore displays sourced Tasks data; it does not create or complete plans.
 - **Ask** (`packages/pi-ask`): question/answer behavior, focus, and temporary input. Egregore hosts its visual settings room, not its answer semantics.
 - **Contracts** (`packages/pi-agent-contracts`): the data-only, versioned dock and posted-question protocols consumed through `pi-agent-contracts/dock` and `pi-agent-contracts/posted`. **Shared adapters** (`lib/`): Frame integration, the shared task frame. Keep component-specific state and lifecycle with the component that owns them.
@@ -21,7 +21,7 @@ For a cross-component change, identify the **state owner, visual adapter, settin
 ### State, integration and source map
 
 - `package.json` is the package-entry and bundled-library authority. It loads Egregore, Tasks and Ask once. Its `egregoreSync.requiredCommands` list is what the deploy check requires; update it in the same commit when you add, rename or remove a command. Keep independently installable packages from being registered twice.
-- Egregore `workspace-runtime.ts` owns mounted UI lifecycle; `footer.ts` and `footer-settings.ts` own preferences and their editing transaction.
+- Egregore `runtime.ts` owns mounted UI lifecycle; `footer.ts` and `footer-settings.ts` own preferences and their editing transaction.
 - Tasks `book.ts` owns plan-library restoration/mutation, `state.ts` owns task mutation and presentation text, and `index.ts` owns tools/commands/lifecycle.
 - Tasks and posted questions follow the session branch.
 - Frame adapters in `lib/frame.ts` and Ask's package-local adapter handle cached implementation/export compatibility. Consult them before adding imports or another frame renderer. Keep one settings authority per field.
@@ -29,7 +29,7 @@ For a cross-component change, identify the **state owner, visual adapter, settin
 
 ## Appearance and `/egregore`
 
-Read `docs/SURFACE-WORKSPACE.md` and `extensions/pi-egregore/FOOTER.md` before adding a visual setting or appearance editor. `/egregore` has Input, Tasks, Ask, Transcript, More settings and General sections. Extend the appropriate room rather than creating a competing control. The detailed supported elements and constraints live in those documents; keep them authoritative rather than duplicating their inventory here. Keep selection-to-preview correspondence across rooms: derive target rectangles from actual rendered content, highlight only affected regions, preserve semantic foregrounds, and explain unavailable targets. Hover inspection is ephemeral and must not activate controls, steal keyboard focus, edit preferences or start timers. A shared appearance entry does not authorize taking over a self-rendering tool; extension surface registration remains a proposal until its owner, validation and native fallback are implemented and tested.
+Read `docs/SURFACES.md` and `extensions/pi-egregore/FOOTER.md` before adding a visual setting or appearance editor. `/egregore` has Input, Tasks, Ask, Transcript, More settings and General sections. Extend the appropriate room rather than creating a competing control. The detailed supported elements and constraints live in those documents; keep them authoritative rather than duplicating their inventory here. Keep selection-to-preview correspondence across rooms: derive target rectangles from actual rendered content, highlight only affected regions, preserve semantic foregrounds, and explain unavailable targets. Hover inspection is ephemeral and must not activate controls, steal keyboard focus, edit preferences or start timers. A shared appearance entry does not authorize taking over a self-rendering tool; extension surface registration remains a proposal until its owner, validation and native fallback are implemented and tested.
 
 `pi-egregore.json` is the versioned visual-preference authority for these sections; `pi-workspace.json`, then `pi-footer.json`, are read-only legacy fallbacks until the first Save. They share one Save/Undo/Discard transaction for that file. `pi-composer.json` owns Composer enablement (with a read-only `pi-home.json` fallback); `pi-tasks.json` owns Tasks enablement and standalone fallback preferences. Branch-sensitive task and run data stay in session entries. Do not introduce two live settings for the same field or claim an atomic Save across files without implementing and testing it. Validate versioned settings; do not silently overwrite malformed files or unknown newer versions.
 
@@ -48,7 +48,7 @@ Previews are display-only and visibly labeled as such. Never alter the native dr
 
 ## Verification and installation boundaries
 
-Use `npm run test:workspace`, `test:tasks`, `test:ask` or `test:frame` for the changed owner. Run relevant component tests and `npm test` for runtime suite changes; run `npm run pack:check` when packaging or dependency boundaries change. Test cold load and reload, standalone Ask, and Tasks without Egregore when affected. For terminal UI changes, check narrow/wide cell widths, Unicode/ANSI, light/dark themes, focus, Vim, mouse/keyboard, resize, and lifecycle as applicable. Distinguish automated tests, isolated terminal checks, and hands-on observations; do not claim unperformed checks.
+Use `npm run test:egregore`, `test:tasks`, `test:ask` or `test:frame` for the changed owner. Run relevant component tests and `npm test` for runtime suite changes; run `npm run pack:check` when packaging or dependency boundaries change. Test cold load and reload, standalone Ask, and Tasks without Egregore when affected. For terminal UI changes, check narrow/wide cell widths, Unicode/ANSI, light/dark themes, focus, Vim, mouse/keyboard, resize, and lifecycle as applicable. Distinguish automated tests, isolated terminal checks, and hands-on observations; do not claim unperformed checks.
 
 ### Portable tests: `npm test` runs on Windows, Ubuntu and macOS
 

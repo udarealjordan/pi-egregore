@@ -1,7 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { mixColors, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import type { AppearanceState } from "./appearance.ts";
-import { shouldAnimate, type WorkspaceState } from "./state.ts";
+import { shouldAnimate, type EgregoreState } from "./state.ts";
 
 const working = new Set<AppearanceState>(["working", "thinking", "responding", "tools", "compacting"]);
 const CELLS = 5;
@@ -132,16 +132,16 @@ const SCENE_BY_STATE: Partial<Record<AppearanceState, Scene>> = {
 };
 
 /** Five fixed grid scenes in five cells. Deterministic from elapsed run time; no clocks, randomness, or state writes in rendering. */
-export function emberMarker(theme: Theme, state: AppearanceState, workspace: WorkspaceState, now: number, color: Color): string {
-  const moving = working.has(state) && shouldAnimate(workspace, now, workspace.editorFocused?.() ?? true);
+export function emberMarker(theme: Theme, state: AppearanceState, egregore: EgregoreState, now: number, color: Color): string {
+  const moving = working.has(state) && shouldAnimate(egregore, now, egregore.editorFocused?.() ?? true);
   if (!moving) {
     const glyph = state === "done" ? "✓" : ["error", "waiting", "interrupted", "stopped"].includes(state) ? "!" : working.has(state) ? "●" : "○";
     // Centre the single mark in the same five cells a scene fills, so idle and working
     // states share one axis instead of the mark sliding to the label's edge.
     return theme.style(`  ${glyph}  `, { fg: color, bold: true });
   }
-  const elapsed = Math.max(0, now - workspace.clock.transitionAt), t = elapsed / 1000;
-  const eventAge = workspace.activityEventAt === undefined ? Infinity : Math.max(0, now - workspace.activityEventAt);
+  const elapsed = Math.max(0, now - egregore.clock.transitionAt), t = elapsed / 1000;
+  const eventAge = egregore.activityEventAt === undefined ? Infinity : Math.max(0, now - egregore.activityEventAt);
   const response = eventAge < 600 ? Math.sin(Math.PI * eventAge / 600) : 0;
   const ignition = Math.max(0, 1 - t / .5);
   const energy = Math.max(response, ignition * .7);
@@ -152,15 +152,15 @@ export function emberMarker(theme: Theme, state: AppearanceState, workspace: Wor
 }
 
 /** Keep status before tool detail; drop the large marker before sacrificing the state label. */
-export function emberStatus(theme: Theme, text: string, state: AppearanceState, workspace: WorkspaceState,
+export function emberStatus(theme: Theme, text: string, state: AppearanceState, egregore: EgregoreState,
   now: number, budget: number, color: Color, bold = true, markerEnabled = true): string {
-  const marker = emberMarker(theme, state, workspace, now, color);
+  const marker = emberMarker(theme, state, egregore, now, color);
   const room = markerEnabled && budget >= 6 + Math.min(visibleWidth(text), 24) ? 6 : 0;
   return (room ? marker + " " : "") + theme.style(truncateToWidth(text, Math.max(0, budget - room), "…"), { fg: color, bold });
 }
-export function statusWithTools(text: string, workspace: WorkspaceState): string {
-  if (!workspace.tools.size || (workspace.blockingPromptDepth ?? workspace.promptDepth) > 0) return text;
-  const names = [...new Set(workspace.tools.values())].map(name => name.replace(/[\x00-\x1f\x7f-\x9f]/g, " "));
+export function statusWithTools(text: string, egregore: EgregoreState): string {
+  if (!egregore.tools.size || (egregore.blockingPromptDepth ?? egregore.promptDepth) > 0) return text;
+  const names = [...new Set(egregore.tools.values())].map(name => name.replace(/[\x00-\x1f\x7f-\x9f]/g, " "));
   const detail = names.slice(0, 2).join(", ") + (names.length > 2 ? ` +${names.length - 2}` : "");
   return `${text} · ${detail}`;
 }

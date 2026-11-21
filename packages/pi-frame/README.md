@@ -106,7 +106,7 @@ The figures below describe that earlier increment, not the current integrated su
 
 ## Install and develop
 
-This README covers the suite source checkout and Frame's standalone library. Links outside this package point to source-checkout guides; a separately extracted Frame tarball does not include the suite's contributor or workspace documentation.
+This README covers the suite source checkout and Frame's standalone library. Links outside this package point to source-checkout guides; a separately extracted Frame tarball does not include the suite's contributor or Egregore documentation.
 
 ```bash
 # From the suite repository root, only for a standalone Frame registration:

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { jiti, source, root, theme, initTheme, visibleWidth, plain, CURSOR_MARKER } from "./host.mjs";
-import { workspace } from "./workspace-harness.mjs";
+import { egregore } from "./egregore-harness.mjs";
 const { SelectionPulse, selectionHighlight, selectionRow, SELECTION_SHIMMER_MS } = await jiti.import(join(source, "footer-selection.ts"));
 const { FOOTER_DEFAULTS, footerPrefs } = await jiti.import(join(source, "footer-state.ts"));
 const { appearanceColor } = await jiti.import(join(source, "appearance-render.ts"));
@@ -102,9 +102,9 @@ test("transparent Composer backgrounds still produce a visible steady tint and s
 });
 
 test("element and preview shimmer together; steady selected and keyboard-focused markers remain distinct", async t => {
-  const advance = clock(t), h = workspace();
+  const advance = clock(t), h = egregore();
   rows(h); h.panel.handleInput("\x1b[B");
-  const first = rows(h); assert.equal(h.workspace.appearancePreview.shimmer, 0);
+  const first = rows(h); assert.equal(h.egregore.appearancePreview.shimmer, 0);
   advance(200); const moving = rows(h);
   assert.notDeepEqual(moving, first);
   assert.deepEqual(moving.map(plain), first.map(plain));
@@ -113,7 +113,7 @@ test("element and preview shimmer together; steady selected and keyboard-focused
   assert.equal(withoutHighlight(moving[title]), withoutHighlight(first[title]));
   h.panel.handleInput("\r"); const properties = rows(h).map(plain).join("\n");
   assert.match(properties, /• Chat title/); assert.match(properties, /› Visible/);
-  assert.equal(h.workspace.appearancePreview.shimmer, undefined, "property focus no longer animates the selected element");
+  assert.equal(h.egregore.appearancePreview.shimmer, undefined, "property focus no longer animates the selected element");
   h.click("Text color"); const menu = h.rows().join("\n");
   assert.match(menu, /› .*Match the frame.*✓/); h.panel.handleInput("\x1b[B");
   assert.match(h.rows().join("\n"), /• .*Match the frame.*✓/);
@@ -124,27 +124,27 @@ test("element and preview shimmer together; steady selected and keyboard-focused
 });
 
 test("unchanged selection does not start motion; direct preview selection matches keyboard selection", async t => {
-  const advance = clock(t), h = workspace();
+  const advance = clock(t), h = egregore();
   rows(h); h.panel.handleInput("\x1b[A"); const steady = rows(h); advance(160); assert.deepEqual(rows(h), steady);
   const title = h.rows().findIndex(line => line.includes("Actual chat 界面"));
-  const hit = h.workspace.appearanceHits.find(hit => hit.id === "session");
-  h.clickAt(hit.x, title); rows(h); assert.equal(h.workspace.appearancePreview.shimmer, 0);
-  advance(200); assert.equal(h.workspace.appearancePreview.shimmer, 0); // phase is sampled only at paint
-  rows(h); assert.ok(h.workspace.appearancePreview.shimmer > 0);
+  const hit = h.egregore.appearanceHits.find(hit => hit.id === "session");
+  h.clickAt(hit.x, title); rows(h); assert.equal(h.egregore.appearancePreview.shimmer, 0);
+  advance(200); assert.equal(h.egregore.appearancePreview.shimmer, 0); // phase is sampled only at paint
+  rows(h); assert.ok(h.egregore.appearancePreview.shimmer > 0);
   assert.match(h.rows().join("\n"), /• Chat title/);
   await h.discard();
 });
 
 test("selecting the input border preserves its labels, colors and geometry at narrow widths", async () => {
   const { appearanceRow } = await jiti.import(join(source, "appearance-render.ts"));
-  const h = workspace();
+  const h = egregore();
   for (const name of ["dark", "light"]) {
     initTheme(name, false);
     for (const width of [1, 4, 8, 20, 48, 100, 160]) for (const row of ["top", "bottom"]) {
-      h.workspace.appearancePreview = {};
-      const original = appearanceRow(theme, width, h.workspace, row, 3000);
-      h.workspace.appearancePreview = { selected: "frame", shimmer: .4 };
-      const selected = appearanceRow(theme, width, h.workspace, row, 3000);
+      h.egregore.appearancePreview = {};
+      const original = appearanceRow(theme, width, h.egregore, row, 3000);
+      h.egregore.appearancePreview = { selected: "frame", shimmer: .4 };
+      const selected = appearanceRow(theme, width, h.egregore, row, 3000);
       assert.equal(plain(selected), plain(original)); assert.ok(visibleWidth(selected) <= width);
       assert.deepEqual(cells(selected).map(({ char, fg, bold }) => ({ char, fg, bold })), cells(original).map(({ char, fg, bold }) => ({ char, fg, bold })));
     }
@@ -153,7 +153,7 @@ test("selecting the input border preserves its labels, colors and geometry at na
 });
 
 test("typing and discard confirmation stop all pulses; native draft, undo state and IME are not animation targets", async t => {
-  const advance = clock(t), h = workspace(); let renders = 0; h.tui.requestRender = () => renders++;
+  const advance = clock(t), h = egregore(); let renders = 0; h.tui.requestRender = () => renders++;
   const draft = h.editor.getText(), cursor = h.editor.getCursor();
   h.click("Model name"); advance(80);
   h.click("Label before value"); rows(h); const count = renders;
@@ -167,7 +167,7 @@ test("typing and discard confirmation stop all pulses; native draft, undo state 
 });
 
 for (const action of ["blur", "resize", "invalidate", "dispose", "abort", "save"]) test(`${action} cancels pending animation; closing blocks stale input`, async t => {
-  const advance = clock(t), abort = new AbortController(), h = workspace(FOOTER_DEFAULTS, 120, 40, abort.signal);
+  const advance = clock(t), abort = new AbortController(), h = egregore(FOOTER_DEFAULTS, 120, 40, abort.signal);
   let renders = 0; h.tui.requestRender = () => renders++;
   rows(h); h.panel.handleInput("\x1b[B"); advance(80);
   if (action === "blur") h.panel.focused = false;
@@ -188,12 +188,12 @@ test("shimmer preference defaults on, switches off immediately, participates in 
   const advance = clock(t);
   assert.equal(footerPrefs({}).selectionShimmer, "on");
   assert.equal(footerPrefs({ selectionShimmer: "unknown" }).selectionShimmer, "on");
-  const h = workspace(); h.click("[Other options]"); h.click("Selection shimmer"); h.pick("off");
+  const h = egregore(); h.click("[Other options]"); h.click("Selection shimmer"); h.pick("off");
   assert.equal(h.latest.selectionShimmer, "off");
   h.click("[Elements]"); h.panel.handleInput("\x1b[B"); const steady = rows(h); advance(1000); assert.deepEqual(rows(h), steady);
   h.click("[Undo]"); assert.equal(h.latest.selectionShimmer, "on");
   h.click("[Other options]"); h.click("Selection shimmer"); h.pick("off"); h.click("[Save]");
   const saved = await h.pending; assert.equal(footerPrefs(JSON.parse(JSON.stringify(saved))).selectionShimmer, "off");
-  const again = workspace(saved); again.click("[Other options]"); again.click("Selection shimmer"); again.pick("on");
+  const again = egregore(saved); again.click("[Other options]"); again.click("Selection shimmer"); again.pick("on");
   await again.discard(); assert.equal(saved.selectionShimmer, "off");
 });

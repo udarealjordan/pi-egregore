@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { jiti, source, root, theme, initTheme, plain, visibleWidth } from "./host.mjs";
-import { workspace } from "./workspace-harness.mjs";
+import { egregore } from "./egregore-harness.mjs";
 const { connectPreview } = await jiti.import(join(source, "preview-selection.ts"));
 const { taskPanelPreview, taskDemo, taskPanelDefaults } = await jiti.import(join(source, "task-presentation.ts"));
 const { questionPreview } = await jiti.import(join(source, "../../packages/pi-ask/extensions/ask-user-question/question-preview.ts"));
@@ -107,16 +107,16 @@ for (const [room, selected, target, scope] of [
   ["Ask", "Question title", "Question text", "Which option suits this sample?"],
   ["Transcript", "Chat identity", "Sourced Sent time", "9:41:05 AM"],
 ]) test(`${room}: hover inspects without selection, edits or native-state mutation; keyboard restores selection`, async () => {
-  const h = workspace({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
+  const h = egregore({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
   try {
     h.click(`[${room}]`);
-    const draft = JSON.stringify(h.latest), clock = JSON.stringify(h.workspace.clock), native = h.editor.getText(), cursor = h.editor.getCursor();
+    const draft = JSON.stringify(h.latest), clock = JSON.stringify(h.egregore.clock), native = h.editor.getText(), cursor = h.editor.getCursor();
     assert.match(h.rows().join("\n"), new RegExp(`Selected: ${selected}`));
     move(h, target);
     assert.match(h.rows().join("\n"), new RegExp(`Inspecting: ${target}`));
     assert.ok(previewRows(h).some(row => plain(row).includes(scope) && background.test(row)));
     assert.match(h.rows().join("\n"), new RegExp(`Egregore · (?:Input & footer|${room})(?: · ${selected})?`));
-    assert.equal(JSON.stringify(h.latest), draft); assert.equal(JSON.stringify(h.workspace.clock), clock);
+    assert.equal(JSON.stringify(h.latest), draft); assert.equal(JSON.stringify(h.egregore.clock), clock);
     assert.equal(h.editor.getText(), native); assert.deepEqual(h.editor.getCursor(), cursor);
     assert.equal(move(h, target).render, false, "the same hover does not keep requesting frames");
     h.panel.handleInput("\x1b[D");
@@ -127,7 +127,7 @@ for (const [room, selected, target, scope] of [
 });
 
 test("preview target clicks retain geometry after highlighting and property edits", async () => {
-  const h = workspace({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
+  const h = egregore({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
   try {
     h.click("[Tasks]"); h.click("3 of 6 done · 1 blocked");
     assert.match(h.rows().join("\n"), /Selected: Progress · Top right/);
@@ -150,7 +150,7 @@ test("preview target clicks retain geometry after highlighting and property edit
 });
 
 test("unavailable targets explain hidden settings, inactive states, clipping and absent overflow", async () => {
-  const h = workspace({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
+  const h = egregore({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
   try {
     h.click("[Transcript]"); h.click("Sourced Sent time"); h.click("Show sourced Sent time");
     h.panel.handleInput("\x1b[D"); // Clear the edit acknowledgement so persistent availability is visible.
@@ -172,14 +172,14 @@ test("unavailable targets explain hidden settings, inactive states, clipping and
 });
 
 test("a status-specific border control identifies the perimeter without changing the selected status or run", async () => {
-  const h = workspace({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
+  const h = egregore({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
   try {
-    const clock = JSON.stringify(h.workspace.clock), native = h.editor.getText();
+    const clock = JSON.stringify(h.egregore.clock), native = h.editor.getText();
     h.click("Assistant status"); h.click("Preview appearance"); h.pick("When the assistant finishes");
     const before = JSON.stringify(h.latest);
     move(h, "State border color");
     assert.match(h.rows().join("\n"), /Inspecting: Input box border · Input perimeter/);
-    assert.equal(h.workspace.appearancePreview.selected, "frame");
+    assert.equal(h.egregore.appearancePreview.selected, "frame");
     assert.equal(JSON.stringify(h.latest), before);
     h.click("Frame color for this state");
     assert.match(h.rows().join("\n"), /Affects: Input box border · Input perimeter/);
@@ -190,18 +190,18 @@ test("a status-specific border control identifies the perimeter without changing
     const plainRail = plain(rail), status = plainRail.indexOf("your turn");
     assert.ok(status >= 0);
     assert.ok(!cells(rail).slice(status, status + "your turn".length).some(cell => cell.bg), "the status text is not a frame-color target");
-    assert.equal(JSON.stringify(h.workspace.clock), clock); assert.equal(h.editor.getText(), native);
+    assert.equal(JSON.stringify(h.egregore.clock), clock); assert.equal(h.editor.getText(), native);
   } finally { await h.discard(); }
 });
 
 for (const action of ["blur", "resize", "invalidate", "abort"]) test(`hover clears on ${action} without saving or altering the native draft`, async () => {
-  const abort = new AbortController(), h = workspace({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" }, 120, 40, abort.signal);
-  h.rows(); move(h, "Chat title"); assert.equal(h.workspace.appearancePreview.selected, "session");
+  const abort = new AbortController(), h = egregore({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" }, 120, 40, abort.signal);
+  h.rows(); move(h, "Chat title"); assert.equal(h.egregore.appearancePreview.selected, "session");
   if (action === "blur") h.panel.focused = false;
   if (action === "resize") { h.tui.terminal.columns = 60; h.rows(); }
   if (action === "invalidate") h.panel.invalidate();
   if (action === "abort") abort.abort();
-  assert.equal(h.workspace.appearancePreview.selected, "status");
+  assert.equal(h.egregore.appearancePreview.selected, "status");
   assert.equal(h.editor.getText(), "Unsent native draft 界面");
   if (action === "abort") { assert.equal(await h.pending, undefined); h.panel.dispose(); }
   else { h.panel.focused = true; h.tui.terminal.columns = 120; await h.discard(); }

@@ -11,7 +11,7 @@ const theme = {
   bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
 };
 
-test("question accents use the active Pi workspace accent without changing the global theme", () => {
+test("question accents use the active Pi accent without changing the global theme", () => {
   const calls: Array<{ role?: string; fg?: unknown }> = [];
   const accent = { r: 128, g: 91, b: 215 };
   const base = { colors: { accent }, fg(role: string, text: string) { calls.push({ role }); return text; }, style(text: string, options: { fg?: unknown }) { calls.push({ fg: options.fg }); return text; }, bold(text: string) { return text; } };

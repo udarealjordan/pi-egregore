@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { workspace } from './workspace-harness.mjs';
+import { egregore } from './egregore-harness.mjs';
 import { jiti, source, root, theme, initTheme, plain, visibleWidth } from './host.mjs';
 const { footerPrefs } = await jiti.import(join(source, 'footer-state.ts'));
 const { ActivityBlocks } = await jiti.import(join(source, 'activity-blocks.ts'));
@@ -23,7 +23,7 @@ test('versioned transcript settings migrate old controls and preserve unknown ve
 });
 
 test('transcript list and synthetic preview select only visible labels; Undo/Discard preserve native draft', async () => {
-  const h = workspace();
+  const h = egregore();
   h.click('[Transcript]');
   assert.match(h.rows().join('\n'), /Example messages · nothing is sent/);
   const { COMPOSER_ICONS } = await jiti.import(join(source, 'composer-icons.ts'));
@@ -47,7 +47,7 @@ test('transcript list and synthetic preview select only visible labels; Undo/Dis
 });
 
 test('transcript appearance saves through shared transaction, keeps keyboard path and rejects future version', async () => {
-  const h = workspace();
+  const h = egregore();
   h.click('[Transcript]'); h.click('Sourced Sent time');
   h.click('Show sourced Sent time');
   assert.equal(h.latest.transcript.chat.showSent, false);
@@ -68,7 +68,7 @@ test('transcript appearance saves through shared transaction, keeps keyboard pat
   assert.equal(h.editor.getText(), 'Unsent native draft 界面');
 
   const future = { version: 3, fields: ['unknown'] };
-  const unknown = workspace(footerPrefs({ transcript: future }));
+  const unknown = egregore(footerPrefs({ transcript: future }));
   unknown.click('[Transcript]');
   assert.match(unknown.rows().join('\n'), /settings unavailable or newer version/);
   unknown.panel.handleInput('\x13');

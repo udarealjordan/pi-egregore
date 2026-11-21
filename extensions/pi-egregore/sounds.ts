@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-export type WorkspaceSoundKind = "done" | "question";
+export type EgregoreSoundKind = "done" | "question";
 
-const SOUND_FILES: Record<WorkspaceSoundKind, string> = {
+const SOUND_FILES: Record<EgregoreSoundKind, string> = {
   done: fileURLToPath(new URL("./assets/sounds/react-bits-pluck.wav", import.meta.url)),
   question: fileURLToPath(new URL("./assets/sounds/react-bits-hint.wav", import.meta.url)),
 };
@@ -15,7 +15,7 @@ try {
   Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-public static class WorkspaceAudio {
+public static class EgregoreAudio {
   [DllImport("winmm.dll", EntryPoint = "PlaySoundW", CharSet = CharSet.Unicode)]
   [return: MarshalAs(UnmanagedType.Bool)]
   public static extern bool PlaySound(string file, IntPtr module, uint flags);
@@ -23,7 +23,7 @@ public static class WorkspaceAudio {
 '@
   # SND_FILENAME | SND_NODEFAULT, with synchronous playback (SND_SYNC = 0).
   # NODEFAULT forbids a system beep from disguising an unreadable asset.
-  if (-not [WorkspaceAudio]::PlaySound($env:PI_WORKSPACE_SOUND_FILE, [IntPtr]::Zero, 0x00020002)) {
+  if (-not [EgregoreAudio]::PlaySound($env:PI_EGREGORE_SOUND_FILE, [IntPtr]::Zero, 0x00020002)) {
     throw 'WinMM rejected WAV playback. Check that an audio output device is available and the sound asset is readable.'
   }
 } catch {
@@ -37,7 +37,7 @@ interface Playback {
 }
 
 /** Native playback of bundled PCM exports; see assets/sounds/PROVENANCE.json. */
-export class WorkspaceSounds {
+export class EgregoreSounds {
   private readonly active = new Set<Playback>();
   private generation = 0;
   private readonly platform: NodeJS.Platform;
@@ -49,7 +49,7 @@ export class WorkspaceSounds {
   }
 
   /** Resolves when playback closes; the caller owns reporting playback failures. */
-  async play(kind: WorkspaceSoundKind): Promise<void> {
+  async play(kind: EgregoreSoundKind): Promise<void> {
     const file = SOUND_FILES[kind];
     const players: [string, string[]][] = this.platform === "darwin"
       ? [["/usr/bin/afplay", [file]]]
@@ -58,7 +58,7 @@ export class WorkspaceSounds {
         : this.platform === "linux"
           ? [["pw-play", [file]], ["paplay", [file]], ["aplay", ["-q", file]]]
           : [];
-    if (!players.length) throw new Error(`Workspace sounds do not support ${this.platform}.`);
+    if (!players.length) throw new Error(`Egregore sounds do not support ${this.platform}.`);
     const generation = this.generation;
     for (const [command, args] of players) {
       if (generation !== this.generation) return;
@@ -70,16 +70,16 @@ export class WorkspaceSounds {
       : this.platform === "win32"
         ? "Windows PowerShell (powershell.exe) must be available on PATH."
         : "macOS /usr/bin/afplay is unavailable.";
-    throw new Error(`Workspace sounds: no native player found. ${hint}`);
+    throw new Error(`Egregore sounds: no native player found. ${hint}`);
   }
 
   /** Try another backend only when the executable is missing, not on audio/device errors. */
-  private playWith(command: string, args: string[], file: string, kind: WorkspaceSoundKind): Promise<boolean> {
+  private playWith(command: string, args: string[], file: string, kind: EgregoreSoundKind): Promise<boolean> {
     const child = this.spawnPlayer(command, args, {
       stdio: ["ignore", "ignore", "pipe"],
       shell: false,
       windowsHide: true,
-      env: this.platform === "win32" ? { ...process.env, PI_WORKSPACE_SOUND_FILE: file } : process.env,
+      env: this.platform === "win32" ? { ...process.env, PI_EGREGORE_SOUND_FILE: file } : process.env,
     });
     const { promise, resolve, reject } = Promise.withResolvers<boolean>();
     const playback: Playback = { child, cancelled: false };
@@ -97,9 +97,9 @@ export class WorkspaceSounds {
       } else if (failure?.code === "ENOENT") {
         resolve(false);
       } else if (failure) {
-        reject(new Error(`Workspace ${kind} sound could not play via ${command}: ${failure.message}`, { cause: failure }));
+        reject(new Error(`Egregore ${kind} sound could not play via ${command}: ${failure.message}`, { cause: failure }));
       } else if (code !== 0) {
-        reject(new Error(`Workspace ${kind} sound failed: ${command} ${signal ? `was terminated by ${signal}` : `exited with code ${code}`}.${diagnostic.trim() ? ` ${diagnostic.trim()}` : ""}`));
+        reject(new Error(`Egregore ${kind} sound failed: ${command} ${signal ? `was terminated by ${signal}` : `exited with code ${code}`}.${diagnostic.trim() ? ` ${diagnostic.trim()}` : ""}`));
       } else {
         resolve(true);
       }

@@ -47,13 +47,13 @@ function terminalHarness() {
 for (const Renderer of [TuiMainScreen, TuiAltScreen]) test(`${Renderer.name}: real Vim caret stays inside input throughout animated paints, resize and question restoration`, () => {
   const { writes, terminal } = terminalHarness();
   const tui = new Renderer(terminal, true), editor = new ModalEditor(tui, getEditorTheme(), kb);
-  const workspace = { prefs: { ...DEFAULTS, look: "composer" }, clock: new RunClock(), tools: new Map(), phase: "working", promptDepth: 0, compacting: false, lastInputAt: 0 };
+  const egregore = { prefs: { ...DEFAULTS, look: "composer" }, clock: new RunClock(), tools: new Map(), phase: "working", promptDepth: 0, compacting: false, lastInputAt: 0 };
   const ctx = { ui: { theme }, sessionManager: { getSessionId: () => "render-test" } };
   let now = 10000;
-  const undress = dressComposerEditor(editor, () => ctx, workspace, () => now, () => terminal.rows);
+  const undress = dressComposerEditor(editor, () => ctx, egregore, () => now, () => terminal.rows);
   const cleanup = installPaintGuard(tui, () => {}, () => true);
   tui.addChild(editor); tui.setFocus(editor); tui.setShowHardwareCursor(true);
-  editor.setClipboardMirrorPolicy("never"); editor.setText("one 🧭 界面"); workspace.clock.begin(1000);
+  editor.setClipboardMirrorPolicy("never"); editor.setText("one 🧭 界面"); egregore.clock.begin(1000);
   function checkPaint(component, shouldShow = true) {
     writes.length = 0; tui.renderNow();
     const frames = writes.filter(s => s.startsWith("\x1b[?2026h"));

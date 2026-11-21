@@ -20,7 +20,7 @@ export function transcriptDefaults(prefs?: Pick<FooterPrefs, "messageTime" | "to
   return { version: 1, chat: { assistantLabel: "matched", showSent: prefs?.messageTime !== "off", sentPosition: "bottomRight" },
     tools: { identity: "quiet", status: prefs?.toolLabels === "matched" ? "matched" : "semantic" } };
 }
-/** Unknown future versions are read-only in the workspace and remain unmodified on disk. */
+/** Unknown future versions are read-only in the egregore and remain unmodified on disk. */
 export function readTranscript(value: unknown, prefs?: Pick<FooterPrefs, "messageTime" | "toolLabels">): TranscriptAppearance | undefined {
   if (value === undefined) return transcriptDefaults(prefs);
   if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 1) return undefined;

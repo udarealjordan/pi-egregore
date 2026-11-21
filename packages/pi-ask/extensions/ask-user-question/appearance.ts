@@ -29,7 +29,7 @@ export function readAskAppearance(value: unknown, legacy?: unknown): AskAppearan
   return out;
 }
 /** Read once per interaction. Missing, malformed or future-version settings retain safe defaults. */
-export function savedWorkspaceVisuals(): { appearance: AskAppearance; density: "spaced" | "compact" } {
+export function savedEgregoreVisuals(): { appearance: AskAppearance; density: "spaced" | "compact" } {
   for (const name of ["pi-egregore.json", "pi-workspace.json", "pi-footer.json"]) {
     let text: string;
     try { text = readFileSync(join(getAgentDir(), name), "utf8"); }
@@ -43,4 +43,4 @@ export function savedWorkspaceVisuals(): { appearance: AskAppearance; density: "
   }
   return { appearance: askAppearanceDefaults(), density: "spaced" };
 }
-export function savedAskAppearance(): AskAppearance { return savedWorkspaceVisuals().appearance; }
+export function savedAskAppearance(): AskAppearance { return savedEgregoreVisuals().appearance; }

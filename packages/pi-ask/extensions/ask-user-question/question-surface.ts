@@ -1,5 +1,5 @@
 import { stripVTControlCharacters } from "node:util";
-import { savedWorkspaceVisuals, type AskAppearance } from "./appearance.ts";
+import { savedEgregoreVisuals, type AskAppearance } from "./appearance.ts";
 import { frameRows } from "./frame.ts";
 import { backgroundAnsi, foregroundAnsi, Key, matchesKey, mixColors, parseColor, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
@@ -93,7 +93,7 @@ export interface QuestionFrameOptions {
 
 export function frameQuestion(component: any, theme: any, tui: any, options: QuestionFrameOptions = {}): any {
   // Preview injection is display-only; live interactions read their own settings once.
-  const saved = savedWorkspaceVisuals();
+  const saved = savedEgregoreVisuals();
   const appearance = options.appearance ?? theme.askAppearance ?? saved.appearance;
   const density = saved.density;
   const raised = options.raised ?? false;

@@ -6,7 +6,7 @@ import { stripVTControlCharacters } from "node:util";
 
 export const source = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const install = join(homedir(), ".pi/agent/install");
-export const root = process.env.PI_WORKSPACE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
+export const root = process.env.PI_EGREGORE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
 const host = join(root, "@earendil-works/pi-coding-agent/dist");
 const { createJiti } = await import(pathToFileURL(join(root, "jiti/lib/jiti.mjs")));
 export const jiti = createJiti(import.meta.url, {

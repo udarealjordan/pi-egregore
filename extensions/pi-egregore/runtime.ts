@@ -16,26 +16,26 @@ import { DOCK, isSnapshot, type DockSnapshot } from "pi-agent-contracts/dock";
 import { POSTED } from "pi-agent-contracts/posted";
 import { ThemeLease } from "./composer-theme.ts";
 import { registerRecaps } from "./recaps.ts";
-import { registerWorkspaceAppearance } from "./footer.ts";
+import { registerEgregoreAppearance } from "./footer.ts";
 import { registerComposerControls } from "./composer-controls.ts";
 import { loadComposerPreferences, saveComposerPreferences, COMPOSER_SETTINGS } from "./composer-preferences.ts";
 import { SurfaceScope } from "./surface-lifecycle.ts";
-import { WorkspaceSounds } from "./sounds.ts";
+import { EgregoreSounds } from "./sounds.ts";
 import {
   DEFAULTS, TIMING_ENTRY, RunClock, shouldAnimate,
-  type WorkspaceState, type Outcome, type Preferences,
+  type EgregoreState, type Outcome, type Preferences,
 } from "./state.ts";
 
 type EditorFactory = Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0];
-const IDENTITY_WIDGET = "pi-workspace:dock";
+const IDENTITY_WIDGET = "pi-egregore:dock";
 
-export default function workspace(pi: ExtensionAPI) {
-  const state: WorkspaceState = {
+export default function egregore(pi: ExtensionAPI) {
+  const state: EgregoreState = {
     prefs: { ...DEFAULTS }, clock: new RunClock(), phase: "working", tools: new Map(),
     promptDepth: 0, blockingPromptDepth: 0, compacting: false, lastInputAt: 0, thinkingLevel: () => pi.getThinkingLevel(),
   };
   let context: ExtensionContext | undefined;
-  const sounds = new WorkspaceSounds();
+  const sounds = new EgregoreSounds();
   let soundEnabled = ["darwin", "win32", "linux"].includes(process.platform);
   let soundRun = false;
   const questionSounds = new Set<string>();
@@ -212,9 +212,9 @@ export default function workspace(pi: ExtensionAPI) {
     outcome = "done";
   }
 
-  function mountWorkspace(ctx: ExtensionContext) {
+  function mountEgregore(ctx: ExtensionContext) {
     // Native custom questions replace the editor. Move Egregore as one unit below
-    // that surface, so the question does not split the workspace and footer.
+    // that surface, so the question does not split the egregore and footer.
     const question = state.promptDepth > 0 && [...state.tools.values()].some(name => name === "ask_questions" || name === "ask_user_question");
     const scope = surfaces;
     if (!scope) return;
@@ -262,7 +262,7 @@ export default function workspace(pi: ExtensionAPI) {
     // Pi copies the collapsed draft when replacing editors. Expand paste markers before they lose their owner.
     if (draft !== ctx.ui.getEditorText()) ctx.ui.setEditorText(draft);
     ctx.ui.setWorkingVisible(false);
-    mountWorkspace(ctx);
+    mountEgregore(ctx);
     if (!state.footerManaged) ctx.ui.setFooter((ui, _theme, data) => {
       const footer = scope.guard(createFooter(ui, current, state, data));
       let disposed = false;
@@ -432,14 +432,14 @@ export default function workspace(pi: ExtensionAPI) {
     }
     if (pauses) { state.clock.pause(Date.now()); state.blockingPromptDepth = (state.blockingPromptDepth ?? 0) + 1; }
     state.promptDepth++;
-    if (installed) mountWorkspace(ctx);
+    if (installed) mountEgregore(ctx);
     wake();
   });
   pi.on("ui_prompt_end", (_event, ctx) => {
     if (ctx.mode !== "tui") return;
     if (promptPauses.pop() === true) { state.clock.resume(Date.now()); state.blockingPromptDepth = Math.max(0, (state.blockingPromptDepth ?? 0) - 1); }
     state.promptDepth = Math.max(0, state.promptDepth - 1);
-    if (installed) mountWorkspace(ctx);
+    if (installed) mountEgregore(ctx);
     wake();
   });
   pi.on("session_before_compact", (_event, ctx) => {
@@ -506,6 +506,6 @@ export default function workspace(pi: ExtensionAPI) {
     openRecaps: ctx => recaps.open(ctx), apply,
   });
 
-  // Registered last: the workspace is ready before the independent footer mounts.
-  registerWorkspaceAppearance(pi, state);
+  // Registered last: the egregore is ready before the independent footer mounts.
+  registerEgregoreAppearance(pi, state);
 }

@@ -28,10 +28,10 @@ test('screenshot-shaped dock prioritizes answerable input and separates external
  const dock={version:1,sessionId:'s',id:'pi-tasks',title:'Inspect installation',summary:'1 needs you · 0 of 3 done · 3 blocked',...result};
  const frame={state:'waiting',active:false,progress:0,phase:0};
  for(const width of [16,24,40,80,120,180]) {
-  const workspace=taskPanelRows(theme,width,dock,taskPanelDefaults(),frame,7);
+  const egregore=taskPanelRows(theme,width,dock,taskPanelDefaults(),frame,7);
   const fallback=taskFrame(theme,width,layoutDock(dock,width-2,7).map(r=>r.text),dock.title,dock.summary,dock.hint);
-  for(const rows of [workspace,fallback]) for(const line of rows)assert.ok(visibleWidth(line)<=width);
-  if(width>=80){assert.match(workspace.map(plain).join('\n'),/Your input/);assert.match(workspace.map(plain).join('\n'),/Waiting externally/);assert.match(workspace.map(plain).join('\n'),/\/questions q1/);}
+  for(const rows of [egregore,fallback]) for(const line of rows)assert.ok(visibleWidth(line)<=width);
+  if(width>=80){assert.match(egregore.map(plain).join('\n'),/Your input/);assert.match(egregore.map(plain).join('\n'),/Waiting externally/);assert.match(egregore.map(plain).join('\n'),/\/questions q1/);}
  }
 });
 test('delivery and agent follow-up do not ask for a second answer; unrelated and legacy blockers stay explicit',()=>{

@@ -112,11 +112,11 @@ test("unsupported modes, stale render provenance, extraction drift and later own
 for (const kind of ["native", "vim", "fallback"]) test(`fixed ${kind} Composer copies only draft text through native clipboard`, async () => {
   const f = fixture();
   f.tui.stop();
-  const workspace = { prefs: { ...DEFAULTS }, clock: new RunClock(), tools: new Map(), phase: "working", promptDepth: 0, compacting: false, lastInputAt: 0 };
+  const egregore = { prefs: { ...DEFAULTS }, clock: new RunClock(), tools: new Map(), phase: "working", promptDepth: 0, compacting: false, lastInputAt: 0 };
   const ctx = { ui: { theme }, cwd: process.cwd(), sessionManager: { getSessionName: () => "Copy test" } };
-  const editor = kind === "fallback" ? new ComposerEditor(f.tui, getEditorTheme(), kb, () => ctx, workspace, () => "off")
+  const editor = kind === "fallback" ? new ComposerEditor(f.tui, getEditorTheme(), kb, () => ctx, egregore, () => "off")
     : new (kind === "vim" ? ModalEditor : CustomEditor)(f.tui, getEditorTheme(), kb);
-  const undress = kind === "fallback" ? () => {} : dressComposerEditor(editor, () => ctx, workspace, () => 10000, () => f.tui.terminal.rows);
+  const undress = kind === "fallback" ? () => {} : dressComposerEditor(editor, () => ctx, egregore, () => 10000, () => f.tui.terminal.rows);
   const draft = "alpha | beta │ 界面 🧭\n  indented\n\n╭──literal──╮";
   editor.setText(draft);
   const dock = new Container(); dock.addChild(editor);

@@ -10,10 +10,10 @@ import { jiti, source, root, initTheme, theme, visibleWidth, plain, kb } from ".
 const state = await jiti.import(join(source, "footer-state.ts"));
 const { FOOTER_DEFAULTS: defaults, OPTIONS, FOOTER_ENTRY, footerPrefs, parseGit, gitLabel, ActivityClock, activityParts, stamp, clean } = state;
 const { footerRows, contextText, timingRows } = await jiti.import(join(source, "footer-view.ts"));
-const { registerWorkspaceAppearance, saveFooter } = await jiti.import(join(source, "footer.ts"));
+const { registerEgregoreAppearance, saveFooter } = await jiti.import(join(source, "footer.ts"));
 const { chooseFooter, OTHER_OPTIONS } = await jiti.import(join(source, "footer-settings.ts"));
 const { RunClock, DEFAULTS } = await jiti.import(join(source, "state.ts"));
-import { workspace } from "./workspace-harness.mjs";
+import { egregore } from "./egregore-harness.mjs";
 const { createEventBus } = await import(pathToFileURL(join(root, "@earendil-works/pi-coding-agent/dist/core/event-bus.js")));
 const { DOCK } = await jiti.import("pi-agent-contracts/dock");
 const data = { cwd: "/very/long/界面/project/with/é/and/many/components", model: "Model Name v2", thinking: "high", session: "Website redesign 界面", usage: { tokens: 84000, contextWindow: 200000, percent: 42 }, git: { branch: "feature/very-long-branch", staged: 2, changed: 3, untracked: 1, conflicts: 1, ahead: 2, behind: 1 } };
@@ -144,7 +144,7 @@ function mouse(y, type = "click") { return { type, button: "left", x: 8, y, scre
 
 test("settings preview honors context visibility without fabricated samples", async () => {
   for (const prefs of [defaults, { ...defaults, composerContext: "on" }, { ...defaults, composerContext: "on", context: "off" }]) {
-    const h = workspace(prefs);
+    const h = egregore(prefs);
     const rows = h.rows().join("\n");
     if (prefs.composerContext === "on" && prefs.context !== "off") assert.match(rows, /37%/);
     else assert.doesNotMatch(rows, /37%/);
@@ -154,7 +154,7 @@ test("settings preview honors context visibility without fabricated samples", as
 });
 
 test("all remaining footer options are reachable with a visible current value and transactional changes", async () => {
-  const h = workspace();
+  const h = egregore();
   h.click("[Other options]"); h.click("Advanced settings");
   h.panel.handleInput("\x1b[B"); // Skip the new, view-only settings-group selector.
   for (const [index, id] of OTHER_OPTIONS.entries()) {
@@ -169,7 +169,7 @@ test("all remaining footer options are reachable with a visible current value an
 });
 
 test("preset menu supports mouse selection, Undo, Save, and bounded compact rendering", async () => {
-  const h = workspace();
+  const h = egregore();
   h.click("[Other options]"); h.click("Style preset"); h.pick("powerline");
   assert.equal(h.latest.style, "powerline");
   h.click("[Undo]"); assert.equal(h.latest.style, "quiet");
@@ -189,7 +189,7 @@ async function harness(mode = "tui") {
   const previous = process.env.PI_CODING_AGENT_DIR; process.env.PI_CODING_AGENT_DIR = scratch;
   const handlers = new Map(), commands = new Map(), entries = [], widgets = new Map(), notifications = [];
   const events = createEventBus(); let footer, panel, resolver, subscriptions = 0, renders = 0;
-  const workspace = { prefs: { ...DEFAULTS, enabled: false }, clock: new RunClock(), tools: new Map(), phase: "working", promptDepth: 0, compacting: false, lastInputAt: 0 };
+  const egregore = { prefs: { ...DEFAULTS, enabled: false }, clock: new RunClock(), tools: new Map(), phase: "working", promptDepth: 0, compacting: false, lastInputAt: 0 };
   const tui = { terminal: { rows: 40 }, requestRender() { renders++; } };
   const ctx = { mode, cwd: scratch, model: { name: "Model Name", id: "provider-specific-id" },
     sessionManager: { getBranch: () => entries, getSessionName: () => "Example", getSessionId: () => "test", getHeader: () => ({ timestamp: new Date(1000).toISOString() }) },
@@ -201,11 +201,11 @@ async function harness(mode = "tui") {
     },
   };
   const pi = { events, getThinkingLevel: () => "high", on(n, fn) { handlers.set(n, [...(handlers.get(n) ?? []), fn]); }, registerCommand(n, c) { commands.set(n, c); }, appendEntry(customType, data) { entries.push({ type: "custom", customType, data }); } };
-  registerWorkspaceAppearance(pi, workspace);
+  registerEgregoreAppearance(pi, egregore);
   const emit = async (n, value = {}) => { for (const f of handlers.get(n) ?? []) await f({ type: n, ...value }, ctx); };
-  return { ctx, workspace, entries, widgets, events, notifications, scratch, emit, commands,
+  return { ctx, egregore, entries, widgets, events, notifications, scratch, emit, commands,
     get footer() { return footer; }, get panel() { return panel; }, get subscriptions() { return subscriptions; }, get renders() { return renders; },
-    choose: () => { panel = undefined; return commands.get("workspace").handler("", ctx); },
+    choose: () => { panel = undefined; return commands.get("egregore").handler("", ctx); },
     async panelReady() {
       const deadline = Date.now() + 2000;
       while (!panel && Date.now() < deadline) await wait(1);
@@ -219,7 +219,7 @@ test("controller preview is transactional: Cancel restores, Apply persists, relo
   const h = await harness();
   try {
     await h.emit("session_start");
-    assert.equal(h.commands.has("workspace"), true);
+    assert.equal(h.commands.has("egregore"), true);
     assert.equal(h.commands.has("footer"), false);
     assert.equal(h.subscriptions, 1);
     const before = h.footer.render(120);
@@ -230,7 +230,7 @@ test("controller preview is transactional: Cancel restores, Apply persists, relo
     assert.ok(h.panel, JSON.stringify(h.notifications));
     h.panel.handleInput("\x1b[Z"); h.panel.handleInput("\x1b[Z"); h.panel.handleInput("\x1b[B"); // Other options → Style (after Selection shimmer)
     h.panel.handleInput("\r"); h.panel.handleInput("\x1b[B"); h.panel.handleInput("\r");
-    assert.equal(h.workspace.layout.style, "powerline");
+    assert.equal(h.egregore.layout.style, "powerline");
     h.panel.handleInput("\x1b"); h.panel.handleInput("\x1b"); h.panel.handleInput("\r"); await pick;
     assert.deepEqual(h.footer.render(120), before);
     assert.throws(() => readFileSync(join(h.scratch, "pi-footer.json")));
@@ -240,12 +240,12 @@ test("controller preview is transactional: Cancel restores, Apply persists, relo
     assert.equal(JSON.parse(readFileSync(join(h.scratch, "pi-egregore.json"), "utf8")).style, "powerline");
     const applied = h.footer.render(120); await h.emit("session_start");
     assert.deepEqual(h.footer.render(120), applied); assert.equal(h.subscriptions, 1);
-    assert.ok(h.widgets.has("pi-workspace:activity"));
-    h.workspace.prefs.enabled = true; h.events.emit(DOCK.host, { sessionId: "test" }); await wait(0);
-    assert.equal(h.widgets.size, 0); assert.equal(typeof h.workspace.activityRows, "function");
-    h.workspace.prefs.enabled = false; h.events.emit(DOCK.host, { sessionId: "test" });
+    assert.ok(h.widgets.has("pi-egregore:activity"));
+    h.egregore.prefs.enabled = true; h.events.emit(DOCK.host, { sessionId: "test" }); await wait(0);
+    assert.equal(h.widgets.size, 0); assert.equal(typeof h.egregore.activityRows, "function");
+    h.egregore.prefs.enabled = false; h.events.emit(DOCK.host, { sessionId: "test" });
     h.ctx.ui.setWidget("tasks", () => ({ render: () => ["task"], invalidate() {} })); await wait(0);
-    assert.deepEqual([...h.widgets.keys()], ["tasks", "pi-workspace:activity"]);
+    assert.deepEqual([...h.widgets.keys()], ["tasks", "pi-egregore:activity"]);
   } finally { await h.close(); }
   assert.equal(h.subscriptions, 0);
   const renders = h.renders; await wait(1100); assert.equal(h.renders, renders);
@@ -258,10 +258,10 @@ test("session navigation and shutdown abort an open picker and roll back unsaved
     let pick = h.choose(); await h.panelReady();
     h.panel.handleInput("\x1b[Z"); h.panel.handleInput("\x1b[Z");
     h.panel.handleInput("\r"); h.panel.handleInput("\x1b[B"); h.panel.handleInput("\r");
-    assert.equal(h.workspace.layout.selectionShimmer, "off");
+    assert.equal(h.egregore.layout.selectionShimmer, "off");
     await h.emit("session_tree"); await pick;
-    assert.equal(h.workspace.layout.selectionShimmer, "on");
-    assert.equal(h.workspace.footerPickerOpen, false);
+    assert.equal(h.egregore.layout.selectionShimmer, "on");
+    assert.equal(h.egregore.footerPickerOpen, false);
     assert.throws(() => readFileSync(join(h.scratch, "pi-footer.json")));
     pick = h.choose(); await h.panelReady(); h.panel.handleInput("\x1b[B");
     await h.emit("session_shutdown"); await pick;
@@ -280,9 +280,9 @@ test("controller completion timestamps exclude tool calls/errors; timing restore
     await h.emit("message_end", { message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "reply" }] } });
     await h.emit("agent_settled");
     const last = h.entries.at(-1); assert.equal(last.customType, FOOTER_ENTRY); assert.ok(last.data.receivedAt); assert.ok(last.data.sentAt); assert.equal(last.data.runStarted, undefined);
-    await h.emit("session_tree"); assert.match(h.widgets.get("pi-workspace:activity").render(160).map(plain).join(" "), /last run/);
+    await h.emit("session_tree"); assert.match(h.widgets.get("pi-egregore:activity").render(160).map(plain).join(" "), /last run/);
     h.entries.length = 0; await h.emit("session_tree");
-    assert.match(h.widgets.get("pi-workspace:activity").render(160).map(plain).join(" "), /󱃝 —.*󱃛 —.*ready/);
+    assert.match(h.widgets.get("pi-egregore:activity").render(160).map(plain).join(" "), /󱃝 —.*󱃛 —.*ready/);
   } finally { await h.close(); }
 });
 
@@ -290,7 +290,7 @@ test("a question pauses the displayed run clock until the prompt closes", async 
   const h = await harness();
   try {
     await h.emit("session_start"); await h.emit("agent_start");
-    const activity = () => h.widgets.get("pi-workspace:activity").render(120).map(plain).join(" ");
+    const activity = () => h.widgets.get("pi-egregore:activity").render(120).map(plain).join(" ");
     await h.emit("ui_prompt_start");
     assert.match(activity(), /waiting for you/);
     await wait(1100);
@@ -304,21 +304,21 @@ test("a question pauses the displayed run clock until the prompt closes", async 
 });
 
 test("composer last-sent rail uses recorded user messages, not unsourced input, and resets on branch changes", async () => {
-  const h = await harness(); h.workspace.prefs.enabled = true; h.workspace.prefs.look = "composer";
+  const h = await harness(); h.egregore.prefs.enabled = true; h.egregore.prefs.look = "composer";
   try {
     await h.emit("session_start");
-    assert.equal(h.workspace.lastUserSentAt(), undefined);
+    assert.equal(h.egregore.lastUserSentAt(), undefined);
     await h.emit("input", { source: "interactive", text: "maybe a command" });
-    assert.equal(h.workspace.lastUserSentAt(), undefined, "an input event alone is not a recorded message");
+    assert.equal(h.egregore.lastUserSentAt(), undefined, "an input event alone is not a recorded message");
     const first = new Date(2025, 4, 8, 12, 30).getTime();
     await h.emit("message_start", { message: { role: "user", timestamp: first } });
-    assert.equal(h.workspace.lastUserSentAt(), first);
+    assert.equal(h.egregore.lastUserSentAt(), first);
     h.entries.push({ type: "message", message: { role: "user", timestamp: first - 1000 } });
-    await h.emit("session_tree"); assert.equal(h.workspace.lastUserSentAt(), first - 1000, "branch transcript wins after navigation");
+    await h.emit("session_tree"); assert.equal(h.egregore.lastUserSentAt(), first - 1000, "branch transcript wins after navigation");
     h.entries.length = 0; await h.emit("session_tree");
-    assert.equal(h.workspace.lastUserSentAt(), undefined, "do not leak a sent time between branches");
+    assert.equal(h.egregore.lastUserSentAt(), undefined, "do not leak a sent time between branches");
   } finally { await h.close(); }
-  assert.equal(h.workspace.lastUserSentAt, undefined, "cleanup removes the rail source");
+  assert.equal(h.egregore.lastUserSentAt, undefined, "cleanup removes the rail source");
 });
 
 test("working timer requests fresh renders without stream or tool events", async () => {
@@ -326,7 +326,7 @@ test("working timer requests fresh renders without stream or tool events", async
   try {
     await h.emit("session_start");
     await h.emit("agent_start");
-    const activity = () => h.widgets.get("pi-workspace:activity").render(160).map(plain).join(" ");
+    const activity = () => h.widgets.get("pi-egregore:activity").render(160).map(plain).join(" ");
     assert.match(activity(), /working 0s/);
     const renders = h.renders;
     await wait(2200);

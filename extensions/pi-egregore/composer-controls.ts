@@ -1,11 +1,11 @@
 import type { ExtensionAPI, ExtensionContext, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { WorkspaceState, Preferences } from "./state.ts";
+import type { EgregoreState, Preferences } from "./state.ts";
 
 const COMMANDS = ["output raw", "output readable", "composer", "theme on", "theme off", "motion work", "motion off", "icons nerd", "icons plain", "on", "off"];
 
 /** Composer controls own operational choices; Egregore owns mounting and session lifetime. */
 export function registerComposerControls(pi: ExtensionAPI, controls: {
-  state: WorkspaceState;
+  state: EgregoreState;
   setContext: (ctx: ExtensionContext) => void;
   isCurrent: (ctx: ExtensionContext) => boolean;
   restoreTheme: (ctx: ExtensionContext) => void;

@@ -8,10 +8,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { jiti, source } from "./host.mjs";
 
-const { WorkspaceSounds } = await jiti.import(join(source, "sounds.ts"));
+const { EgregoreSounds } = await jiti.import(join(source, "sounds.ts"));
 const windowsOutputCount = process.platform === "win32" ? Number(execFileSync("powershell.exe", [
   "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
-  `Add-Type -MemberDefinition '[System.Runtime.InteropServices.DllImport("winmm.dll")] public static extern uint waveOutGetNumDevs();' -Name OutputDevices -Namespace WorkspaceTest; [WorkspaceTest.OutputDevices]::waveOutGetNumDevs()`,
+  `Add-Type -MemberDefinition '[System.Runtime.InteropServices.DllImport("winmm.dll")] public static extern uint waveOutGetNumDevs();' -Name OutputDevices -Namespace EgregoreTest; [EgregoreTest.OutputDevices]::waveOutGetNumDevs()`,
 ], { encoding: "utf8", windowsHide: true, timeout: 15000 }).trim()) : undefined;
 if (process.platform === "win32") assert.ok(Number.isInteger(windowsOutputCount), "native output-device enumeration must succeed");
 
@@ -41,7 +41,7 @@ function players(steps) {
 
 test("cancellation keeps child error handling alive until close", async () => {
   const backend = players([{ hold: true }]);
-  const sounds = new WorkspaceSounds({ platform: "linux", spawn: backend.spawn });
+  const sounds = new EgregoreSounds({ platform: "linux", spawn: backend.spawn });
   const pending = sounds.play("done");
   const child = backend.calls[0].child;
   child.emit("error", Object.assign(new Error("spawn pending"), { code: "ENOENT" }));
@@ -53,24 +53,24 @@ test("cancellation keeps child error handling alive until close", async () => {
 
 test("Linux falls through missing executables, but never replays after a device failure", async () => {
   const backend = players([{ error: "ENOENT" }, { error: "ENOENT" }, {}]);
-  await new WorkspaceSounds({ platform: "linux", spawn: backend.spawn }).play("done");
+  await new EgregoreSounds({ platform: "linux", spawn: backend.spawn }).play("done");
   assert.deepEqual(backend.calls.map(call => call.command), ["pw-play", "paplay", "aplay"]);
   const unavailable = players([{ code: 1, stderr: "Connection refused: no audio server" }]);
-  await assert.rejects(new WorkspaceSounds({ platform: "linux", spawn: unavailable.spawn }).play("question"), /pw-play.*Connection refused/);
+  await assert.rejects(new EgregoreSounds({ platform: "linux", spawn: unavailable.spawn }).play("question"), /pw-play.*Connection refused/);
   assert.equal(unavailable.calls.length, 1, "a failed running player must not cause duplicate playback through another backend");
 });
 
 test("missing Linux players explain the prerequisite; permission failures are not treated as absence", async () => {
   const missing = players(Array.from({ length: 3 }, () => ({ error: "ENOENT" })));
-  await assert.rejects(new WorkspaceSounds({ platform: "linux", spawn: missing.spawn }).play("done"), /Install pw-play.*paplay.*aplay/);
+  await assert.rejects(new EgregoreSounds({ platform: "linux", spawn: missing.spawn }).play("done"), /Install pw-play.*paplay.*aplay/);
   const denied = players([{ error: "EACCES" }]);
-  await assert.rejects(new WorkspaceSounds({ platform: "linux", spawn: denied.spawn }).play("done"), /EACCES/);
+  await assert.rejects(new EgregoreSounds({ platform: "linux", spawn: denied.spawn }).play("done"), /EACCES/);
   assert.equal(denied.calls.length, 1);
 });
 
 test("mute cancels active playback and a pending Linux fallback, and the player remains reusable", async () => {
   const backend = players([{ error: "ENOENT" }, {}]);
-  const sounds = new WorkspaceSounds({ platform: "linux", spawn: backend.spawn });
+  const sounds = new EgregoreSounds({ platform: "linux", spawn: backend.spawn });
   const pending = sounds.play("done");
   // The missing-player close happens first; dispose precedes the await continuation.
   queueMicrotask(() => sounds.dispose());
@@ -79,7 +79,7 @@ test("mute cancels active playback and a pending Linux fallback, and the player 
   await sounds.play("question");
   assert.equal(backend.calls[1].command, "pw-play");
   const held = players([{ hold: true }]);
-  const active = new WorkspaceSounds({ platform: "win32", spawn: held.spawn });
+  const active = new EgregoreSounds({ platform: "win32", spawn: held.spawn });
   const playback = active.play("done");
   active.dispose();
   await playback;
@@ -90,11 +90,11 @@ test("Windows passes the asset as environment data, not executable PowerShell te
   const directory = await mkdtemp(join(tmpdir(), "pi sound ' $() 日本語 "));
   try {
     await copyFile(join(source, "sounds.ts"), join(directory, "sounds.ts"));
-    const { WorkspaceSounds: RelocatedSounds } = await jiti.import(join(directory, "sounds.ts"));
+    const { EgregoreSounds: RelocatedSounds } = await jiti.import(join(directory, "sounds.ts"));
     const backend = players([{}]);
     await new RelocatedSounds({ platform: "win32", spawn: backend.spawn }).play("question");
     const call = backend.calls[0];
-    assert.equal(call.options.env.PI_WORKSPACE_SOUND_FILE, join(directory, "assets", "sounds", "react-bits-hint.wav"));
+    assert.equal(call.options.env.PI_EGREGORE_SOUND_FILE, join(directory, "assets", "sounds", "react-bits-hint.wav"));
     assert.equal(call.args.some(arg => arg.includes(directory)), false, "an asset path must never become script source");
     assert.equal(call.options.shell, false);
     assert.equal(call.options.windowsHide, true);
@@ -103,11 +103,11 @@ test("Windows passes the asset as environment data, not executable PowerShell te
 
 test("Windows failures are surfaced and unsupported platforms never spawn", async () => {
   const missing = players([{ error: "ENOENT" }]);
-  await assert.rejects(new WorkspaceSounds({ platform: "win32", spawn: missing.spawn }).play("done"), /Windows PowerShell.*PATH/);
+  await assert.rejects(new EgregoreSounds({ platform: "win32", spawn: missing.spawn }).play("done"), /Windows PowerShell.*PATH/);
   const failure = players([{ code: 1, stderr: "Invalid wave header" }]);
-  await assert.rejects(new WorkspaceSounds({ platform: "win32", spawn: failure.spawn }).play("done"), /Invalid wave header/);
+  await assert.rejects(new EgregoreSounds({ platform: "win32", spawn: failure.spawn }).play("done"), /Invalid wave header/);
   const unsupported = players([]);
-  await assert.rejects(new WorkspaceSounds({ platform: "freebsd", spawn: unsupported.spawn }).play("done"), /do not support freebsd/);
+  await assert.rejects(new EgregoreSounds({ platform: "freebsd", spawn: unsupported.spawn }).play("done"), /do not support freebsd/);
   assert.equal(unsupported.calls.length, 0);
 });
 
@@ -137,7 +137,7 @@ test("native Windows WinMM accepts both packaged cues from a quoted Unicode path
     await mkdir(join(directory, "assets", "sounds"), { recursive: true });
     await copyFile(join(source, "sounds.ts"), join(directory, "sounds.ts"));
     for (const name of ["pluck", "hint"]) await copyFile(join(source, "assets", "sounds", `react-bits-${name}.wav`), join(directory, "assets", "sounds", `react-bits-${name}.wav`));
-    const { WorkspaceSounds: NativeSounds } = await jiti.import(join(directory, "sounds.ts"));
+    const { EgregoreSounds: NativeSounds } = await jiti.import(join(directory, "sounds.ts"));
     const sounds = new NativeSounds();
     try { await sounds.play("done"); await sounds.play("question"); }
     finally { sounds.dispose(); }
@@ -148,7 +148,7 @@ test("native Windows reports rejected playback rather than a default beep or suc
   const directory = await mkdtemp(join(tmpdir(), "pi-missing-sound-"));
   try {
     await copyFile(join(source, "sounds.ts"), join(directory, "sounds.ts"));
-    const { WorkspaceSounds: NativeSounds } = await jiti.import(join(directory, "sounds.ts"));
+    const { EgregoreSounds: NativeSounds } = await jiti.import(join(directory, "sounds.ts"));
     const sounds = new NativeSounds();
     try { await assert.rejects(sounds.play("done"), /WinMM rejected WAV playback/); }
     finally { sounds.dispose(); }
@@ -159,7 +159,7 @@ test("native Windows without output devices reports failure for both real cues",
   skip: process.platform !== "win32" ? "Windows only" : windowsOutputCount !== 0 ? "Requires a Windows host without audio output devices" : false,
   timeout: 15000,
 }, async () => {
-  const sounds = new WorkspaceSounds();
+  const sounds = new EgregoreSounds();
   try {
     await assert.rejects(sounds.play("done"), /WinMM rejected WAV playback/);
     await assert.rejects(sounds.play("question"), /WinMM rejected WAV playback/);

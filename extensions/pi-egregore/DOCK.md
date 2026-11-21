@@ -4,7 +4,7 @@ A small optional integration contract, not a replacement UI framework. Runtime d
 
 ## Ownership
 
-Egregore owns editor/header/footer composition and its above-editor workspace widget. A provider owns its state, commands, tool behavior, and fallback widget. Providers send **display data**, not components, callback code, or terminal escape sequences.
+Egregore owns editor/header/footer composition and its above-editor widget. A provider owns its state, commands, tool behavior, and fallback widget. Providers send **display data**, not components, callback code, or terminal escape sequences.
 
 The first consumer is `pi-tasks`. Egregore works without it; Tasks works without Egregore. Disabling Tasks withdraws its rows and disables its own behavior. Disabling Egregore announces unavailability so providers can use their native views.
 
@@ -31,7 +31,7 @@ After an acknowledgement, suppress your own fallback while `mounted` is true. On
 - A snapshot has at most twelve bounded text rows. Optional `more` is the number of additional records not included in those rows; optional `summary` is a short, quiet right-aligned header label.
 - Every snapshot uses one wrapping rule. `layoutDock` allocates a physical-line budget per row, gives accent (active) text spare lines first, marks clipped text with an ellipsis and omits unused padding rows. There is no provider-selected focus or compact layout: `title`, `summary`, `rows`, `hint` and `more` are shown as sent.
 - `fitDock` reserves a `+ N more · <hint>` row only when necessary, including both host-hidden and provider-omitted rows in the count. Do not send an overflow message as a data row as well.
-- The normal workspace fits five items plus an overflow row for a long list. Three-item plans remain fully visible in small panes; a shared height budget applies across multiple providers. Providers supply a command hint for full details.
+- The normal dock fits five items plus an overflow row for a long list. Three-item plans remain fully visible in small panes; a shared height budget applies across multiple providers. Providers supply a command hint for full details.
 - `mounted` means the host accepted ownership of the display, **not** a guarantee that every row is visible at every terminal size.
 - Widgets and text never mutate task state. A row saying “done” is not a verification event.
 - Terminal controls are stripped and text is measured/clipped by terminal-cell width.

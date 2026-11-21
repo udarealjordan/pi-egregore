@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { jiti, source, plain, visibleWidth } from './host.mjs';
-import { workspace } from './workspace-harness.mjs';
+import { egregore } from './egregore-harness.mjs';
 const { registerRecaps } = await jiti.import(join(source, 'recaps.ts'));
 
 async function recapsFixture(config, generate) {
@@ -55,7 +55,7 @@ test('recap off aborts in-flight inference and prevents queued inference from st
 test('narrow room selector exposes every destination through keyboard and pointer without changing preferences', async () => {
   const names = ['Input', 'Tasks', 'Ask', 'Transcript', 'More settings', 'General'];
   for (const width of [24, 40, 62]) {
-    const h = workspace(undefined, width, 40), before = JSON.stringify(h.latest), draft = h.editor.getText();
+    const h = egregore(undefined, width, 40), before = JSON.stringify(h.latest), draft = h.editor.getText();
     try {
       for (const [index, name] of names.entries()) {
         h.click('[Rooms…]');

@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 
 const checkout = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const install = join(homedir(), ".pi/agent/install");
-const hostModules = process.env.PI_WORKSPACE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
+const hostModules = process.env.PI_EGREGORE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules");
 const loader = join(hostModules, "@earendil-works/pi-coding-agent/dist/core/extensions/loader.js");
 
 function command(file, args, options = {}) {
@@ -86,7 +86,7 @@ test("packed private suite loads its only three entry points in an isolated Pi d
         assert.equal(tools.length, new Set(tools).size, "one owner per tool name");
         assert.equal(commands.length, new Set(commands).size, "one owner per command name");
         for (const name of ["tasks", "ask_user_question", "ask_questions", "question_queue"]) assert.ok(tools.includes(name), name);
-        for (const name of ["composer", "egregore", "workspace", "tasks", "questions"]) assert.ok(commands.includes(name), name);
+        for (const name of ["composer", "egregore", "tasks", "questions"]) assert.ok(commands.includes(name), name);
       }
       const tasksOnly = await loadExtensions([entries[1]], project);
       assert.deepEqual(tasksOnly.errors, [], "Tasks cold-loads without Egregore or Ask");

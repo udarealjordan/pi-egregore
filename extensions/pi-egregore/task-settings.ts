@@ -1,6 +1,6 @@
 import { FRAME_POSITIONS, FRAME_STATES, type FramePaint, type FrameState } from "../../lib/frame.ts";
 import type { TaskElementId, TaskPanelPrefs } from "./task-presentation.ts";
-import type { ChoiceAudition } from "./workspace-room-types.ts";
+import type { ChoiceAudition } from "./settings-room-types.ts";
 export interface TaskControl { label: string; value: string; help: string; element?: TaskElementId; activate(): void }
 export const TASK_ELEMENTS: ReadonlyArray<{ id: TaskElementId; name: string; help: string; control: string }> = [
   { id: "frame", name: "Border and motion", help: "Border styling and a display-only work example.", control: "Border color" },
