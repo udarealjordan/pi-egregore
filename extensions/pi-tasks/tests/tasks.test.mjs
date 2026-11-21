@@ -1041,7 +1041,7 @@ test("the panel action bar never clips at 64 columns; keyboard help is the only 
   const panel = new TaskPanel({ terminal: { rows: 24 }, requestRender() {} }, theme, () => b, () => undefined, () => {}, {});
   const lines = panel.render(64).map(plain);
   assert.ok(lines.every(line => visibleWidth(line) <= 64), "every line fits 64 columns");
-  assert.match(lines.at(-2), /\? help\s*│$/, "the last action-bar segment is the help key");
+  assert.match(lines.at(-2), /\? help\s*┃$/, "the last action-bar segment is the help key");
   for (const line of lines) assert.doesNotMatch(line, /Q requests|Tab\/|J questions|←→/);
   const help = (() => { panel.handleInput("?"); return panel.render(64).map(plain); })();
   assert.ok(help.every(line => visibleWidth(line) <= 64));
@@ -1055,7 +1055,7 @@ test("a default panel shows the work view and keeps the F disclosure in the foot
   const panel = new TaskPanel({ terminal: { rows: 24 }, requestRender() {} }, theme, () => b, () => undefined, () => {}, nav);
   const lines = panel.render(80).map(plain);
   assert.doesNotMatch(lines.join("\n"), /Requests · read-only/);
-  assert.match(lines.at(-2), /\? help\s*│$/);
+  assert.match(lines.at(-2), /\? help\s*┃$/);
   assert.match(lines.join("\n"), /▸ 1 done · F/, "the F disclosure survives a full list");
   panel.handleInput("f");
   assert.match(panel.render(80).map(plain).join("\n"), /▾ 1 done · F/, "F flips the disclosure");
@@ -1066,7 +1066,7 @@ test("a default panel shows the work view and keeps the F disclosure in the foot
     const sized = new TaskPanel({ terminal: { rows }, requestRender() {} }, theme, () => b, () => undefined, () => {}, {});
     const rendered = sized.render(width).map(plain);
     assert.ok(rendered.every(line => visibleWidth(line) <= width), `${rows}x${width}`);
-    assert.match(rendered.at(-2), /\? help\s*│$/, `${rows}x${width}: action bar stays last`);
+    assert.match(rendered.at(-2), /\? help\s*┃$/, `${rows}x${width}: action bar stays last`);
     assert.match(rendered.join("\n"), /▸ 1 done · F/, `${rows}x${width}: F is never clipped`);
   }
 });
@@ -1248,4 +1248,13 @@ test("native Tasks shares neutral status typography, short grouped details and d
     }
   }
   assert.deepEqual(b, before, "panel appearance must not change canonical state");
+});
+
+test("layoutDock keeps each row's kind so hosts can style finished tasks and questions", () => {
+  const snapshot = { version: 1, sessionId: "s", id: "pi-tasks", title: "Plan", hint: "", rows: [
+    { text: "? Which name? · /questions q1", tone: "warning", kind: "question" },
+    { text: "✓ Pick a name", tone: "muted", kind: "task" },
+    { text: "◉ Write it down", tone: "accent", kind: "task" },
+  ] };
+  assert.deepEqual(layoutDock(snapshot, 60, 7).map(line => line.kind), ["question", "task", "task"]);
 });

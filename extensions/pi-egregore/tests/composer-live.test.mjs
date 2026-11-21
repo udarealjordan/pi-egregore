@@ -411,3 +411,19 @@ test("the dock shows the plan title, open work and one summary without changing 
   assert.deepEqual(dockView.render(100).map(plain), text.split("\n"), "a steady dock does not reorder or rewrite rows");
   assert.deepEqual(snapshot, saved);
 });
+
+test("a quick double Escape on an empty, idle Composer opens /paths; the first Escape still reaches Pi", () => {
+  const egregore = state(); let opened = 0, now = 10000, escapes = 0;
+  egregore.openPaths = () => { opened++; };
+  const tui = { terminal: { rows: 40 }, requestRender() {} };
+  const editor = new ComposerEditor(tui, getEditorTheme(), kb, () => ({ ...ctx, cwd: "/tmp", model: { id: "m" } }), egregore, () => "medium", () => now);
+  editor.onEscape = () => { escapes++; };
+  editor.handleInput("\x1b"); now += 200; editor.handleInput("\x1b");
+  assert.equal(opened, 1); assert.equal(escapes, 1, "only the first Escape goes to Pi");
+  now += 2000; editor.handleInput("\x1b"); now += 900; editor.handleInput("\x1b");
+  assert.equal(opened, 1, "slow presses do not count");
+  editor.setText("draft"); now += 2000; editor.handleInput("\x1b"); now += 100; editor.handleInput("\x1b");
+  assert.equal(opened, 1, "a draft keeps Escape native");
+  editor.setText(""); egregore.clock.begin(now); now += 2000; editor.handleInput("\x1b"); now += 100; editor.handleInput("\x1b");
+  assert.equal(opened, 1, "a running agent keeps Escape as interrupt");
+});

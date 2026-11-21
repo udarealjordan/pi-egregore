@@ -35,8 +35,11 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
     const role = row.tone === "accent" ? "active" : row.tone === "warning" || row.tone === "error" || row.tone === "muted" ? row.tone : "text";
     const lines = wrapTextWithAnsi(cleanText(row.text), inner);
     const count = index === 0 && bodyBudget > chosen.length ? Math.min(2, lines.length) : 1;
+    // A finished task reads struck through, like a checklist.
+    const struck = row.kind === "task" && row.text.startsWith("✓ ");
+    const strike = (line: string, first: boolean) => !struck ? line : first ? line.slice(0, 2) + theme.style(line.slice(2), { strikethrough: true }) : theme.style(line, { strikethrough: true });
     for (let i = 0; i < count; i++) content.push({ role,
-      text: i === count - 1 && lines.length > count ? truncateToWidth(lines[i], Math.max(0, inner - 1), "") + "…" : lines[i] });
+      text: strike(i === count - 1 && lines.length > count ? truncateToWidth(lines[i], Math.max(0, inner - 1), "") + "…" : lines[i], i === 0) });
   }
   if (!content.length) content.push({ text: dock.overview?.total ? "No open tasks" : "No tasks yet", role: "muted" });
   const title = cleanText(dock.title);
@@ -137,15 +140,18 @@ export class TaskPanel {
 
 /** Explicitly synthetic settings preview; never published as task state. */
 export function taskDemo(state: FrameState): DockSnapshot {
+  // Rows mirror the real Tasks dock (questions first, then the checklist around the active task).
+  // The hint stays so its position can be previewed in /egregore.
   const done = state === "done", paused = state === "waiting" || state === "blocked", active = state === "working" || paused;
   return { version: 1, sessionId: "demo", id: "pi-tasks", title: "Photos for Mom", hint: done ? "/tasks" : "/questions q1 · /tasks details",
     summary: done ? "6 of 6 done" : "1 needs you · 3 of 6 done · 1 blocked", more: done ? 0 : 1,
     rows: done ? [] : [
       ...(state === "error" ? [{ text: "× Could not load task history", tone: "error" as const }] : []),
-      { text: "? Your input · q1 → 1 task · Choose the cover photo", tone: "warning" as const },
-      active ? { text: `● Agent ${paused ? "paused" : "working"} · Print 4×6 copies`, tone: "accent" as const }
-        : { text: "○ Not started · 1 task · Print 4×6 copies", tone: "muted" as const },
-      { text: "○ Not started · 1 task · Mail the album", tone: "muted" as const },
+      { text: "? Which photo goes on the cover? · /questions q1", tone: "warning" as const, kind: "question" as const },
+      { text: "✓ Pick the best twenty photos", tone: "muted" as const, kind: "task" as const },
+      active ? { text: `◉ Print 4×6 copies${paused ? " · paused" : ""}`, tone: "accent" as const, kind: "task" as const }
+        : { text: "○ Print 4×6 copies", tone: "text" as const, kind: "task" as const },
+      { text: "○ Mail the album", tone: "text" as const, kind: "task" as const },
     ],
     overview: { revision: `demo-${state}`, planId: "p1", total: 6, done: done ? 6 : 3, cancelled: 0,
       blocked: done ? 0 : 1, activeId: active ? "t4" : undefined, activeTitle: active ? "Print 4×6 copies" : undefined } };

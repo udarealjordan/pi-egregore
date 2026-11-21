@@ -2,6 +2,10 @@ import type { Theme } from '@earendil-works/pi-coding-agent';
 import { matchesKey, mixColors, parseColor, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from '@earendil-works/pi-tui';
 import { cleanText, type DockColors, type Tone } from 'pi-agent-contracts/dock';
 import { progressText } from './state.ts';
+import { framePlacement, frameGlyphs } from '../../lib/frame.ts';
+
+/** The Tasks panel is something you browse, so it uses the panel placement's lines. */
+const G = frameGlyphs(framePlacement('panel').weight);
 import { WORK_STATUS, planWord, workWord, waitingText, questionAttention } from './typography.ts';
 import { planInfo, selectedPlan, type PlanBook, type SavedPlan } from './book.ts';
 import { unresolved, type QuestionProjection } from 'pi-agent-contracts/posted';
@@ -222,13 +226,13 @@ export class TaskPanel implements Component {
       const styledPrefix = mark ? this.theme.style(mark.marker !== undefined ? mark.marker + ' ' : '', { fg: color('accent') }) + this.theme.style(mark.glyph ? mark.glyph + ' ' : '', { fg: color(mark.tone) }) : '';
       const lead = truncateToWidth(styledPrefix, prefixWidth, '');
       const padded = '  ' + lead + this.theme.style(value, { fg: color(tone), bold }) + ' '.repeat(Math.max(0, inner - 2 - visibleWidth(lead) - visibleWidth(value)));
-      return edge('│') + this.theme.style(padded, { bg: selected ? selection : active ? mixColors(surface, color('accent'), .08, 'srgb') : surface }) + edge('│');
+      return edge(G.vertical) + this.theme.style(padded, { bg: selected ? selection : active ? mixColors(surface, color('accent'), .08, 'srgb') : surface }) + edge(G.vertical);
     };
     const border = (top: boolean) => {
       const label = this.nav.history ? 'Plans' : 'Tasks';
       if (width < 6) return line(top ? label : '', 'accent');
-      const text = top ? truncateToWidth(`─ ${label} `, inner, '') : '';
-      return edge((top ? '╭' : '╰') + text + '─'.repeat(Math.max(0, inner - visibleWidth(text))) + (top ? '╮' : '╯'));
+      const text = top ? truncateToWidth(`${G.horizontal} ${label} `, inner, '') : '';
+      return edge((top ? G.topLeft : G.bottomLeft) + text + G.horizontal.repeat(Math.max(0, inner - visibleWidth(text))) + (top ? G.topRight : G.bottomRight));
     };
     const finish = (rows: string[], foot: string[]) => {
       const room = Math.max(0, height - 2 - foot.length), body = rows.slice(0, room);

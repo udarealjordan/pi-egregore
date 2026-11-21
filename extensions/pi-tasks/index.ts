@@ -81,7 +81,11 @@ export default function tasks(pi: ExtensionAPI) {
       const th = ctx.ui.theme, current = snapshot();
       if (!current.rows.length) return [];
       const budget = Math.max(3, Math.min(7, Math.floor(tui.terminal.rows / 4)));
-      const content = layoutDock(current, Math.max(1, width - 4), budget).map(r => th.fg(r.tone ?? "text", cleanText(r.text)));
+      const content = layoutDock(current, Math.max(1, width - 4), budget).map(r => {
+        const text = cleanText(r.text);
+        // A finished task reads struck through, like a checklist.
+        return r.kind === "task" && text.startsWith("✓ ") ? th.fg(r.tone ?? "text", "✓ " + th.style(text.slice(2), { strikethrough: true })) : th.fg(r.tone ?? "text", text);
+      });
       return taskFrame(th, width, content, cleanText(current.title), current.summary ?? "", current.hint ?? "", "heavy", 1);
     } }), { placement: "aboveEditor" });
   }

@@ -21,375 +21,130 @@ call out the unknown!
 
 ## everything underneath is vibed but the above is Lived
 
-Adaptive questions for building shared context with the [Pi Coding Agent](https://github.com/earendil-works/pi)—giving you precise control over what an agent learns, making efficient use of its context window, and reducing tokens wasted on guesses and rework.
-
-For setup, see [Installation](#installation). For an answer task, see [best usage](#best-usage-ask-when-inquiry-is-worth-the-interruption) and [keyboard controls](#keyboard-controls). Agent authors can consult [tool parameters](#tool-parameters) and [posted queue operations](#posted-queue-operations). [Posted questions](#posted-questions-one-continuous-thread) explains scope and provenance; it is not a shell-command reference.
-
-## Highlights
-
-- **Regenerate unanswered questions from completed answers.** Once a batch has both an answered and an unanswered question, **Ctrl+R Regenerate** appears on the question and Review screens (also under **F2 More**). Press it to let the agent replace only the questions that no longer fit. Your resolved answers and notes become context for the new questions instead of being asked again.
-- **Review before deciding what to omit.** Press **Ctrl+Enter** to compare answered, explicitly skipped, and still-unanswered questions. Only **Submit without N unanswered** marks the remaining questions skipped.
-- **Attach notes to individual answers.** The keybind bar always offers the note action: **+ Note** on a choice question, **Tab Note** on a free-text answer where **+** stays a literal plus. Enter or Tab saves the note and returns to the answer, while Ctrl+C or Escape discards that edit. A note on a skipped question stays in the form but is not sent.
-- **Close once, understandably.** **Esc Close** is red and asks before discarding real work: *⚠ Discard 2 answers and 1 note and close?* — Enter or Escape closes, **N** keeps editing. An empty question closes immediately with no prompt. Ctrl+C unselects a choice, so closing never changes an answer as a side effect.
-- **Compact the panel while you read.** A **Pinned** label in the top-right collapses the panel to a one-line bottom bar that keeps the question, its progress and the dismiss action visible while the transcript scrolls. Click the corner label (or use **F2 More** → **Unpin to compact bar**) to switch; clicking the bar reopens the panel.
-- **Ask the agent what a question means without leaving the dialog.** Clarify ambiguous wording before a misunderstanding becomes part of the work.
-- **Mix the right response types.** Use single-choice, multi-select, custom **Something else…** answers, and multiline free-form input in the same batch.
-- **Review the whole batch before submitting it.** Catch accidental choices and see related decisions together before committing them to the conversation.
-- **Spend context on decisions, not repairs.** Batch related unknowns, preserve resolved answers, and regenerate only what is stale instead of burning tokens on repeated clarification or work based on bad assumptions.
-
-The package exposes three tools:
-
-- **`consult`** asks one to four questions. One question opens a focused form (free-form, single choice or multiple choice; one Enter answers a choice). Several related questions open a sequential form with a **1 of N** header and a Review screen.
-- How often the agent asks is your choice: `/egregore` → Ask → Question frame → **How often to ask** (quiet, balanced or curious; balanced by default).
-- **`question_queue`** posts one durable question without stopping independent work, lists history, and records application, withdrawal or replacement. `/questions` opens the standalone inbox; when Tasks is installed, unresolved questions lead its work list.
-
-## Posted questions: one continuous thread
-
-Use existing synchronous tools for an immediate decision where the agent should pause. Use `question_queue post` when other authorized work can continue. Each post includes **why**, a concrete **boundary**, and **blocking** or **deferred** urgency; optional `planId`/`taskIds` link existing non-archived Tasks work. A blocking label is local to that boundary, not a declaration that all agent work has stopped. Unlinked questions work without Tasks.
-
-Open `/questions` for an Ask-framed inbox, using the same appearance and pin/More controls as the answer form. Up/Down selects a question; Enter opens it; Escape closes the inbox without changing answers. The list scrolls within its height budget and uses readable states such as **Needs your input**, **Can wait**, and **Delivered to agent**. It refreshes from current question records while open. The inbox uses Pi's native SelectList inside Ask's shared frame rather than the generic extension selector.
-
-Alternatively, select a question at the top of the `/tasks` work list and press Enter. Ask opens as an overlay anchored at the bottom of the screen above the existing panel, so it stays put while the transcript scrolls; Escape first returns from Review/custom/clarification editing or discards only the active note edit. Outer Escape then shows **⚠ Close this question and keep your draft?** — Enter or Escape closes and preserves the draft (custom/free-text answers, saved notes and clarification buffers), while **N** keeps editing, and an empty question closes immediately. The top-right **Pinned** label collapses the overlay to the same one-line bottom bar as a synchronous question. Enter Continue opens Review; a separate **Submit** finalizes the response. Ask appearance and density are read from the existing `/egregore` settings at opening; there are no new live appearance preferences.
-
-Posted choice responses use the same one-based option identity as the normal Ask form. Selection, Review and Submit are separate steps; a selected choice is validated against its original label, value and option number.
-
-The branch-local lifecycle is **Awaiting answer → Response submitted → Delivered to agent → Agent reports applied**. Answer, skip and clarification response kinds are labeled separately; submission does not imply agreement. Delivery means the response has entered the model context, not that the model has acted on it. Notes and caveats remain part of the response. Skips and clarification requests can be delivered but cannot be reported applied as answers; the agent must clarify, replace or withdraw the question. Application requires a concrete consequence and does not mutate Tasks. Tasks does not gate task transitions on unresolved questions; it surfaces them as attention. A consumer that reaches a linked task boundary may still escalate a deferred question to blocking through `POSTED.needed`, but Ask itself never mutates task state. Ask records the needed-now reason without rewriting the original question, losing an open urgency-only draft, or changing a submitted response identity. The open form updates its context and commits against the latest compatible revision; definition/link/session changes still fail closed. Independent work remains available. This is advisory attention, **not a universal enforcement layer for arbitrary shell commands, tools, or external side effects**. Use the synchronous consent/permission path for immediate high-risk actions.
-
-`question_queue list` returns full records with per-question revisions. `apply`, `withdraw` and `replace` require the current question revision and a reason/consequence. Replacement keeps the original question and links to the new record; it never silently rewrites submitted wording. Withdrawal is not approval, and neither withdrawal nor application automatically changes a task. Reconcile changed scope with the owning plan (Tasks, when installed) before proceeding. Stale session/revision responses are rejected rather than applied to a revised question.
-
-Submitted responses use Pi steering and are available after the current turn's tool calls, not inside a running tool. Submitting while idle can start an agent turn. If delivery is interrupted, the response stays Submitted; `/questions retry q1` requires explicit confirmation and reuses the original submission identity. There is **no automatic retry** on reload. Outcome views explain correction: tell the agent what changed and request a provenance-preserving replacement. The original response is retained; delivered context and external effects cannot be undone by this UI. A prior uncertain send may still be queued; the same answer must not be applied twice. Refreshing the inbox is safe and does not send anything.
-
-State uses version-1 `pi-ask:posted-v1` custom entries on the active branch, bounded to 100 retained records and 1 MiB. Drafts save on returning from the overlay; crashes can lose currently open, unsaved input. Restore/reload/tree/compaction read branch entries without rewriting them. Invalid or future versions fail closed and are not automatically reset. Posted tool results, submission messages and delivery entries each own one immutable chat event; opening an old event does not rewrite its past status. Standalone Ask provides an attention widget when Tasks does not host attention, including unavailable, off or hidden Tasks. Link availability is a separate fact. The Questions catalogue is session-scoped; linked plan/task names are read-only context, not a new state owner. Non-TUI modes may post/list/disposition records; answering requires the TUI.
-
-The Egregore clock keeps tracking independent work during the Tasks browser and posted Ask overlays, while visual motion stays still. Existing synchronous questions still pause the clock. No new timers, network calls, live-settings changes or input-editor replacement are introduced by posting a question.
-
-## Rounded question panel
-
-Questions temporarily replace the main input area with a **Questions** panel: rounded framing, the terminal’s own background, and native multiline fields. The panel, the **What are you wondering about?** clarification field, the inline **Something else…** editor, and the active note editor embed the installable `pi-embeddable-frame` renderer; their text input, focus, completion and submit behavior remain owned by pi-ask. The default lower-left **1 of N** indicator replaces the former question-summary bar; the full overview appears on Review. The question surface shares Pi’s active accent (purple in the Composer theme) without changing global theme settings. The **Questions** title and progress match its accent border by default and both frame-rail labels are bold; question wording and answer text retain their own emphasis rules. In the suite, `/egregore` → **Ask** can edit a synthetic preview and save bounded title/rail, question-emphasis and hint-tone settings in the version-1 `ask` section of `pi-egregore.json`; standalone Ask reads that section once when a question opens, with `pi-footer.json` and legacy `questionLabels` as fallbacks when the Egregore settings file is absent. The question wording, focus and answer actions never come from appearance settings. Choice markers and native cursor/selection behavior remain. There is no continuous animation while you are reading or typing.
-
-The panel may grow to `rows - 2` (an overlay host caps it at its own `maxHeight`). Height is allocated in one pass: the question is always the first content region, and the choices get what the measured chrome leaves. Choices render in full when they fit. When they do not, the focused choice keeps its description, `Why:` and `Caveat:` while the others show one label row plus their suggestion badge, and any choice that does not fit is named by a counted `↑/↓ N more` marker that reserves its own row. A question taller than its share is windowed and remains scrollable with `↑/↓ N more lines · Alt+↑/↓`; **Alt+Up/Down** moves that window in the normal answer state, and does nothing when nothing is clipped.
-
-Two shapes remain clipped by their own region, and both are counted rather than silent. A single choice block taller than the option region starts at its label, so the focused choice stays identifiable, with `↑/↓ N more lines` naming the lines it cannot show and no line scrolling. On the smallest panels a pinned **Something else…** editor plus the action bar can leave one or no option rows; the question keeps its rows and the action bar's **Alt+↑/↓ Options** hint names how to reach the choices.
-
-Keyboard hints use **↵** for Enter and **⇧↵** for Shift+Enter, with readable action words. The primary action, the note action (**+ Note** or **Tab Note**), **Ctrl+S Skip** and **Esc Close** stay visible while answering; **Esc Close** and **Discard note** use the error tone so a destructive key never looks like navigation. No Nerd Font is required. Tool cards use **Question** / **Questions** rather than internal tool names.
-
-Pi holds the real prompt draft while the question owns the input area, then restores it. Composer’s Vim integration preserves the existing editor instance and skips the unchanged-draft reset during native dialog restoration. Selection, `@` file-completion, clarification, skip, and review/submit controls remain available. Start a fresh Pi process after package/export or imported-module changes; `/reload` may retain dependencies.
-
-## Best usage: ask when inquiry is worth the interruption
-
-If you want the agent to check for important unknowns, try:
-
-> **Before you start, investigate what you can. Ask me only about matters that need my perspective and would change the work. If I've invited exploration, contribute your thinking first; then ask an open question if it could help us see something important differently. If no question is needed, proceed.**
-
-Give the agent relevant context, especially context already shared in the conversation or project. It can use `consult` with several questions to gather related unknowns rather than guessing or interrupting repeatedly. It should not ask questions simply to fill a batch. For practical work, it should inspect what it can, make a provisional judgment, and ask only when different answers would materially change its next action. It can proceed with a stated, reversible assumption when the choice does not belong to you. For exploration you invited, a question can instead help reveal an overlooked possibility or reconsider an aim; it should still earn the interruption.
-
-### Inquiry charter
-
-**Purpose:** strengthen a person's ability to understand and act, not merely collect structured answers. The agent owes the person its own thinking before asking for theirs.
-
-- **Attend before intervening.** Read what has already been said and investigate available evidence. Do not ask someone to repeat a fact the agent can find.
-- **Separate kinds of uncertainty.** Findable facts call for research; low-risk, reversible choices can be made with stated assumptions; consequential preferences, consent, and lived experience belong to the person.
-- **Ask at a real fork.** In practical work, a question is earned when plausible answers would change the next action. Show the finding or trade-off that makes the answer matter. One pivotal question beats a long questionnaire; zero questions can be the right result.
-- **Make space for discovery.** In exploration the person invited, a question can instead help uncover a possibility or reconsider an aim, even without an immediate action. Offer a substantive thought first. Do not turn reflection into an unsolicited interrogation or presume the person's values.
-- **Recommend without taking over.** Offer a reasoned provisional path for technical choices, including what could change it. For open exploration, reflect the problem before narrowing it to a menu. Keep room to disagree.
-- **Learn from the answer.** Show what changed in the work or understanding, and drop stale follow-ups. When the person asks for clarification or revision, reconsider whether a question is still necessary instead of mechanically re-asking it.
-
-This is a design ethic, not a claim that the tool verifies an agent's judgment. The educational ambition is to cultivate attention, evidence, judgment, creation, and revision while preserving the learner's agency. The software currently provides question and answer affordances plus agent-facing guidance; its real effect must be evaluated in use, including whether people leave better informed and more capable of acting without it.
-
-For example, a weak practical question is *“Which architecture do you want: A, B, or C?”* before investigating the code. A stronger agent first inspects the project: *“A preserves your current editor state; B replaces it and risks losing Vim undo. I would use A. Is replacing the editor acceptable for a specific reason I have missed?”* If that difference does not affect the task, it should simply proceed with A. In an invited philosophical exploration, the agent might instead offer an interpretation and ask *“What in your experience resists that account?”*—but only when the answer would help deepen the inquiry, not as a reflexive closing line.
-
-More useful context usually produces better work. A question batch creates a quick path to shared understanding: answer what you know, add notes where nuance matters, and ask the agent for clarification from inside any question you do not understand.
-
-### Answer-to-action handoff
-
-Both tools instruct the agent to apply submitted answers **with their notes and caveats**, explain material changes briefly, and drop obsolete questions. An answer that changes authorized scope or acceptance should be reconciled with the owning plan's tools when available, updating affected tasks while preserving the original request and caveats. Ask itself never writes Tasks state and does not require Tasks to be installed.
-
-Skipped, unanswered, cancelled, and unavailable questions are not agreement or consent. An unresolved approval boundary remains a boundary. Exploratory answers are not authorization to implement, and not every answer should become a task. These are model-facing instructions; deterministic tests check their presence and result fidelity, not whether a model obeys them. The suite's `eval/harness/README.md` describes opt-in behavioral comparison and human interruption review.
-
-### Revise unanswered questions
-
-You do not have to finish a batch whose later questions no longer fit. After answering at least one question, leave the questions that need rethinking unanswered and use the visible **Ctrl+R Regenerate** action on the question or Review screen (also in **F2 More**). The plugin returns your completed answers and notes to the agent as new context and preserves them as resolved. The agent should reassess the unanswered questions: revise only those still consequential, or explain why none remain and continue the work. You should not have to answer the same question again.
-
-This loop can continue until you and the agent share enough context to proceed:
-
-1. The agent asks a broad, useful batch.
-2. Your answers change or sharpen its understanding.
-3. **Revise unanswered** prompts the agent to drop stale questions and, if needed, replace them with better ones.
-4. The agent continues the work once the important unknowns are resolved.
-
-### Submit answered questions and skip the rest
-
-**Ctrl+S Skip** is visible on every answer screen, including free-form questions. It explicitly skips the current question; a single question returns a distinct `skipped` result instead of `cancelled`. In a batch, the draft and note remain in the form for restoration, but neither is sent if the question stays skipped. After restoring with **Ctrl+S** or **Enter**, you can use the draft as an answer.
-
-Typing free text creates a **draft**. Press **Enter Continue** to commit it; navigating to another question does not submit it. Use **Ctrl+Left/Right** to navigate while editing free text (plain Left/Right moves the text cursor); choice questions also accept plain Left/Right. **F2 More** includes Previous and Next question actions.
-
-Choosing **Something else…** opens the same native editor inline, pinned below the choices: it stays at three visible content rows, and the choices above it keep their full descriptions while they fit, then compress to one label row each with `↑/↓ N more · Alt+↑/↓` markers naming **Alt+Up/Down**, so the earlier options stay readable and reachable while you type instead of being pushed off the top of the list.
-
-Press **Ctrl+Enter** or **Alt+Enter** after answering at least one question to open Review. Review distinguishes **Answered**, **Skipped**, and **Unanswered**, including an uncommitted draft. Opening Review does not skip anything. If unanswered questions remain, the final action says **Submit without N unanswered**; choosing it explicitly skips those questions. Escape returns to the first unanswered question. An all-skipped batch can also be reviewed and submitted.
-
-### Questions as context management
-
-The dialog is also a small context editor. It gives you control over both the shape of your response and what the agent treats as settled:
-
-- **Choices constrain scope.** Select a precise option when the decision is bounded, use multi-select when several items belong together, or choose **Something else…** when the offered frame is wrong.
-- **Free-form answers preserve depth.** Open-ended questions use a multiline editor instead of forcing nuanced input into a menu.
-- **Notes separate the rule from the exception.** Keep the main answer easy to interpret while attaching caveats, conditions, or reasoning to that question.
-- **Review prevents accidental context.** A batch is not final until you inspect it; unanswered questions become skipped only when you explicitly submit without them.
-- **Clarification prevents false agreement.** Ask the agent what a question means before committing an answer to something you may have misunderstood.
-- **Revision keeps context current.** Resolved answers remain explicit context while stale unanswered questions are reformulated rather than silently becoming assumptions.
-
-The intended result is clearer conversation history; this is not a measured guarantee of comprehension or task quality. Instead of mixing requirements, uncertainty, corrections, and guesses into one long message, the tool returns structured answers and notes that show what you chose, what you qualified, and what still needs work.
-
-That can also make better use of a limited token budget. Asking a focused batch has an upfront cost, but it can avoid repeated clarification turns, discarded implementations, and obsolete assumptions taking up the context window. This is especially useful with local models that have smaller context windows, metered APIs, or any workflow where cost and context pressure matter.
-
-## Comparison
-
-**Historical, unverified comparison notes:** the table below has no accompanying source citations or comparative captures. It was not revalidated in this documentation pass and is not a current compatibility or product-selection guarantee. Check upstream behavior before relying on a third-party row. These notes name **Claude Code 2.1.221**, **Codex CLI 0.146.1**, and the current version of this package; upstream behavior can change quickly.
-
-| Capability | `pi-ask` | Claude Code `AskUserQuestion` | Codex `request_user_input` |
-|---|---|---|---|
-| Questions per batch | 1 or more; no schema maximum | 1–4 | 1–3 |
-| Choice options | 1 or more; no schema maximum | 2–4 | 2–3 |
-| Native open-ended question | **Yes** — omit options | No — use the automatic custom-text choice | No — use the automatic custom-text choice |
-| Custom answer alongside choices | **Yes** — **Something else…** | **Yes** — **Other** | **Yes** — **Other** |
-| Multi-select | **Yes** | **Yes** | No |
-| Qualified suggestion with a visible basis | **Yes** | No — recommendation is a label convention | No — recommendation is a label convention |
-| Per-question answer notes | **Yes** | Limited to supported preview/annotation flows | No |
-| Review before final submission | **Yes** | **Yes** | Batch submission, but no separate review screen |
-| Ask the agent for clarification inside the dialog | **Yes** | **Yes** — **Chat about this** | No |
-| Dedicated “revise unanswered only” action | **Yes** | Partial — chat can lead Claude to reformulate questions | No |
-| Explicit partial submit that marks the rest skipped | **Yes** | No | No |
-| Preserve resolved answers while questions are revised | **Yes** | Partial — current answers are returned as clarification context | No dedicated revision flow |
-| Visual/code previews for options | No | **Yes** | No |
-| Structured result returned to the agent | **Yes** | **Yes** | **Yes** |
-| Availability | Pi interactive TUI | Claude Code | Depends on the active Codex mode and tool list |
-
-The main difference is not merely how many questions fit in one dialog. This package is designed for a longer **question → answer → revise → shared understanding** loop, with native free-form input and per-question notes. Claude Code has a smaller batch limit and richer option previews. Codex keeps the interaction compact and decision-oriented.
-
-> **Preview:** No screenshot or animation is included yet. Contributions of an accurate demo are welcome.
-
-## Additional features
-
-- Optional question details and qualified suggestions with a visible basis
-- Width-aware terminal rendering and serialized dialogs
-- Structured results for answered, cancelled, unavailable, revision, and clarification states
-
-## Installation
-This README describes Ask in the **suite source checkout** and its standalone runtime. Links to `../../docs` or other suite components require that checkout; they are not extra files installed by the standalone Ask package.
-
-### As part of this suite
-
-Follow [the suite installation guide](../../docs/INSTALL.md) from the repository root. It loads Ask once with Egregore and Tasks. **Do not also register standalone Ask while the suite is loaded.**
-
-### Standalone from this checkout
-
-With compatible Pi and Node/npm installed, first run `npm ci` from the **suite repository root** to install the workspace dependency tree. Then register only Ask:
-
-```sh
-# From the suite repository root; do not use this in addition to the suite entry:
-pi install "$PWD/packages/pi-ask"
-```
-
-This loads `extensions/questions.ts`, not Egregore or Tasks. Frame and the shared `pi-agent-contracts` package must remain resolvable through the installed dependency tree; local Pi registration does not run npm installation, and the Ask tarball alone is not a supported install path while `pi-agent-contracts` is unpublished. Start a fresh Pi process after package/imported-module changes.
-
-Earlier standalone instructions pointed to `the-sleeping-teemo/pi-context-seeker`. That remote repository was not checked for equivalence to this fork; do not use it as a verified route to the features documented here.
-
-## Questions in the collaboration
-
-Give a question a clear role: **explore a thought together**, **invite perspective needed later**, or **obtain input or a decision for a particular action**. For work questions, the agent explains why your answer matters, what waits and what can continue independently.
-
-Posted-question attention distinguishes **needs you**, **can wait**, **delivery pending**, and **agent follow-up**. Once an answer is delivered, the agent applies the answer and its caveats, reports the consequence, then reassesses linked Tasks. Resolved blockers should be updated without requiring a second user request to unblock them. Remaining prerequisites stay explicit. These are agent instructions, not an automatic readiness detector: an answer is neither task completion nor evidence that external conditions changed.
+Ask lets the agent bring you into a decision: a focused question when it can't continue without you, or a posted question you can answer later while it keeps working.
+
+- **`consult`** asks one to four questions and waits. One question opens a focused form; several open a sequential form with a Review screen.
+- **`question_queue`** posts a question for later. It appears at the top of the Tasks dock and in `/questions`; your answer reaches the agent as a message.
+- **How often the agent asks** is yours to set: `/egregore` → Ask → Question frame → **How often to ask**. *Only when needed* asks when it is blocked or before something hard to undo. *Balanced* (the default) also asks at real forks and on taste, naming or scope. *Curious* also checks in at milestones.
+
+## Answering
+
+- **One Enter answers** a single-choice question. In a multi-question form, Enter picks an answer and Enter again moves on; Review confirms the whole form.
+- **Something else…** opens a box for your own answer.
+- **+ Note** adds context to an answer: press `+` on a choice, or Tab from a written answer.
+- **Ask back** with Ctrl+? when you don't understand the question. The agent answers, then asks again only if it still matters.
+- **Skip** with Ctrl+S. A skip is never taken as consent.
+- **Regenerate** (in F2 More, or Ctrl+R) asks the agent to rewrite the questions you haven't answered, using the answers and notes you have given.
+- **Submit what you have.** In Review you can send the answered questions and leave the rest.
+
+Suggestions show why an option is suggested (`Assistant's take · possible fit`, with the reason), not just a badge. They are the agent's judgment.
+
+### Best usage: ask when inquiry is worth the interruption
+
+Good questions decide something only you can decide: the goal or scope when it is unclear, a choice between reasonable approaches, taste and naming, or anything hard to undo. The agent should look up what it can find itself, recommend an option, and say what it would do without an answer. A plan for substantial work is a good moment to ask whether to adjust it.
+
+## Keyboard controls
+
+The footer shows the keys that apply right now; F2 More lists everything else.
+
+| Key | Does |
+| --- | --- |
+| Up/Down | Move through choices |
+| Enter | Answer, confirm, save, continue or submit, as the footer says |
+| Space | Toggle an option in a multiple-choice question |
+| Left/Right | Previous or next question (inside text, move the cursor) |
+| Ctrl+Left/Right | Previous or next question, even while typing |
+| `+` / Tab | Open the note for this answer |
+| Shift+Enter | New line in a text box |
+| Ctrl+Enter | Open Review (multi-question) or submit while editing a note |
+| Ctrl+S | Skip this question (or restore it) |
+| Ctrl+? | Ask the agent what it means |
+| Ctrl+R | Regenerate unanswered questions |
+| Ctrl+C | Clear the answer or selection; in a note, discard the edit |
+| Esc | Go back one level; at the top, close (asks first if you've entered anything) |
+| F2 | More actions, including pin, clear and discard |
+
+**Pin.** The top-right **Pinned** label collapses the panel to a one-line bar so you can read the transcript; click the bar or press Enter to reopen it. The pin lasts for the session.
 
 ## Tool parameters
 
-Pi calls these tools on behalf of the model. The examples below show their parameter objects.
-
-### Single choice
-
-```json
-{
-  "question": "Which database should we use?",
-  "details": "For the primary application store",
-  "options": [
-    { "label": "PostgreSQL", "value": "postgres" },
-    { "label": "SQLite", "value": "sqlite", "suggestion": { "kind": "low-friction", "basis": "A local prototype needs no database server.", "caveat": "Revisit this for concurrent production writes." } }
-  ]
-}
-```
-
-### Multiple choice
-
-```json
-{
-  "question": "Which checks should run in CI?",
-  "options": [
-    { "label": "Tests" },
-    { "label": "Typecheck" },
-    { "label": "Lint" }
-  ],
-  "multiSelect": true
-}
-```
-
-### Free-form
-
-Omit `options` to open the multiline editor:
-
-```json
-{
-  "question": "What should the release notes emphasize?",
-  "details": "A short paragraph is enough."
-}
-```
-
-### Batch
+### consult
 
 ```json
 {
   "questions": [
     {
-      "question": "Which runtime should we target?",
-      "label": "Runtime",
-      "options": [{ "label": "Node.js" }, { "label": "Bun" }]
+      "question": "Which database should we use?",
+      "label": "Database",
+      "options": [
+        { "label": "PostgreSQL" },
+        { "label": "SQLite", "suggestion": { "kind": "low-friction", "basis": "A local prototype needs no server.", "caveat": "Revisit for concurrent writes." } }
+      ]
     },
-    {
-      "question": "Describe the deployment environment.",
-      "label": "Deployment"
-    },
-    {
-      "question": "Select required platforms.",
-      "label": "Platforms",
-      "options": [{ "label": "Linux" }, { "label": "macOS" }],
-      "multiSelect": true
-    }
+    { "question": "What should the release notes emphasize?", "label": "Notes" }
   ]
 }
 ```
 
-Each option requires a nonblank `label`; `value`, `description`, and `suggestion` are optional. A suggestion requires `kind` (`evidence`, `fit`, `low-friction`, or `explore`) and a nonblank `basis`; `caveat` is optional. These fields express the assistant's judgment, not independent verification by the plugin. Prefer no suggestion when your priorities or the evidence are unknown. Legacy `recommended: true` and labels ending in `(Recommended)` remain accepted, but no longer produce an endorsement badge. `multiSelect` is valid only when options are present.
+- `questions`: one to four. Each has `question`, an optional short `label`, optional `details`, and `options` for a decision (omit `options` for a written answer). `multiSelect: true` allows several options.
+- An option has a `label` and optional `value`, `description` and `suggestion` (`kind`: `evidence`, `fit`, `low-friction` or `explore`; a non-blank `basis`; optional `caveat`).
+- Results report each answer, note, skip or question back. A status of `regenerate` or `clarification_requested` asks the agent to rework or explain before asking again.
 
-### Posted queue operations
+The earlier `ask_user_question` and `ask_questions` names stay registered (hidden from the model) so older sessions still render.
 
-`question_queue` is **one agent tool** with an `op` field, not a shell or slash command. The user-facing inbox command is `/questions`; `/questions q1` opens a record and `/questions retry q1` requests a confirmed retry of an interrupted undelivered submission.
+### question_queue
 
-| `op` | Parameters and boundary |
+One tool with an `op`:
+
+| `op` | Parameters |
 | --- | --- |
-| `post` | `question` contains question text, `urgency`, `why`, `boundary`, and optional details/options/multiSelect/planId/taskIds |
-| `list` | Optional `offset` (default 0) and `limit` (default 20, maximum 20); results contain full records for that page and `nextOffset` when more remain |
-| `apply` | Current `id`, per-question `revision`, and a concrete `reason`; only a delivered answered response can be reported applied |
-| `withdraw` | Current `id`, `revision`, and `reason`; not approval |
-| `replace` | Current `id`, `revision`, `reason`, and replacement `question`; retains original provenance |
+| `post` | `question` with `question`, `urgency` (`blocking` or `deferred`), `why`, `boundary` (what waits, what continues), and optional `details`, `options`, `multiSelect`, `planId`, `taskIds` |
+| `list` | Optional `offset` and `limit` (up to 20) |
+| `withdraw` | `id`, its current `revision` from `list`, and a `reason` |
+| `replace` | `id`, `revision`, `reason` and the new `question` |
 
-```json
-{
-  "op": "post",
-  "question": {
-    "question": "Should publication remain out of scope?",
-    "urgency": "deferred",
-    "why": "Publication scope belongs to you.",
-    "boundary": "Publication waits; authorized local checks can continue."
-  }
-}
+`/questions` opens the inbox; `/questions q1` opens one question; `/questions retry q1` resends an answer that didn't reach the agent. Limits: 100 questions and 1 MiB per branch.
+
+## Outside the terminal UI
+
+In print, JSON or RPC mode, `consult` returns `unavailable` instead of prompting. `question_queue` can still post and list; answering needs the terminal UI.
+
+## Privacy
+
+Questions, answers and notes become part of the session and are sent to your model provider like any message. Ask makes no network requests of its own.
+
+## Integrations
+
+While a question is open, Ask emits `herdr:blocked` on Pi's event bus (`{ active: true, label: "Waiting for your answer" }`, then `{ active: false }`) for tools that show when an agent is waiting.
+
+## Installation
+
+### As part of this suite
+
+The Egregore suite loads Ask; see the [install guide](../../docs/INSTALL.md). Don't register Ask separately as well.
+
+### Standalone from this checkout
+
+```sh
+# From the suite repository root, instead of (not as well as) the suite
+npm ci
+pi install "$PWD/packages/pi-ask"
 ```
 
-`question` text is limited to 2000 characters; details to 4000; why/boundary to 1200 each. Posted choices have 1–20 options and at most 20 task links. The queue retains at most 100 records and 1 MiB on the active branch. Use revisions from a fresh `list` result, not an assumed number. For example, an agent reporting application of a delivered answer supplies:
-
-```json
-{
-  "op": "apply",
-  "id": "q1",
-  "revision": 4,
-  "reason": "Publication remains excluded; only the authorized local checks continue."
-}
-```
-
-The number `4` is **illustrative**, not a revision to copy into a real call. If delivery, consent or scope is unresolved, application is not valid. This operation records an agent report; it does not independently verify behavior or mutate Tasks. Linked-work gating is not a generic tool-permission sandbox.
-
-## Keyboard controls
-
-Controls vary with the active field; the UI shows the available actions.
-
-- **Up/Down**: move through choices or review content
-- **Enter**: in a batch multi-select question, toggle the highlighted option (or edit **Something else**); elsewhere select, confirm, save, advance, or submit as indicated
-- **Space**: also toggle the highlighted option in a batch multi-select question
-- **Left/Right**: move between choice questions; inside free text, move the text cursor
-- **Ctrl+Left/Right**: move between batch questions, including while editing free text
-- **Tab / Shift+Tab**: focus **+ Note** from the answer or save an active note and return to the answer; press **Enter** or **+** on the focused row to edit. A choice question also opens the note with **+** directly; a free-text answer shows **Tab Note** because **+** stays a literal plus.
-- **Shift+Enter** (Ctrl+J in supported terminals): insert a newline in an editor
-- **Ctrl+Enter / Alt+Enter** (single question): submit a free-form question while editing its note
-- **Ctrl+C**: clear an answer editor where shown; unselect the highlighted choice or every multi-select choice; while editing a note, discard that note edit and return to the answer; in the **Something else** editor, clear that custom answer
-- **Escape**: go back one level (completion menu → note edit → custom answer → note action row → Review/clarification). At the answer itself it is **Esc Close**, styled red: with no work it closes at once, and with an answer, staged choice, note, custom draft, skip or clarification it asks **⚠ Discard … and close?** first. **Enter** or **Escape** then closes and **N** keeps editing. Escape never clears an answer; use **Ctrl+C** for that.
-- **Alt+Up/Down**: move the visible window of a clipped question (`↑/↓ N more lines`) while answering; while editing **Something else**, move the visible window of options without leaving the editor, so earlier choices stay reachable
-- **Ctrl+S** (single or batch): skip the question; in a batch, restore a previously skipped question
-- **Ctrl+Enter / Alt+Enter** (batch): open Review without silently skipping unanswered questions; an explicitly all-skipped batch is also allowed
-- **Number keys in Review**: with up to nine questions, press `1` through the question count to edit immediately; with ten or more, type the question number and press **Enter** to edit, or **Esc** to clear the number
-- **Ctrl+R**: regenerate a synchronous single question or unanswered batch questions, even before the first answer. Visible in the action hints and **F2 More**; partially answered batches preserve their answers and notes. Single-question regeneration sends the note as context, not an unsubmitted answer. All-answered batches use Review instead. Posted questions retain their clarification workflow.
-- **Ctrl+?** (Ctrl+/ equivalent): ask the agent for clarification; Enter sends it and Escape returns
-- **F2**: open **More**, which lists every remaining action including **Discard and close**, **Clear selection**, **Clear this field**, **Ask for clarification**, and the pin toggle. Destructive rows are shown in the error tone.
-
-### Pin and the compact bar
-
-The top-right **Pinned** label is the panel's own control. Click it, or use **F2 More**, to unpin the panel: it collapses to a single bottom line — `Pin · Esc dismiss · Questions · 1 of 2 · Enter open` — so the question stays visible while you read or scroll the transcript. Clicking that bar (or pressing Enter) opens the panel again without re-pinning it, and a posted overlay stays anchored at the bottom of the screen while collapsed. With the pin off, moving on to the next question collapses the panel again; with the pin on, the next question stays open. PageUp/PageDown, the mouse wheel and the scroll keys move the transcript while the bar is collapsed, in fullscreen mode. While a close confirmation is pending the panel is modal: the banner keeps the panel open, and every other key, **F2**, the menu and the pin are inert until you choose **Enter/Esc** or **N**. The pin lasts for the session only and is never written to preferences.
-
-### Editing notes
-
-The **+ Note** row stays in place whether empty, showing a preview, or being edited. Press **Tab** to focus its + control, then **Enter** or **+** to open the accent-outlined note editor below it. From a choice list, **+** opens the note directly; within a free-text answer, **+** inserts a literal plus. The editor has a plain interior, like the answer and clarification editors; the control itself does not show a text cursor.
-
-- **Enter** or **Tab** saves the note and returns directly to the answer. **Ctrl+C** or **Escape** discards changes since opening the note and restores its last saved text; neither closes the question.
-- **Shift+Enter / Ctrl+J** adds a new line. The editor's native undo binding (**Ctrl+_** by default) still works while typing.
-- **Ctrl+Enter / Alt+Enter** submits a single question or opens batch Review when an answer is ready.
-- **Ctrl+S** skips the whole question, not only the note. An unsent skipped note stays in the form until submission or cancellation.
-
-Keyboard hints wrap to fit the terminal. Large pasted notes retain their full content when returned to the agent, even when the editor shows a compact paste preview.
-
-## Non-TUI behavior
-
-The synchronous `consult` tool requires Pi's interactive TUI. In RPC, print or other non-interactive modes they return structured `unavailable` rather than prompting on stdin; an already-aborted call returns `cancelled`. `question_queue` can post, list and disposition records outside TUI. Answering a posted question requires TUI; queue availability does not mean an answer or approval exists.
-
-## Security
-
-Question text, answer text, notes, and clarification requests become tool results and may be sent to the active model provider or retained in session history. Do not enter secrets unless you trust that provider and your Pi configuration. This package does not add network requests or credential storage of its own.
-
-## Compatibility
-
-The package uses the current Pi extension API and declares `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` as peer dependencies with `*`, as recommended for Pi packages. The development dependencies pin Pi 1.3.0, the current verification baseline. Ask preserves Pi's renderer-owned cursor markers so hardware-cursor mode does not draw a second software cursor. Terminals must support the displayed key sequences; older Pi/TUI versions are not tested.
-
-## Optional herdr interoperability
-
-While a dialog is open, the extension emits `herdr:blocked` on Pi's shared event bus:
-
-```ts
-{ active: true, label: "Waiting for your answer" }
-{ active: false }
-```
-
-Batch dialogs use “Waiting for your answers”. This is optional interoperability metadata; no herdr package is required.
-
-## Known limitations
-
-- Questions are interactive only in TUI mode.
-- Only one question dialog is shown at a time.
-- Key handling depends on the terminal correctly reporting modified keys; Ctrl+/ is accepted as an equivalent encoding for Ctrl+?.
-- The package has no screenshot or animation yet.
-- Compatibility with older Pi versions and every terminal emulator is not guaranteed.
+This loads Ask alone. Frame and the shared contracts package resolve through the checkout's dependencies. Start a fresh Pi process after updating.
 
 ## Development
 
-For this suite checkout, work from the **repository root** with an installed compatible Pi host:
+From the suite root, with a compatible Pi installed:
 
 ```sh
-npm ci
 npm run test:ask
 npm run typecheck --workspace=pi-ask
 npm run pack:check --workspace=pi-ask
 ```
 
-If developing Ask as a separate package checkout rather than this workspace, install its own development dependencies before using its `npm test`, `npm run typecheck` and `npm run pack:check` scripts.
-
-Ask's package `npm test` uses `tsx`; the suite's `test:ask` selects the installed-host runner. From the Ask package directory, `node --test test/host.test.mjs` runs the same TypeScript tests against that host without installing Ask's test-tool dependencies there. It still needs a compatible installed host and resolvable Frame runtime dependency (`PI_ASK_HOST_MODULES` can select an explicit host node_modules directory). `pack:check` prints the files that would be published without creating or publishing a release.
-
-There is intentionally no build script. Pi loads extension `.ts` files directly through jiti, and this package publishes `extensions/questions.ts` rather than generated JavaScript. Use `npm run typecheck` for compile-time validation and `npm run pack:check` to verify the publish contents.
+`PI_ASK_HOST_MODULES` can point the tests at a specific Pi `node_modules`. There is no build step: Pi loads the TypeScript directly.
 
 ## Contributing
 
-Issues, focused pull requests, terminal compatibility reports, documentation improvements, and an honest demo asset are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). This project is licensed under the [MIT License](LICENSE).
+Issues, focused pull requests and terminal compatibility reports are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed; see [LICENSE](LICENSE).

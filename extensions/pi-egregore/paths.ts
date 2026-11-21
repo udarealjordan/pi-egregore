@@ -155,6 +155,7 @@ export function registerPaths(pi: ExtensionAPI, state: EgregoreState) {
     catch { label = ""; }
   };
   state.pathLabel = () => label;
+  state.openPaths = () => pi.sendUserMessage("/paths", { expandPromptTemplates: true });
   pi.on("session_start", (_e, ctx) => update(ctx));
   pi.on("session_tree", (_e, ctx) => update(ctx));
   pi.on("agent_end", (_e, ctx) => update(ctx));

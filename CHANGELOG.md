@@ -6,6 +6,11 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Press Escape twice on an empty, idle Composer to open `/paths` (Pi's own double-Escape tree stays reachable with `/tree`).
+- Finished tasks in the dock are struck through. The `/tasks` panel uses the panel placement's bold rounded frame, and the `/egregore` Tasks preview shows the real checklist.
+- Works on Pi 1.6: border-free copying reads Pi 1.6's new container layout as well as 1.5's.
+- The Ask README is shorter and describes `consult`, answering, keys and the queue as they are now.
+
 - Frame now names four standard placements: `input` (takes the composer's place), `panel` (centered over the transcript), `dock` (above the composer) and `transcript`. Each has a line weight and a height budget (`framePlacement`). `/btw` is an input surface, so it no longer half covers the composer, and `/paths` is a panel. The Frame and root READMEs explain how to build a new surface.
 - A sense of time: your message frame shows "2 h later" when you come back after a pause; resuming a session idle for over two hours shows one line, "Back after 3 days · you last asked: …", until your next run; a running tool row counts up ("running 12s"); the composer marker pulses with streaming text and plays one short settle into ✓ when a run succeeds.
 

@@ -85,7 +85,7 @@ export function layoutDock(snapshot: DockSnapshot, width: number, maxRows: numbe
   const order = groups.map((_, i) => i).sort((a, b) => Number(source[b].tone === "accent") - Number(source[a].tone === "accent"));
   for (const i of order) { const extra = Math.min(spare, groups[i].length - 1); budgets[i] += extra; spare -= extra; }
   const rows = groups.flatMap((lines, i) => lines.slice(0, budgets[i]).map((text, j) => ({
-    tone: source[i].tone,
+    tone: source[i].tone, kind: source[i].kind,
     text: j === budgets[i] - 1 && lines.length > budgets[i]
       ? truncateToWidth((j ? "  " : "") + text, Math.max(0, width - 2), "") + " …"
       : (j ? "  " : "") + text,

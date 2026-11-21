@@ -2,7 +2,7 @@ import {
   CustomEditor, type ExtensionContext, type KeybindingsManager, type ReadonlyFooterDataProvider,
 } from "@earendil-works/pi-coding-agent";
 import {
-  sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi,
+  Key, matchesKey, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi,
   type Component, type EditorTheme, type TUI, type TuiMouseEvent,
 } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
@@ -59,8 +59,16 @@ export class ComposerEditor extends CustomEditor {
     if (this.homeState?.promptDepth > 0 && text === this.getText()) return;
     super.setText(text);
   }
+  private lastEscape = 0;
   override handleInput(data: string): void {
     this.homeState.lastInputAt = this.now();
+    // A quick second Escape on an empty draft, with nothing running, opens /paths.
+    // The first one still reaches Pi, so Escape keeps its meaning everywhere else.
+    if (matchesKey(data, Key.escape) && !this.getText().trim() && !this.homeState.clock.active && this.homeState.openPaths) {
+      const now = this.now();
+      if (now - this.lastEscape < 500) { this.lastEscape = 0; this.homeState.openPaths(); return; }
+      this.lastEscape = now;
+    } else this.lastEscape = 0;
     super.handleInput(data);
   }
   protected override renderTopBorder(width: number, hidden: number): string {

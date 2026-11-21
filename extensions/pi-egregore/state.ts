@@ -143,6 +143,8 @@ export interface EgregoreState {
   appearanceData?: () => FooterData;
   /** "2/3" after a rewind (this path of all paths from the latest fork); empty on a single path. */
   pathLabel?: () => string;
+  /** Opens /paths; set by the paths feature. */
+  openPaths?: () => void;
   appearanceMode?: string;
   openAppearancePreview?: (tui: TUI) => { render: (width: number) => string[]; dispose: () => void };
   thinkingLevel?: () => string;

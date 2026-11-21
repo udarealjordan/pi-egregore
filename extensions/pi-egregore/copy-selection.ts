@@ -33,6 +33,18 @@ function findScrollBox(box: Box, scrollView: unknown, depth = 0): Box | undefine
   for (const child of box.children) { const found = findScrollBox(child, scrollView, depth + 1); if (found) return found; }
 }
 
+type ChildLayout = { width: number; children: { component: Component; height: number }[] };
+/** A native Container's last recorded child layout, in either host shape:
+ * Pi 1.5 `mouseLayout` ({ component, height } rows) or Pi 1.6 `childLines`
+ * (children plus their rendered `parts`). Anything else is not trusted. */
+function childLayout(component: Component): ChildLayout | undefined {
+  const c = component as unknown as { mouseLayout?: ChildLayout; childLines?: { width: number; children: Component[]; parts: string[][] } };
+  if (c.mouseLayout) return c.mouseLayout;
+  const lines = c.childLines;
+  if (!lines || !Array.isArray(lines.children) || !Array.isArray(lines.parts) || lines.parts.length !== lines.children.length) return;
+  return { width: lines.width, children: lines.children.map((child, i) => ({ component: child, height: Array.isArray(lines.parts[i]) ? lines.parts[i].length : -1 })) };
+}
+
 /** Follow only native vertical Containers' recorded mouse layout; never rerender
  * during copying or infer coordinates for third-party/custom layout engines. */
 function collect(component: Component, width: number, row: number, height: number, spans: Span[], depth = 0): void {
@@ -43,7 +55,7 @@ function collect(component: Component, width: number, row: number, height: numbe
     return;
   }
   if (!(component instanceof Container) || component.render !== Container.prototype.render) return;
-  const layout = (component as unknown as { mouseLayout?: { width: number; children: { component: Component; height: number }[] } }).mouseLayout;
+  const layout = childLayout(component);
   if (!layout || layout.width !== width || !Array.isArray(layout.children) ||
     layout.children.length !== component.children.length ||
     layout.children.some((child, i) => child.component !== component.children[i] || !Number.isInteger(child.height) || child.height < 0) ||

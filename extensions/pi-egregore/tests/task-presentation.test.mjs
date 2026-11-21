@@ -33,7 +33,7 @@ test('task panel preserves exact counts and bounded geometry, prioritizes open w
   const render = time => panel.render(theme, 90, dock, egregore, time, true, 7);
   const a = render(3000), b = render(3500);
   assert.deepEqual(a, b, "steady emphasis does not animate continuously");
-  assert.match(a.map(plain).join('\n'), /1 needs you · 3 of 6 done · 1 blocked/); assert.match(a.map(plain).join('\n'), /\+ 1 more · \/questions q1/);
+  assert.match(a.map(plain).join('\n'), /1 needs you · 3 of 6 done · 1 blocked/); assert.match(a.map(plain).join('\n'), /\+ 2 more · \/questions q1/);
   egregore.promptDepth = 1; const paused = render(4000); assert.deepEqual(paused, render(4500)); assert.equal(panel.tick(egregore, 4600, true), false);
   egregore.promptDepth = 0; egregore.lastInputAt = 4700; render(4700); assert.equal(panel.tick(egregore, 4800, true), false);
   egregore.lastInputAt = 0; egregore.prefs.motion = 'off'; render(6000); assert.equal(panel.tick(egregore, 6500, true), false);
@@ -56,7 +56,7 @@ test('Tasks title and counts share one frame; the count is muted and the plan na
     const rows = taskPanelRows(theme, 90, taskDemo('working'), taskPanelDefaults(), frame('idle'), 7);
     assert.ok(rows[0].includes(theme.style(' Photos for Mom ', { fg: theme.colors.accent, bold: true })));
     assert.ok(rows[0].includes(theme.style(' 1 needs you · 3 of 6 done · 1 blocked ', { fg: theme.colors.muted, bold: true })));
-    assert.ok(rows.at(-1).includes(theme.style(' + 1 more · /questions q1 · /tasks details ', { fg: theme.colors.muted, bold: true })));
+    assert.ok(rows.at(-1).includes(theme.style(' + 2 more · /questions q1 · /tasks details ', { fg: theme.colors.muted, bold: true })));
     const idleRows = taskPanelRows(theme, 90, taskDemo('idle'), taskPanelDefaults(), frame('idle'), 7);
     assert.ok(idleRows.slice(1, -1).some(row => !row.includes('\x1b[1m')), 'ordinary body text remains unbolded');
   }
@@ -66,10 +66,10 @@ test('the settings demo is shaped exactly like a real snapshot', () => {
   const demo = taskDemo('working'), before = structuredClone(demo);
   assert.equal(isSnapshot(demo), true);
   assert.equal(demo.title, 'Photos for Mom');
-  assert.ok(demo.rows.some(row => row.text === '● Agent working · Print 4×6 copies' && row.tone === 'accent'));
-  assert.ok(demo.rows.some(row => row.text === '? Your input · q1 → 1 task · Choose the cover photo' && row.tone === 'warning'));
-  assert.ok(demo.rows.some(row => row.text === '○ Not started · 1 task · Mail the album' && row.tone === 'muted'));
-  assert.ok(!demo.rows.some(row => /^✓|^–/.test(row.text)), 'closed work never appears as a row');
+  assert.ok(demo.rows.some(row => row.text === '◉ Print 4×6 copies' && row.tone === 'accent'));
+  assert.ok(demo.rows.some(row => row.text === '? Which photo goes on the cover? · /questions q1' && row.tone === 'warning'));
+  assert.ok(demo.rows.some(row => row.text === '○ Mail the album' && row.tone === 'text'));
+  assert.ok(demo.rows.some(row => row.text === '✓ Pick the best twenty photos' && row.kind === 'task'), 'the checklist keeps the last finished task for context');
   for (const appearance of ['dark', 'light']) {
     initTheme(appearance, false);
     for (const width of [90, 140]) {
@@ -77,7 +77,7 @@ test('the settings demo is shaped exactly like a real snapshot', () => {
       const text = rows.map(plain).join('\n');
       assert.match(text, /Photos for Mom/);
       assert.match(text, /1 needs you · 3 of 6 done · 1 blocked/);
-      assert.match(text, /● Agent working · Print 4×6 copies/);
+      assert.match(text, /◉ Print 4×6 copies/);
       assert.ok(rows.every(row => visibleWidth(row) <= width));
     }
     for (const width of [1, 12, 16, 24]) assert.ok(taskPanelRows(theme, width, demo, taskPanelDefaults(), frame('working'), 7).every(row => visibleWidth(row) <= width));
@@ -125,7 +125,7 @@ test('demo state is not persisted; discard, focus loss, abort and disposal are s
   const abort = new AbortController(), h = egregore(undefined, 120, 40, abort.signal);
   h.panel.handleInput('\t');
   assert.match(h.rows().join('\n'), /Example Tasks/);
-  h.click('Demo state'); h.pick('blocked'); assert.match(h.rows().join('\n'), /\? Your input/);
+  h.click('Demo state'); h.pick('blocked'); assert.match(h.rows().join('\n'), /\? Which photo/);
   assert.equal(h.egregore.clock.active, false); assert.equal(h.egregore.tools.size, 0);
   h.panel.focused = false; h.panel.render(120); h.panel.focused = true; h.panel.invalidate(); h.panel.render(120);
   abort.abort(); assert.equal(await h.pending, undefined); h.panel.dispose();
@@ -144,11 +144,11 @@ test('Tasks room synchronizes list and rendered preview selection without editin
   h.click('Plan name');
   h.click('1 needs you · 3 of 6 done · 1 blocked');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Progress/);
-  h.click('+ 1 more · /questions q1 · /tasks details');
+  h.click('+ 2 more · /questions q1 · /tasks details');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · More hint/);
-  h.click('● Agent working · Print 4×6 copies');
+  h.click('◉ Print 4×6 copies');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Active task/);
-  h.click('○ Not started · 1 task · Mail the album');
+  h.click('○ Mail the album');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Task rows/);
   h.clickAt(0, h.rows().findIndex(row => row.includes('╭ Photos for Mom')));
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Border and motion/);
@@ -227,4 +227,14 @@ test('representative task panel captures show real hierarchy at narrow/wide widt
   writeCapture('pi-task-presentation-captures.ansi', captures.join('\n'));
   writeCapture('pi-task-presentation-captures.txt', captures.map(plain).join('\n'));
   initTheme('dark', false);
+});
+
+test('finished tasks in the dock are struck through after the check; open work is not', () => {
+  const lines = taskPanelRows(theme, 90, taskDemo('working'), { ...taskPanelDefaults(), rows: 5 }, frame('working'), 9);
+  const SGR_STRIKE = /\x1b\[9m/;
+  const done = lines.find(l => /✓ /.test(plain(l)));
+  assert.ok(done, 'the demo has a finished task');
+  assert.match(done, SGR_STRIKE);
+  assert.ok(plain(done).includes('✓ '), 'the check itself stays legible');
+  for (const line of lines.filter(l => /[◉○] /.test(plain(l)))) assert.doesNotMatch(line, SGR_STRIKE);
 });
