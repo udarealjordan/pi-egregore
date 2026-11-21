@@ -3,7 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 import { mixColors, parseColor, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { createFrameController, framePresentationDefaults, readFramePresentation, presentationRows,
   type FramePresentation, type FrameSample, type FrameState } from "../../lib/frame.ts";
-import { cleanText, type DockSnapshot } from "pi-agent-contracts/dock";
+import { cleanText, type DockSnapshot, prioritizeDock } from "pi-agent-contracts/dock";
 import type { EgregoreState } from "./state.ts";
 import { selectionHighlight } from "./footer-selection.ts";
 
@@ -24,10 +24,10 @@ export function readTaskPanel(value: unknown): TaskPanelPrefs {
 }
 function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs: TaskPanelPrefs,
   frame: FrameSample, budget = 7, withHits = false): { rows: string[]; hits: TaskPreviewHit[] } {
-  const source = dock.rows;
   const bodyBudget = Math.max(1, budget - 2);
   const capacity = Math.max(1, Math.min(prefs.rows, bodyBudget));
-  const hidden = Math.max(0, source.length - capacity) + (dock.more ?? 0);
+  const picked = prioritizeDock(dock.rows, capacity), source = picked.rows;
+  const hidden = picked.hidden + (dock.more ?? 0);
   const inner = Math.max(1, width - 4);
   const content: Array<{ text: string; role: "text" | "active" | "muted" | "warning" | "error" }> = [];
   const chosen = source.slice(0, capacity);
@@ -41,7 +41,7 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
   if (!content.length) content.push({ text: dock.overview?.total ? "No open tasks" : "No tasks yet", role: "muted" });
   const title = cleanText(dock.title);
   const summary = cleanText(dock.summary ?? "");
-  const hint = hidden > 0 ? `+ ${hidden} more · ${cleanText(dock.hint ?? "/tasks")}` : cleanText(dock.hint ?? "");
+  const hint = hidden > 0 ? `+ ${hidden} more${dock.hint ? ` · ${cleanText(dock.hint)}` : ""}` : cleanText(dock.hint ?? "");
   if (width < 16) {
     if (hint && content.length < bodyBudget) content.push({ text: hint, role: "muted" });
     return { rows: content.map(row => truncateToWidth(row.text, width, "…")), hits: [] };

@@ -10,7 +10,7 @@ import { taskFrame, taskFrameColor } from "../../lib/task-frame.ts";
 import { toolRows } from "../../lib/frame.ts";
 import { taskResultCard, taskResultRows, type TaskCardDetails } from "./transcript.ts";
 import { ENTRY, STATUSES, progressText, taskOverview, type Plan, type Change, type Mutation } from "./state.ts";
-import { dockRows, questionAttentionSummary } from "./typography.ts";
+import { questionAttentionSummary } from "./typography.ts";
 import { BOOK_ENTRY, COMPLETION_MS, emptyBook, migratePlan, restoreBook, mutateBook, selectedPlan, resultPlan, planInfo, bookContext, isPlanClosed,
   type PlanBook, type BookMutation } from "./book.ts";
 import { TaskPanel, type PanelResult, type PanelNavigation } from "./panel.ts";
@@ -23,7 +23,6 @@ const NewItem = Type.Object({ title: Type.String({ maxLength: 200 }), phase: Typ
   doneWhen: Type.Optional(Type.String({ maxLength: 400 })), dependsOn: Type.Optional(Type.Array(Type.String(), { maxItems: 20 })) });
 const Params = Type.Object({
   op: StringEnum(["plans", "create", "select", "rename", "archive", "list", "add", "update"] as const),
-  revision: Type.Optional(Type.String({ description: "Optional library revision from a prior read. Omit to apply to the current plan; a stale value is rejected." })),
   planId: Type.Optional(Type.String({ description: "Plan ID (p1, p2…). list can read history without selecting it; task writes target the current plan." })),
   title: Type.Optional(Type.String({ maxLength: 120, description: "Concise name required for create or rename." })),
   offset: Type.Optional(Type.Integer({ minimum: 0, description: "List/history page offset; default 0." })),
@@ -32,9 +31,8 @@ const Params = Type.Object({
   id: Type.Optional(Type.String({ description: "Task ID within the selected plan, for update." })),
   changes: Type.Optional(Type.Object({ title: Type.Optional(Type.String({ maxLength: 200 })), status: Type.Optional(StringEnum(STATUSES)),
     phase: Type.Optional(Type.String({ maxLength: 80 })), doneWhen: Type.Optional(Type.String({ maxLength: 400 })),
-    dependsOn: Type.Optional(Type.Array(Type.String(), { maxItems: 20 })), reason: Type.Optional(Type.String({ maxLength: 800 })),
-    blockerOwner: Type.Optional(StringEnum(["user", "agent", "external"] as const)),
-    unblockWhen: Type.Optional(Type.String({minLength:1, maxLength:800, description:"Observable prerequisite that lets blocked work continue; not a completion claim."})),
+    dependsOn: Type.Optional(Type.Array(Type.String(), { maxItems: 20 })),
+    reason: Type.Optional(Type.String({ maxLength: 800, description: "Why the task is blocked. Required for blocked." })),
     note: Type.Optional(Type.String({ maxLength: 1200 })), evidence: Type.Optional(Type.String({ maxLength: 1200 })) })),
 });
 
@@ -54,7 +52,7 @@ export default function tasks(pi: ExtensionAPI) {
   const stopCompletionTimer = () => { if (completionTimer) clearTimeout(completionTimer); completionTimer = undefined; };
   const snapshot = (): DockSnapshot => {
     const p = selectedPlan(book);
-    const s: DockSnapshot = { version: 1, sessionId: sessionId() ?? "", id: "pi-tasks", title: p?.title ?? "Plans", rows: [], hint: "/tasks" };
+    const s: DockSnapshot = { version: 1, sessionId: sessionId() ?? "", id: "pi-tasks", title: p?.title ?? "Plans", rows: [], hint: "" };
     if (!enabled) return s;
     if (fault) { s.rows = [{ text: "Plan history couldn't be read · /tasks clear to reset", tone: "error" }]; return s; }
     if (!p) return s;
@@ -70,8 +68,8 @@ export default function tasks(pi: ExtensionAPI) {
       if (Date.now() >= p.closedAt && Date.now() - p.closedAt < COMPLETION_MS) s.rows = [{ text: `${p.state.tasks.some((t) => t.status === "done") ? "✓" : "–"} Plan finished · ${count} · saved in /tasks`, tone: "muted" }];
       return s;
     }
-    const attentionRows = attentionDockRows(p.state, running, openQuestions, p.id);
-    s.rows = attentionRows.rows.slice(0, 12); s.more = attentionRows.rows.length - s.rows.length; s.hint = attentionRows.hint;
+    const dock = attentionDockRows(p.state, running, openQuestions, p.id);
+    s.rows = dock.rows; s.more = dock.more; s.hint = dock.hint;
     return s;
   };
   function fallback() {
@@ -83,8 +81,8 @@ export default function tasks(pi: ExtensionAPI) {
       const th = ctx.ui.theme, current = snapshot();
       if (!current.rows.length) return [];
       const budget = Math.max(3, Math.min(7, Math.floor(tui.terminal.rows / 4)));
-      const content = layoutDock(current, Math.max(1, width - 2), budget).map(r => th.fg(r.tone ?? "text", cleanText(r.text)));
-      return taskFrame(th, width, content, cleanText(current.title), current.summary ?? "", current.hint ?? "", "heavy");
+      const content = layoutDock(current, Math.max(1, width - 4), budget).map(r => th.fg(r.tone ?? "text", cleanText(r.text)));
+      return taskFrame(th, width, content, cleanText(current.title), current.summary ?? "", current.hint ?? "", "heavy", 1);
     } }), { placement: "aboveEditor" });
   }
   function publish() {
@@ -117,7 +115,7 @@ export default function tasks(pi: ExtensionAPI) {
   function registerTool() {
     pi.registerTool({
       name: TOOL, label: "Plan", renderShell: "self", parameters: Params, exposure: enabled ? "direct" : "hidden", executionMode: "sequential",
-      description: "Track named plans of tasks for substantial user requests. Reads: plans, list. Writes: create, select, rename, archive, add, update. For a NEW substantial request use create with a concise title and optional pending items; preserve earlier plans. For a follow-up update the existing plan. list reads the current plan and task IDs. One active focus task per plan; inactive plans are paused. For blocked work record reason, blockerOwner (user, agent or external) and unblockWhen: the concrete prerequisite that allows progress. Use dependsOn for waiting on other tasks. An obstacle you can investigate within authorized work is usually active work, not a handoff to the user. Pending means not started. done requires a truthful note and available evidence references (not independent verification). Before finishing work on a plan, reconcile open tasks with actual results: complete only verified work, revise changed steps, block with reason, or cancel superseded steps. Continue only work already authorized; otherwise explain the remaining work or ask one consequential question. Preserve user edits and archives. Skip trivial requests. No broader scope from a task alone.",
+      description: "Keep a visible checklist for substantial work. create starts a named plan with pending items; add appends; update changes a task (status pending, active, blocked with a reason, done with a note, or cancelled). Keep one task active at a time. list and plans read. Skip trivial requests.",
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
       async execute(_callId, params, signal, _onUpdate, context) {
         if (!enabled) throw new Error("Tasks are off. Only the user can enable them with /tasks on.");
@@ -147,7 +145,8 @@ export default function tasks(pi: ExtensionAPI) {
             }
             action = { op: "task", planId: params.planId, mutation };
           }
-          commit(mutateBook(book, params.revision, action, "agent"));
+          // A revision is no longer part of the schema; an older caller may still send one to assert a snapshot.
+          commit(mutateBook(book, (params as { revision?: string }).revision, action, "agent"));
         }
         const offset = read ? params.offset ?? 0 : 0, limit = read ? params.limit ?? 20 : 20;
         const pageInfo = (size: number) => size > offset + limit ? { more: size - offset - limit, nextOffset: offset + limit } : {};
@@ -320,8 +319,14 @@ export default function tasks(pi: ExtensionAPI) {
     if (changes) commit(mutateBook(book, revision, { op: "task", planId: p.id, mutation: { op: "update", id: task.id, changes } }, "user"));
   }
   pi.registerCommand("tasks", {
-    description: "Open plans and work. new <name>, add <task>, use/archive/restore <id>, rename, clear, hide, unhide, on, off.",
-    getArgumentCompletions: (prefix) => ["new ", "add ", "history", "use ", "archive", "restore ", "rename ", "clear", "hide", "unhide", "on", "off"].filter((s) => s.startsWith(prefix)).map((s) => ({ value: s, label: s })),
+    // The panel's keys cover switching, renaming, archiving and clearing (press ? there).
+    // use/archive/restore/rename/clear/hide/unhide/on/off still work when typed.
+    description: "Open your plans. /tasks new <name> · add <task> · history",
+    getArgumentCompletions: (prefix) => [
+      { value: "new ", label: "new", description: "Start a named plan" },
+      { value: "add ", label: "add", description: "Add a task to the current plan" },
+      { value: "history", label: "history", description: "Browse earlier plans" },
+    ].filter((item) => item.value.startsWith(prefix)),
     handler: async (args, context) => {
       ctx = context; const command = args.trim();
       try {

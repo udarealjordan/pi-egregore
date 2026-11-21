@@ -6,6 +6,10 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- The Tasks dock is now the checklist itself, in plan order around the work in progress: the task just finished, the active task, what follows, then earlier tasks not yet started. `✓ ◉ ! ○ –` glyphs, `· paused`, `· after …` for dependencies, phase headers with progress, and `+ N more`. When space is short, both hosts keep questions and the active task and drop headers and finished work first (`DockRow.kind`, shared `prioritizeDock`). The native dock now shows its overflow count.
+- Questions inside Tasks are simpler. Questions waiting on you lead the dock as `?` rows. An answer is resolved once it reaches the agent as a message, so there is no "apply" step, and "delivery pending" and "agent follow-up" are gone. `question_queue` offers post, list, withdraw and replace, with three short guidelines, and its results are rows on the tool rail.
+- `/tasks` advertises `new`, `add` and `history`; the other subcommands still work when typed, and the panel keys cover them. The `tasks` tool no longer exposes `revision`, `blockerOwner` or `unblockWhen`; existing records with them still load. The tool description and context reminders are rewritten in a few plain sentences, and the Tasks README is rewritten as a short guide.
+
 - Ask's two tools are now one: `consult` asks one to four questions (one opens the focused form, several open the form with Review). Its guidance is short and names when to ask: unclear goal or scope, forks between approaches, taste and naming, anything hard to undo, and when sharing a plan. It replaces a dozen lines that talked the model out of asking. The old `ask_user_question` and `ask_questions` stay registered but hidden so earlier sessions still render.
 - New setting `/egregore` → Ask → Question frame → **How often to ask**: only when needed, balanced (default) or curious. It adds one guideline line per run.
 - A single-choice question now answers with one Enter, and a custom "Something else" answer submits when entered. The multi-question form keeps select-then-continue, since Review confirms there.

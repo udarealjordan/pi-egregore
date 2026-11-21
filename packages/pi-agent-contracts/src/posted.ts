@@ -38,6 +38,8 @@ export function isQuestionSnapshot(value: unknown): value is QuestionSnapshot {
       Number.isInteger(q.revision) && typeof q.question === 'string' && typeof q.boundary === 'string' &&
       ['blocking', 'deferred'].includes(q.urgency) && Object.hasOwn(STAGE_LABELS, q.state) && Array.isArray(q.taskIds));
 }
+/** Waiting on the user, or answered but not yet sent to the agent. A delivered answer
+ * is resolved: the agent has it as a message and acts on it like any other. */
 export function unresolved(q: QuestionProjection): boolean {
-  return q.state === 'awaiting' || q.state === 'submitted' || q.state === 'delivered';
+  return q.state === 'awaiting' || q.state === 'submitted';
 }

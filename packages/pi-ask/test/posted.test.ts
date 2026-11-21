@@ -27,7 +27,9 @@ test('posted questions persist distinct states; notes and boundary survive appli
   assert.throws(() => change(b, { op: 'apply', reason: 'Pretend approval' }), /delivered answer/);
   b = change(b, { op: 'submit', response }); assert.equal(b.questions[0].state, 'submitted');
   assert.doesNotMatch(postedContext(b), /No public upload/);
-  b = change(b, { op: 'deliver' }); assert.equal(b.questions[0].state, 'delivered'); assert.match(postedContext(b), /No public upload/);
+  b = change(b, { op: 'deliver' }); assert.equal(b.questions[0].state, 'delivered');
+  assert.doesNotMatch(postedContext(b), /No public upload/, 'a delivered answer arrives once as a message, not in every turn');
+  assert.match(postedContext(b), /waiting on the user: 0/);
   b = change(b, { op: 'apply', reason: 'Publishing is excluded; prepare a local handoff.' });
   assert.equal(b.questions[0].state, 'applied'); assert.equal(b.questions[0].response!.answers[0].note, 'No public upload.');
   assert.deepEqual(restorePostedBook(b), b); assert.equal(initial.questions[0].state, 'awaiting');
@@ -40,7 +42,7 @@ test('needed-now escalation keeps the original submission identity and preserves
   assert.equal(b.questions[0].urgency, 'blocking'); assert.equal(b.questions[0].submissionRevision, submitted.revision);
   assert.notEqual(b.questions[0].revision, submitted.revision); assert.deepEqual(b.questions[0].response, submitted.response);
   b = change(b, { op: 'deliver' }); assert.deepEqual(restorePostedBook(b), b);
-  assert.equal(b.questions[0].state, 'delivered'); assert.match(postedContext(b), /needed now/);
+  assert.equal(b.questions[0].state, 'delivered'); assert.equal(b.questions[0].neededNow, 'The linked handoff is needed now.');
 });
 
 test('skips and clarification can be delivered but never become reported approval', () => {
@@ -203,7 +205,8 @@ test('native standalone posting returns immediately; overlay back keeps draft; e
   const submitted = structuredClone(h.messages[0]);
   const context = await h.emit('context', { messages: h.messages });
   assert.equal(h.entries.filter(e => e.customType === POSTED_ENTRY).at(-1).data.questions[0].state, 'delivered');
-  assert.match(context.messages.at(-1).content, /Keep it local/);
+  assert.match(submitted.content, /Keep it local/, 'the answer reaches the agent as one message');
+  assert.doesNotMatch(context.messages.at(-1).content, /Keep it local/, 'and is not repeated in every turn');
   const outcome = h.commands.get('questions').handler('q1', h.ctx); await tick();
   assert.match(sanitizeDisplayText(h.forms.at(-1).component.render(120).join('\n')), /provenance-preserving replacement/);
   h.forms.at(-1).component.handleInput('\x1b'); await outcome;

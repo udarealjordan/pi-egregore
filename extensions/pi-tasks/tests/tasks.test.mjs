@@ -48,21 +48,20 @@ const update = (p, id, changes, actor = "agent") => mutate(p, p.revision, { op: 
 test("blocker responsibility survives restore; dependencies and answer attention do not invent readiness", () => {
   let p=emptyPlan();p=mutate(p,p.revision,{op:'add',items:[{title:'Access source'},{title:'Verify',dependsOn:['t1']}]},'agent');
   p=mutate(p,p.revision,{op:'update',id:'t1',changes:{status:'blocked',reason:'Source access unavailable',blockerOwner:'user',unblockWhen:'Source access is granted and a read probe succeeds'}},'agent');
-  assert.deepEqual(restorePlan(p),p);assert.match(waitingText(p.tasks[0],p),/Needs your input.*To continue/);
-  assert.match(waitingText(p.tasks[1],p),/Waiting on work: Access source/);
+  assert.deepEqual(restorePlan(p),p);assert.match(waitingText(p.tasks[0],p),/Source access unavailable · continues when Source access is granted/);
+  assert.match(waitingText(p.tasks[1],p),/after Access source/);
   assert.throws(()=>mutate(p,p.revision,{op:'update',id:'t2',changes:{status:'active'}},'agent'),/Unfinished dependencies/);
   assert.throws(()=>mutate(p,p.revision,{op:'update',id:'t1',changes:{blockerOwner:'guess'}},'agent'),/owner/);
   p=mutate(p,p.revision,{op:'update',id:'t1',changes:{status:'pending'}},'agent');
   assert.equal(p.tasks[0].blockerOwner,undefined);assert.equal(p.tasks[0].unblockWhen,undefined);
   const q={id:'q1',revision:1,question:'Where?',urgency:'blocking',state:'awaiting',boundary:'Writes wait',taskIds:['t1']};
-  assert.equal(questionAttention(q),'Needs your input');assert.match(questionAttentionSummary([q]),/needs you/);
-  q.state='submitted';assert.match(questionAttentionSummary([q]),/delivery pending/);assert.doesNotMatch(questionAttention(q),/Needs your/);
-  q.state='delivered';q.responseStatus='answered';assert.equal(questionAttention(q),'Agent to apply answer');
-  assert.match(questionAttentionSummary([q]),/agent follow-up/);assert.equal(p.tasks[0].status,'pending');
-  q.state='applied';assert.equal(questionAttentionSummary([q]),'');
+  assert.equal(questionAttention(q),'Waiting on you');assert.equal(questionAttentionSummary([q]),'1 waiting on you');
+  q.state='submitted';assert.equal(questionAttention(q),'Sending your answer');assert.equal(questionAttentionSummary([q]),'','a sent answer needs nothing from you');
+  q.state='delivered';q.responseStatus='answered';assert.equal(questionAttention(q),'Answered');assert.equal(questionAttentionSummary([q]),'');
+  assert.equal(p.tasks[0].status,'pending','an answer never edits a task');
 });
 
-test("dock rows use one vocabulary and one order: working, blocked, then not started", () => {
+test("dock rows are the checklist in plan order with one status vocabulary", () => {
   let p = add(emptyPlan(), ["Read", "Build", "Check", "Ship"]);
   assert.equal(progressText(p), "0 of 4 done");
   p = update(p, "t1", { status: "done", note: "Read" });
@@ -71,10 +70,10 @@ test("dock rows use one vocabulary and one order: working, blocked, then not sta
   p = update(p, "t4", { status: "cancelled" });
   assert.equal(progressText(p), "1 of 4 done · 1 blocked · 1 cancelled");
   assert.equal(progressText(emptyPlan()), "No tasks yet");
-  const rows = dockRows(p, true);
-  assert.deepEqual(rows.map(r => r.text), ["● Working · Build", "! Check · Waiting · Waiting for approval"]);
-  assert.deepEqual(rows.map(r => r.tone), ["accent", "warning"]);
-  assert.equal(dockRows(p, false)[0].text, "● Paused · Build", "a stopped agent pauses, it does not finish");
+  const rows = dockRows(p, true).rows;
+  assert.deepEqual(rows.map(r => r.text), ["✓ Read", "◉ Build", "! Check · Waiting for approval"]);
+  assert.deepEqual(rows.map(r => r.tone), ["muted", "accent", "warning"]);
+  assert.equal(dockRows(p, false).rows[1].text, "◉ Build · paused", "a stopped agent pauses, it does not finish");
   const overview = taskOverview(p);
   assert.equal(overview.activeId, "t2"); assert.equal(overview.activeTitle, "Build");
   assert.equal(overview.total, 4); assert.equal(overview.done, 1);
@@ -157,8 +156,8 @@ test("persisted data, bounds and terminal controls are validated; memory is boun
   p = update(p, "t91", { status: "blocked", reason: "Needs your answer" });
   assert.match(contextSummary(p), /Needs your answer/, "late blockers get priority in bounded memory");
   p = update(p, "t1", { status: "active" });
-  assert.match(dockRows(p, false)[0].text, /Paused/);
-  assert.match(dockRows(p, true)[0].text, /Working/);
+  assert.match(dockRows(p, false).rows[0].text, /◉ hello 世界 · paused/);
+  assert.equal(dockRows(p, true).rows[0].text, "◉ hello 世界");
 });
 
 async function harness({ egregore = false, ask = false, order = "egregore-first", mode = "tui", prefs } = {}) {
@@ -221,9 +220,10 @@ test("both dock hosts show the same plan title, work rows and summary", async ()
       const render = width => [...h.widgets.values()].flatMap(widget => widget.render(width)).map(plain).join("\n");
       const shown = render(100);
       assert.match(shown, /Dock parity/);
-      assert.match(shown, /● Agent working · Step 4 界面/);
+      assert.match(shown, /◉ Step 4 界面/, "the active task leads even in a short dock");
+      assert.match(shown, /○ Step 5 界面/, "followed by what comes next");
       assert.match(shown, /0 of 8 done/);
-      assert.doesNotMatch(shown, /✓|– Step/, "only open work is listed; closed work is a count");
+      assert.match(shown, /\+ \d+ more/, "tasks past the viewport become a count");
       for (const rows of [12, 24, 40]) for (const width of [20, 40, 80]) {
         h.tui.terminal.rows = rows;
         assert.ok([...h.widgets.values()].flatMap(widget => widget.render(width)).every(line => visibleWidth(line) <= width));
@@ -251,8 +251,9 @@ test("the dock leads with the plan, counts open work and keeps its facts when hi
       await h.emit("agent_start");
       const shown = [...h.widgets.values()].flatMap(w => w.render(80)).map(plain).join("\n");
       assert.match(shown, /Photos for Mom/);
-      assert.match(shown, /1 needs you · 0 of 2 done/);
-      assert.match(shown, /● Agent working · Print/);
+      assert.match(shown, /1 waiting on you · 0 of 2 done/);
+      assert.match(shown, /\? Which cover\? · \/questions q1/);
+      assert.match(shown, /◉ Print/);
       await h.command("tasks", "hide");
       assert.deepEqual(last.rows, []);
       assert.equal(last.overview.activeTitle, "Print", "the composer hint still receives the active title");
@@ -262,7 +263,7 @@ test("the dock leads with the plan, counts open work and keeps its facts when hi
         const rail = h.editor.render(80).map(plain).join("\n");
         assert.match(rail, /Next: Print/, "the composer hint carries the active task while the dock is hidden");
         await h.command("tasks", "unhide");
-        assert.match([...h.widgets.values()].flatMap(w => w.render(80)).map(plain).join("\n"), /● Agent paused · Print/);
+        assert.match([...h.widgets.values()].flatMap(w => w.render(80)).map(plain).join("\n"), /◉ Print · paused/);
         assert.doesNotMatch(h.editor.render(80).map(plain).join("\n"), /Next: Print/, "a visible dock does not duplicate the hint");
       }
     } finally { await h.close(); }
@@ -421,7 +422,7 @@ test("active-branch restoration, compaction, abort and failed storage preserve t
     const branchPoint = structuredClone(h.entries);
     await h.call({ op: "update", revision: initial.revision, id: "t1", changes: { status: "active" } });
     await h.emit("agent_start"); await h.emit("agent_settled");
-    assert.match(h.widgets.get("pi-tasks:fallback").render(120).map(plain).join("\n"), /● Agent paused · Original branch/);
+    assert.match(h.widgets.get("pi-tasks:fallback").render(120).map(plain).join("\n"), /◉ Original branch · paused/);
     h.branch(branchPoint); await h.emit("session_tree");
     assert.deepEqual((await h.call({ op: "list" })).details.plan, initial);
     await h.command("tasks", "add Fork only");
@@ -484,14 +485,15 @@ test("open work rows keep working, blocked and not-started in one order; overflo
   assert.equal(progressText(p), "0 of 3 done");
   p = update(p, "t1", { status: "done", note: "Read" });
   p = update(p, "t2", { status: "active" });
-  const rows = dockRows(p, false);
-  assert.deepEqual(rows.map((r) => r.text), ["● Paused · Implement", "○ Verify"]);
+  const rows = dockRows(p, false).rows;
+  assert.deepEqual(rows.map((r) => r.text), ["✓ Read requirements", "◉ Implement · paused", "○ Verify"]);
   const snapshot = { version: 1, sessionId: "s", id: "test", title: "Plan", rows, hint: "/tasks" };
-  assert.equal(fitDock(snapshot, 3).length, 2);
+  assert.equal(fitDock(snapshot, 3).length, 3);
   assert.equal(progressText(p), "1 of 3 done");
   const big = add(emptyPlan(), Array.from({ length: 20 }, (_, i) => `Step ${i + 1}`));
   const all = dockRows(big, false);
-  const compact = fitDock({ ...snapshot, rows: all.slice(0, 12), more: all.length - 12 }, 6);
+  assert.equal(all.rows.length, 6); assert.equal(all.more, 14, "the viewport counts what it leaves out");
+  const compact = fitDock({ ...snapshot, rows: all.rows, more: all.more }, 6);
   assert.equal(compact.length, 6);
   assert.equal(compact.at(-1).text, "+ 15 more · /tasks");
   assert.equal(isSnapshot({ ...snapshot, more: -1 }), false);
@@ -568,7 +570,7 @@ test("task transcript cards wrap full titles and show status without a row cutof
     }
     assert.match(plain(tool.renderResult(updated, { expanded: false }, theme, { args: updateArgs }).render(80)[0]), /^┃ ◉ Started +14 Review/);
     const text = tool.renderResult(updated, { expanded: true }, theme, { args: updateArgs }).render(30).map(plain).slice(1, -1).map(line => line.slice(1, -1).trimEnd()).join("").replace(/\s+/g, "");
-    assert.ok(text.includes(`● 14 ${title}`.replace(/\s+/g, "")));
+    assert.ok(text.includes(`◉ 14 ${title}`.replace(/\s+/g, "")));
     assert.doesNotMatch(text, /pending/);
   } finally { await h.close(); }
 });
@@ -606,7 +608,7 @@ test("Tasks summaries use semantic theme colors without changing status text or 
   const details = { plan: { tasks } }, before = structuredClone(details);
   for (const name of ["dark", "light"]) {
     const selected = getThemeByName(name);
-    const labels = ["Done", "In progress", "Blocked", "Not started", "Cancelled"];
+    const labels = ["Done", "In progress", "Blocked", "Not started", "Dropped"];
     const tones = ["success", "accent", "warning", "muted", "muted"];
     tasks.forEach((task, i) => {
       for (const updated of [false, true]) {
@@ -1071,7 +1073,7 @@ test("a default panel shows the work view and keeps the F disclosure in the foot
 
 test("both hosts render the same rows, title and summary for one snapshot at width 80", async () => {
   const plan = { title: "Parity plan", tasks: [["Print 4x6 copies", "active"], ["Choose cover", "blocked"], ["Mail album", "pending"]] };
-  const facts = { title: plan.title, rows: ["● Working · Print 4x6 copies", "! Choose cover · waiting", "○ Mail album"], summary: "0 of 3 done · 1 blocked" };
+  const facts = { title: plan.title, rows: ["◉ Print 4x6 copies", "! Choose cover · waiting", "○ Mail album"], summary: "0 of 3 done · 1 blocked" };
   const rendered = {};
   for (const egregore of [false, true]) {
     const h = await harness({ egregore });
@@ -1085,7 +1087,7 @@ test("both hosts render the same rows, title and summary for one snapshot at wid
       const text = [...h.widgets.values()].flatMap(w => w.render(80)).map(plain).join("\n");
       assert.match(text, /Parity plan/);
       assert.match(text, /0 of 3 done · 1 blocked/);
-      for (const row of ["● Agent working · Print 4x6 copies", "! Waiting · owner unspecified · 1 task · waiting", "○ Not started · 1 task · Mail album"]) assert.ok(text.includes(row), `${egregore ? "egregore" : "fallback"}: ${row}`);
+      for (const row of facts.rows) assert.ok(text.includes(row), `${egregore ? "egregore" : "fallback"}: ${row}`);
       rendered[egregore] = text;
     } finally { await h.close(); }
   }
@@ -1107,7 +1109,7 @@ test("native question bridge shows attention without gating task starts or compl
       await h.call({ op: "update", id: "t2", changes: { status: "active" } });
       await assert.rejects(() => h.callQuestion({ op: "post", question: { question: "Unknown?", why: "Test", boundary: "Test", urgency: "blocking", planId: "p1", taskIds: ["t99"] } }), /unavailable/);
       const display = [...h.widgets.values()].flatMap(w => w.render(120)).map(plain).join("\n");
-      assert.match(display, /blocking|needs you/); assert.match(display, /1 of 2 done/);
+      assert.match(display, /1 waiting on you/); assert.match(display, /\? Keep it local\?/); assert.match(display, /1 of 2 done/);
       assert.equal(h.widgets.has("pi-ask:posted"), false, "Tasks owns the hosted attention hint, not duplicate Ask fallback");
       await h.command("tasks", "hide"); assert.ok(h.widgets.has("pi-ask:posted"), "hiding the dock does not hide Ask attention");
       await h.command("tasks", "unhide"); assert.equal(h.widgets.has("pi-ask:posted"), false, "visible Tasks hosts exactly one cue");
@@ -1130,8 +1132,8 @@ test("unresolved questions lead the work list with readable plan links", () => {
   const panel = new TaskPanel({ terminal: { rows: 60 }, requestRender() {} }, theme, () => b, () => undefined, () => {}, nav, () => true,
     { available: true, records, open() {} });
   const text = () => panel.render(120).map(plain).join("\n");
-  assert.match(text(), /Needs your input · First plan \/ First work/);
-  assert.match(text(), /Your perspective · can wait · Second plan \/ Second work/);
+  assert.match(text(), /Waiting on you · First plan \/ First work/);
+  assert.match(text(), /When you're ready · Second plan \/ Second work/);
   assert.match(text(), /This session/);
   assert.ok(text().indexOf("First boundary?") < text().indexOf("○ Second work"), "questions lead the list");
   panel.handleInput("\x1b[B"); panel.handleInput("\x1b[B"); panel.handleInput("\x1b[B"); panel.handleInput("\r");
@@ -1184,7 +1186,7 @@ test("compact typography uses semantic glyphs and neutral titles without changin
       assert.match(plain(tool.renderResult(result, { expanded: false }, th, { args: { op: "list" } }).render(120)[0]), /^┃ · Read +Synthetic typography · 5 tasks +2\/5$/);
       const lines = tool.renderResult(result, { expanded: true }, th, { args: { op: "list" } }).render(120);
       const text = lines.map(plain).join("\n");
-      assert.match(text, /✓ Complete item/); assert.match(text, /● Active item/); assert.match(text, /! Blocked item/);
+      assert.match(text, /✓ Complete item/); assert.match(text, /◉ Active item/); assert.match(text, /! Blocked item/);
       assert.match(text, /○ Pending item/); assert.match(text, /– Cancelled item · cancelled/);
       assert.match(text, /Blocked: Waiting for permission/); assert.match(text, /1 working/);
       assert.doesNotMatch(text, /Task ·|Task done:|Task active:|verified complete/i);
@@ -1222,8 +1224,8 @@ test("native Tasks shares neutral status typography, short grouped details and d
   for (const th of [getThemeByName("dark"), getThemeByName("light")]) {
     const nav = { showDone: true }, panel = new TaskPanel({ terminal: { rows: 60 }, requestRender() {} }, th, () => b, () => undefined, () => {}, nav, () => true);
     const work = panel.render(150), text = work.map(plain).join("\n");
-    assert.match(text, /› ├─ ● Active item/); assert.match(text, /✓ Completed item/); assert.match(text, /! Blocked item/);
-    assert.match(text, /Waiting · Explicit permission is required/); assert.match(text, /Working/);
+    assert.match(text, /› ├─ ◉ Active item/); assert.match(text, /✓ Completed item/); assert.match(text, /! Blocked item/);
+    assert.match(text, /! Blocked item[\s\S]*Explicit permission is required/); assert.match(text, /Working/);
     assert.doesNotMatch(text, /Completion reported|Task · done|Current plan/);
     const complete = work.find(line => plain(line).includes("Completed item"));
     assert.ok(complete.includes(th.style("└─ ✓ ", { fg: th.colors.success })));
