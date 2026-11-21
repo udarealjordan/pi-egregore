@@ -1,7 +1,7 @@
 import { ToolExecutionComponent, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, createGrepToolDefinition, createFindToolDefinition, createLsToolDefinition, getLanguageFromPath, renderDiff, type Theme } from "@earendil-works/pi-coding-agent";
 import { Text, parseColor, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { statusPreset, type FrameStatus } from "../../lib/frame.ts";
-import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
+import { statusPreset, toolRows, type FrameStatus } from "../../lib/frame.ts";
+import { forgetCopyFrame, rememberCopyFrame, rememberRailRows } from "./copy-selection.ts";
 import { homedir } from "node:os";
 import { composerRail, composerSurface, quietFrameLabel } from "./composer-style.ts";
 import { clean } from "./footer-state.ts";
@@ -9,6 +9,7 @@ import { codeRows, compactLines, lineCount, parseStructured, renderStructured, s
 import { isWebTool, renderWebToolFrame } from "./web-tool-frames.ts";
 import { compactToolStatus } from "./tool-status.ts";
 import { matchedToolStatus, toolIdentity, type TranscriptAppearance } from "./transcript-presentation.ts";
+import { nativeMessageFacts } from "./native-message-adapter.ts";
 // Compare renderer identities, not just the tool name: custom self-rendering
 // overrides named "edit" must still keep their own UI. Factory does not execute.
 const nativeEdit = createEditToolDefinition("");
@@ -24,11 +25,36 @@ export function toolStateStyle(theme: Theme, state: VisualState, attention = fal
   // The preset's default palette is hex; Pi's theme.style expects a parsed Color.
   return { color: parseColor(color as string), marker };
 }
+/** Suite tools that draw their own collapsed rows with Frame's toolRows. Pi puts a
+ * spacer above every self-drawn tool; dropping it lets these rows share the rail. */
+const SUITE_ROWS = new Set(["tasks", "consult", "ask_questions", "ask_user_question", "question_queue"]);
+const plainText = (row: string) => row.replace(/\x1b\[[0-9;:]*m/g, "");
 const BUILTINS = new Set(["read", "edit", "write", "bash", "powershell", "grep", "find", "ls", "codemode"]);
 const record = (value: unknown): Record<string, unknown> => value && typeof value === "object" ? value as Record<string, unknown> : {};
 const str = (value: unknown): string => typeof value === "string" ? value : "";
 const shortName = (name: string) => name.split(/[.:/]/).at(-1) ?? name;
-const titleName = (name: string) => ({ read: "Read", edit: "Edit", write: "Write", bash: "Bash", powershell: "PowerShell", codemode: "Codemode", grep: "Grep", find: "Find", ls: "List" } as Record<string, string>)[name] ?? clean(name);
+const titleName = (name: string) => ({ read: "Read", edit: "Edit", write: "Write", bash: "Bash", powershell: "PowerShell", codemode: "Codemode", grep: "Grep", find: "Find", ls: "List",
+  web_search: "Search", fetch_content: "Fetch", get_search_content: "Stored" } as Record<string, string>)[name] ?? clean(name);
+/** Quiet rail for settled calls; status color only when something needs a look. */
+export function toolRailColor(theme: Theme, state: VisualState, attention = false): ReturnType<typeof parseColor> {
+  if (state === "failed" || state === "cancelled" || attention || state === "running") return toolStateStyle(theme, state, attention).color;
+  return parseColor(theme.appearance === "light" ? "#b9bec8" : "#3c4450");
+}
+/** A short structured-output summary ("JSON · 4 fields") for a row's detail, plus
+ * the first diagnostic field (a warning or error the data reports) as a note. */
+function structuredDetail(output: string, partial?: boolean): { detail: string; note?: string } | undefined {
+  if (partial || !output) return undefined;
+  const parsed = parseStructured(output);
+  if (!parsed) return undefined;
+  const [first, note] = structuredSummary(parsed);
+  const detail = note ? first.split(" · ").slice(1).join(" · ") : first;
+  return detail.length <= 32 ? { detail, note } : undefined;
+}
+/** Split "Name  target" from toolLocation into its two parts. */
+export function splitLocation(location: string): { name: string; target: string } {
+  const at = location.indexOf("  ");
+  return at < 0 ? { name: location, target: "" } : { name: location.slice(0, at), target: location.slice(at + 2) };
+}
 function shortPath(path: string, cwd: string): string {
   if (cwd && path.startsWith(cwd.replace(/\/$/, "") + "/")) return clean(path.slice(cwd.replace(/\/$/, "").length + 1));
   return clean(path === homedir() ? "~" : path.startsWith(homedir() + "/") ? "~" + path.slice(homedir().length) : path);
@@ -87,6 +113,8 @@ function phase(meta: Meta): VisualState {
  * tool, changes its arguments/results, or moves transcript children. */
 export class ActivityBlocks {
   private entries = new Map<ToolExecutionComponent, Entry>();
+  /** Tool components that open or close a run of adjacent tool calls. */
+  private runEdges = new WeakMap<ToolExecutionComponent, { first: boolean; last: boolean }>();
   private nested = new Map<string, Children>();
   private rawMode = false;
   setOutputMode(raw: boolean): void {
@@ -96,7 +124,6 @@ export class ActivityBlocks {
   }
   constructor(private theme: () => Theme, private repaint: () => void,
     private labels: () => "semantic" | "matched" = () => "semantic",
-    private grouped: (node: ToolExecutionComponent) => boolean = () => false,
     private presentation: () => TranscriptAppearance | undefined = () => undefined,
     private density: () => "spaced" | "compact" = () => "spaced") {}
   record(name: string, args: unknown, parent?: string, id?: string): void {
@@ -116,6 +143,11 @@ export class ActivityBlocks {
     if (children && child) { child.state = error ? "failed" : "returned"; children.version++; }
   }
   clearHistory(): void { this.nested.clear(); }
+  /** A blank row before and after a run of tool rows keeps them off message frames. */
+  private spaced(node: ToolExecutionComponent, rows: string[], width: number): string[] {
+    const edges = this.runEdges.get(node), blank = " ".repeat(Math.max(0, width));
+    return [...(edges?.first ? [blank] : []), ...rows, ...(edges?.last ? [blank] : [])];
+  }
   sync(root: Component): boolean {
     const found = new Set<ToolExecutionComponent>(), visited = new Set<Component>();
     const visit = (node: Component, depth: number) => {
@@ -123,7 +155,16 @@ export class ActivityBlocks {
       visited.add(node);
       if (node instanceof ToolExecutionComponent) { if (info(node)) found.add(node); return; }
       const children = (node as Component & { children?: Component[] }).children;
-      if (Array.isArray(children)) for (const child of children) visit(child, depth + 1);
+      if (!Array.isArray(children)) return;
+      const tool = (child?: Component) => child instanceof ToolExecutionComponent && !!info(child);
+      // An assistant turn with no visible text (only tool calls, or hidden thinking)
+      // draws nothing, so calls on either side of it still read as one run.
+      const silent = (child?: Component) => { const facts = child && nativeMessageFacts(child); return facts?.kind === "assistant" && facts.firstVisible !== "text"; };
+      const neighbour = (i: number, step: number) => { let j = i + step; while (silent(children[j])) j += step; return children[j]; };
+      children.forEach((child, i) => {
+        if (tool(child)) this.runEdges.set(child as ToolExecutionComponent, { first: !tool(neighbour(i, -1)), last: !tool(neighbour(i, 1)) });
+        visit(child, depth + 1);
+      });
     };
     visit(root, 0);
     let changed = false;
@@ -141,18 +182,39 @@ export class ActivityBlocks {
       framedWidth = -1; rawRow = -1; webRows = 0;
       const meta = info(node), definition = meta?.toolDefinition;
       const fallback = () => original.render.call(node, width);
-      if (this.grouped(node)) return fallback();
       const expected = meta ? nativeRenderers[meta.toolName] : undefined;
       const customBuiltIn = expected && ((definition?.renderCall && definition.renderCall !== expected.renderCall) || (definition?.renderResult && definition.renderResult !== expected.renderResult));
       const builtInRenderer = !!expected && definition?.renderCall === expected.renderCall && definition?.renderResult === expected.renderResult;
+      if (active && meta && !customBuiltIn && isWebTool(meta.toolName) && !meta.expanded && width >= 24 && !meta.hideComponent
+        && !meta.result?.content?.some(c => c.type !== "text")) {
+        const theme = this.theme(), state = phase(meta), { name, target } = splitLocation(toolLocation(meta.toolName, meta.args, meta.cwd, 10000));
+        const { color, marker } = toolStateStyle(theme, state);
+        const results = record(meta.result?.details).results;
+        const detail = state === "running" ? "running" : state === "failed" || state === "cancelled" ? state
+          : Array.isArray(results) ? `${results.length} result${results.length === 1 ? "" : "s"}` : "";
+        const error = state === "failed" ? compactLines(outputText(meta.result) || "No error text returned")[0] : "";
+        const rows = toolRows({ theme, width, marker, markerColor: color, railColor: toolRailColor(theme, state), name: theme.fg("text", name),
+          target: theme.fg("muted", target), detail: theme.style(detail, { fg: state === "returned" ? theme.colors.dim : color }),
+          notes: error ? [theme.fg("error", sourceText(error))] : [] });
+        const spaced = this.spaced(node, rows, width);
+        framedWidth = width; expandable = !!meta.result; webRows = spaced.length;
+        return rememberRailRows(node, width, spaced);
+      }
       if (active && meta && !customBuiltIn && isWebTool(meta.toolName)) {
         const native = fallback();
         const web = renderWebToolFrame(meta, this.theme(), width, native, this.labels(), this.presentation());
         if (web) { framedWidth = width; expandable = !!meta.result; webRows = web.length; return rememberCopyFrame(node, width, web, 1); }
         return native;
       }
+      if (active && meta && SUITE_ROWS.has(meta.toolName) && definition?.renderShell === "self" && !meta.expanded) {
+        const native = fallback();
+        if (native[0] !== "" || native.length < 2 || !native.slice(1).every(row => plainText(row).startsWith("┃"))) return native;
+        const spaced = this.spaced(node, native.slice(1), width);
+        framedWidth = width; expandable = !!meta.result; webRows = spaced.length;
+        return rememberRailRows(node, width, spaced);
+      }
       if (!active || !meta || customBuiltIn || width < 24 || meta.hideComponent || (definition?.renderShell === "self" && !builtInRenderer) ||
-        ["tasks", "ask_questions", "ask_user_question"].includes(meta.toolName) ||
+        SUITE_ROWS.has(meta.toolName) ||
         (!BUILTINS.has(meta.toolName) && (definition?.renderCall || definition?.renderResult)) ||
         meta.result?.content?.some(c => c.type !== "text")) return fallback();
       // Preserve non-text graphics supplied by another decorator too.
@@ -161,9 +223,11 @@ export class ActivityBlocks {
       const theme = this.theme(), children = this.nested.get(meta.toolCallId), state = phase(meta), expanded = meta.expanded === true;
       const version = children?.version ?? -1;
       const appearance = this.presentation(), labels = appearance?.tools.status ?? this.labels();
-      const styleKey = `${appearance?.tools.identity ?? "quiet"}:${labels}:${this.density()}`;
+      const edges = this.runEdges.get(node);
+      const styleKey = `${appearance?.tools.identity ?? "quiet"}:${labels}:${this.density()}:${edges?.first}:${edges?.last}`;
       if (cache && cache.args === meta.args && cache.result === meta.result && cache.expanded === expanded && cache.width === width && cache.theme === theme && cache.version === version && cache.state === state && cache.labels === styleKey) {
-        framedWidth = width; expandable = cache.expandable; rawRow = cache.rawRow; return rememberCopyFrame(node, width, cache.rows, 1);
+        framedWidth = width; expandable = cache.expandable; rawRow = cache.rawRow;
+        return expanded ? rememberCopyFrame(node, width, cache.rows, 1) : rememberRailRows(node, width, cache.rows);
       }
       const a = record(meta.args), details = record(meta.result?.details), inner = width - 4;
       const error = state === "failed" || state === "cancelled";
@@ -213,6 +277,69 @@ export class ActivityBlocks {
         `${childCalls.length + (!storedCalls ? children?.omitted ?? 0 : 0)} call${childCalls.length + (!storedCalls ? children?.omitted ?? 0 : 0) === 1 ? "" : "s"}`,
         failures ? `${failures} failed` : "", stopped ? `${stopped} cancelled` : "", unfinished ? `${unfinished} pending` : "",
       ].filter(Boolean).join(" · ") : "";
+      const notices: string[] = [];
+      if (record(details.truncation).truncated === true) notices.push("Output truncated");
+      if (details.linesTruncated === true) notices.push("Long result lines truncated");
+      for (const [key, label] of [["matchLimitReached", "Match"], ["resultLimitReached", "Result"], ["entryLimitReached", "Entry"]] as const) {
+        if (typeof details[key] === "number") notices.push(`${label} limit reached: ${details[key]}`);
+      }
+      if (typeof details.fullOutputPath === "string") notices.push("Full output: " + details.fullOutputPath);
+      if (typeof details.resolvedPath === "string" && details.resolvedPath !== path) notices.push("Resolved path: " + details.resolvedPath);
+      const exitCode = details.exitCode ?? details.exit_code;
+      if (typeof exitCode === "number" && (expanded || exitCode !== 0)) notices.push("Exit " + exitCode);
+      if (!storedCalls && children?.omitted) notices.push(`${children.omitted} child summaries not retained`);
+      if (!expanded) {
+        const { name } = splitLocation(location), target = splitLocation(location).target;
+        const exit = details.exitCode ?? details.exit_code;
+        const structured = error ? undefined : structuredDetail(output, meta.isPartial);
+        const diff = typeof details.diff === "string" ? details.diff.split("\n") : undefined;
+        const lines = (n: number, unit = "line") => `${n} ${unit}${n === 1 ? "" : "s"}`;
+        const detail = state === "preparing" ? "…" : state === "running" ? "running"
+          : state === "failed" && typeof exit === "number" && exit !== 0 ? `exit ${exit}` : state === "failed" || state === "cancelled" ? state
+          : attention ? failures ? `${failures} failed` : stopped ? `${stopped} cancelled` : `${unfinished} pending`
+          : typeof exit === "number" && exit !== 0 ? `exit ${exit}`
+          : meta.toolName === "edit" && diff ? `+${diff.filter(line => /^\+(?!\+\+)/.test(line)).length} −${diff.filter(line => /^-(?!--)/.test(line)).length}`
+          : meta.toolName === "write" && typeof a.content === "string" ? lines(lineCount(a.content))
+          : meta.toolName === "codemode" ? [childCalls?.length ? lines(childCalls.length, "call") : "", duration].filter(Boolean).join(" · ")
+          : structured?.detail ?? (output ? lines(lineCount(output)) : "");
+        const notes: string[] = [];
+        if (error) {
+          const structured = parseStructured(output);
+          const first = (structured ? renderStructured(structured, theme, inner).map(clean).filter(line => line.trim()) : compactLines(output || "No error text returned"))[0];
+          if (first && !/^\(no output\)$/i.test(first.trim())) notes.push(theme.fg(state === "cancelled" ? "warning" : "error", sourceText(first).replace(/\n/g, " ↵ ")));
+        }
+        if (structured?.note) notes.push(theme.fg("warning", sourceText(structured.note)));
+        // Live output: the latest line while a call streams, so long runs show progress.
+        if ((state === "running" || state === "preparing") && output.trim()) {
+          const latest = compactLines(output, 1, true).at(-1);
+          if (latest) notes.push(theme.fg("dim", sourceText(latest).replace(/\n/g, " ↵ ")));
+        }
+        for (const notice of notices) if (!/^Exit /.test(notice)) notes.push(theme.fg("warning", sourceText(notice)));
+        // "Matched" tool identity colors the name like its status; "quiet" keeps it plain text.
+        const identity = appearance?.tools.identity === "matched" ? theme.style(name, { fg: color, bold: true }) : theme.fg("text", name);
+        const rows = toolRows({ theme, width, marker: statusMarker, markerColor: color, railColor: toolRailColor(theme, state, attention),
+          name: identity, target: theme.fg("muted", sourceText(target).replace(/\r?\n/g, " ↵ ")),
+          detail: theme.style(detail, { fg: state === "returned" && !attention && !(typeof exit === "number" && exit !== 0) ? theme.colors.dim : color }), notes });
+        if (meta.toolName === "codemode" && childCalls?.length) {
+          // Up to three child rows, problems and live work first, in execution order.
+          const priority = childCalls.filter(call => ["failed", "cancelled", "running"].includes(call.state));
+          const chosen = new Set([...new Set([...priority, ...childCalls])].slice(0, 3));
+          for (const call of childCalls.filter(item => chosen.has(item))) {
+            const style = toolStateStyle(theme, call.state), child = splitLocation(call.label);
+            rows.push(...toolRows({ theme, width, indent: 2, marker: style.marker, markerColor: style.color, railColor: toolRailColor(theme, state, attention),
+              name: theme.fg("text", child.name), nameWidth: 6, target: theme.fg("muted", sourceText(child.target).replace(/\r?\n/g, " ↵ ")),
+              detail: call.state === "returned" ? "" : theme.style(call.state, { fg: style.color }), bold: false }));
+          }
+          const remaining = childCalls.length - chosen.size + (!storedCalls ? children?.omitted ?? 0 : 0);
+          if (remaining) rows.push(...toolRows({ theme, width, indent: 4, railColor: toolRailColor(theme, state, attention), name: theme.fg("dim", `+${remaining} more`), bold: false }));
+        }
+        expandable = !!meta.result || Object.keys(a).length > 0 || !!childCalls?.length;
+        framedWidth = width;
+        cache = { args: meta.args, result: meta.result, expanded, width, theme, version, state, labels: styleKey, rows, expandable, rawRow: -1 };
+        const spaced = this.spaced(node, rows, width);
+        cache = { ...cache!, rows: spaced };
+        return rememberRailRows(node, width, spaced);
+      }
       if (expanded && raw) {
         section("Raw output", textRows(outputText(meta.result) || "(no text output)"));
         section("Raw arguments", textRows(json(a), "muted"));
@@ -308,17 +435,6 @@ export class ActivityBlocks {
           }
         }
       }
-      const notices: string[] = [];
-      if (record(details.truncation).truncated === true) notices.push("Output truncated");
-      if (details.linesTruncated === true) notices.push("Long result lines truncated");
-      for (const [key, label] of [["matchLimitReached", "Match"], ["resultLimitReached", "Result"], ["entryLimitReached", "Entry"]] as const) {
-        if (typeof details[key] === "number") notices.push(`${label} limit reached: ${details[key]}`);
-      }
-      if (typeof details.fullOutputPath === "string") notices.push("Full output: " + details.fullOutputPath);
-      if (typeof details.resolvedPath === "string" && details.resolvedPath !== path) notices.push("Resolved path: " + details.resolvedPath);
-      const exitCode = details.exitCode ?? details.exit_code;
-      if (typeof exitCode === "number" && (expanded || exitCode !== 0)) notices.push("Exit " + exitCode);
-      if (!storedCalls && children?.omitted) notices.push(`${children.omitted} child summaries not retained`);
       for (const notice of notices) body.push(...textRows(notice, "warning"));
       expandable = !!meta.result || Object.keys(a).length > 0 || !!childCalls?.length || expanded;
       if (expanded) {

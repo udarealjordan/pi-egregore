@@ -225,7 +225,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           : pane === "ask" || pane === "transcript" ? { editor: [], footer: [], hits: [], above: [] }
           : surface?.render(width, pulse.kind === "element" ? phase : undefined) ?? { editor: [], footer: [], hits: [] };
         const native = live.editor.map(row => row.replaceAll(CURSOR_MARKER, ""));
-        const bottom = native.findLastIndex(row => /^[\s\u001b\[\d;m]*╰/.test(row) || row.replace(/\x1b\[[0-9;]*m/g, "").startsWith("╰"));
+        const bottom = native.findLastIndex(row => /^[\s\u001b\[\d;m]*[╰┗]/.test(row) || /^[╰┗]/.test(row.replace(/\x1b\[[0-9;]*m/g, "")));
         let aboveRows = live.above ?? [];
         const maxPreview = Math.max(0, Math.min(native.length + live.footer.length + aboveRows.length, Math.floor(height * .45), height - 8));
         let editorRows = native, footerRows = live.footer, omitted = false;
@@ -381,7 +381,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
               : "Not visible now: the sample is shortened or this element does not fit. Use the list or enlarge the terminal.";
           }
         }
-        if (targetName && !discardConfirm) rows.push(theme.fg("muted", clip(`${hovered ? "Inspecting" : inspected?.room === "input" && inspected.id !== selected ? "Affects" : "Selected"}: ${targetName} · ${location}`, inner)));
+        if (targetName && !discardConfirm) rows.push(theme.fg("muted", clip(`${hovered ? "Inspecting" : inspected?.room === "input" && inspected.id !== selected ? "Affects" : "Selected"}: ${targetName} · ${location}${missing.startsWith("Not visible now") ? " · not visible now" : ""}`, inner)));
         const explanation = message || (!edit && !choices && !discardConfirm && missing ? missing : hoverHelp || helpLines[0]) || "Save keeps your changes. Discard restores the saved appearance.";
         for (const line of wrapTextWithAnsi(explanation, Math.min(inner, 88)).slice(0, 2)) rows.push(theme.fg("muted", line));
         rows.splice(Math.max(0, controlsHeight - 3));
@@ -408,7 +408,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           : height < 12 ? "Enlarge the terminal to see your input preview" : previewLabel + (omitted ? " · shortened vertically" : surface?.temporary ? " · temporary Composer view" : "");
         const previewTop = panel.length + 1 + aboveRows.length;
         const lines = [...panel, theme.fg("muted", clip(label)), ...aboveRows, ...editorRows, ...footerRows];
-        const previewBottom = editorRows.findLastIndex(line => line.replace(/\x1b\[[0-9;]*m/g, "").startsWith("╰"));
+        const previewBottom = editorRows.findLastIndex(line => /^[╰┗]/.test(line.replace(/\x1b\[[0-9;]*m/g, "")));
         const footerPositions = ["footer1", "footer2"].filter(prefix => live.hits.some(hit => hit.position.startsWith(prefix)));
         if (generalView && aboveRows.length && height >= 12) {
           const top = panel.length + 1;

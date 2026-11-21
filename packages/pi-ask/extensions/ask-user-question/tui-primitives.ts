@@ -433,7 +433,6 @@ export class WrappedChoiceList {
 			id: "other",
 			index: options.length + 1,
 			label: otherLabel,
-			description: "Write your own answer.",
 			isOther: true,
 		});
 

@@ -9,4 +9,4 @@ const directory = dirname(createRequire(import.meta.url).resolve("pi-embeddable-
 const primitives: typeof import("pi-embeddable-frame/primitives") = await import(
   pathToFileURL(join(directory, "primitives.js")).href
 );
-export const { frameRows, frameRail } = primitives;
+export const { frameRows, frameRail, frameGlyphs, toolRows } = primitives;

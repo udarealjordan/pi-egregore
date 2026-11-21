@@ -253,16 +253,19 @@ export function frameQuestion(component: any, theme: any, tui: any, options: Que
       // A small stable body avoids jumps between short tabs. Pad after content, never move the cursor.
       if (density === "spaced") while (lines.length < Math.min(12, limit)) lines.push("");
       const title = truncateToWidth(menu ? " More actions " : ` ${appearance.title} `, Math.max(0, width - 2), "");
-      const position = menu ? "" : truncateToWidth(` ${component.getHeaderLabel?.() ?? "1 of 1"} `, Math.max(0, width - 2), "");
+      const header = component.getHeaderLabel?.() ?? "";
+      // A count only helps when there is more than one question.
+      const position = menu || !header.trim() || /^1 of 1$/.test(header.trim()) ? "" : truncateToWidth(` ${header} `, Math.max(0, width - 2), "");
       const accent = questionAccent(theme);
       const progress = appearance.labels === "matched" ? accent
         : theme.colors?.muted ? mixColors(accent, theme.colors.muted, .55) : accent;
       const pinLabel = menu ? "" : pinned ? " Pinned " : " Pin ";
       // A truncated pin label is not a target: keep the title readable and let F2 More stand in.
       const pinFits = pinLabel !== "" && visibleWidth(title) + visibleWidth(pinLabel) <= inner - 2;
-      const rendered = frameRows({ theme, width, rows: lines, inset: 1, color: accent,
+      // A question waits on you, so it draws in heavy lines like the Composer.
+      const rendered = frameRows({ theme, width, rows: lines, inset: 1, color: accent, weight: "heavy",
         corners: { [appearance.titlePosition]: theme.style ? theme.style(title, { fg: accent, bold: true }) : theme.fg("accent", title),
-          [appearance.progressPosition]: theme.style ? theme.style(position, { fg: progress, bold: true }) : theme.fg(appearance.labels === "matched" ? "accent" : "muted", position),
+          ...(position ? { [appearance.progressPosition]: theme.style ? theme.style(position, { fg: progress, bold: true }) : theme.fg(appearance.labels === "matched" ? "accent" : "muted", position) } : {}),
           ...(pinFits ? { topRight: theme.style ? theme.style(pinLabel, { fg: accent, bold: true }) : theme.fg("accent", pinLabel) } : {}) },
         surface: (text, cells) => surface(theme, text, cells, raised) });
       // The corner label is the only mouse target; truncation leaves F2 More as the path.

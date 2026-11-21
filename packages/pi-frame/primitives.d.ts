@@ -33,7 +33,31 @@ export interface FrameOptions {
   minWidth?: number;
   surface?: (text: string, width: number) => string;
   motion?: FrameMotion;
+  /** Heavy for a surface that wants attention now; light (default) for history. */
+  weight?: FrameWeight;
 }
+export type FrameWeight = "light" | "heavy";
+export interface FrameGlyphs { topLeft: string; topRight: string; bottomLeft: string; bottomRight: string; horizontal: string; vertical: string }
+export const FRAME_GLYPHS: Readonly<Record<FrameWeight, Readonly<FrameGlyphs>>>;
+export function frameGlyphs(weight?: FrameWeight): Readonly<FrameGlyphs>;
+export interface ToolRowOptions {
+  theme?: FrameTheme;
+  width: number;
+  marker?: string;
+  markerColor?: Color | string;
+  rail?: string;
+  railColor?: Color | string;
+  name?: string;
+  nameWidth?: number;
+  target?: string;
+  detail?: string;
+  notes?: string[];
+  indent?: number;
+  bold?: boolean;
+  surface?: (text: string, width: number) => string;
+}
+/** One collapsed tool call as a rail row plus optional indented note rows. */
+export function toolRows(options: ToolRowOptions): string[];
 export type FrameStatus = "preparing" | "running" | "returned" | "failed" | "cancelled" | "observed";
 export interface StatusPresetOptions {
   state: FrameStatus;

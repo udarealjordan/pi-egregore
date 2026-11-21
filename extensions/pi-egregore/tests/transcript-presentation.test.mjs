@@ -82,18 +82,19 @@ test('ordinary tool rail changes with appearance while status and native fallbac
   const node = new ToolExecutionComponent('read', 'transcript-sample', { path: '/tmp/sample.txt' }, { showImages: false }, definition, { requestRender() {} }, '/tmp');
   const parent = new Container(); parent.addChild(node);
   let style = transcriptDefaults();
-  const blocks = new ActivityBlocks(() => theme, () => {}, () => 'semantic', () => false, () => style);
+  const blocks = new ActivityBlocks(() => theme, () => {}, () => 'semantic', () => style);
   try {
     node.updateResult(original); blocks.sync(parent);
-    const first = node.render(90)[0];
-    assert.match(plain(first), /Read  sample.txt/);
+    const row = () => node.render(90).find(line => plain(line).includes('Read'));
+    const first = row();
+    assert.match(plain(first), /┃ ✓ Read +sample.txt/);
     assert.match(plain(first), /✓/); // Compact success intentionally omits the redundant status word.
     style = { ...style, tools: { identity: 'matched', status: 'matched' } };
-    const second = node.render(90)[0];
+    const second = row();
     assert.notEqual(second, first, 'appearance changes invalidate the cached header');
     assert.equal(node.result, original);
     node.updateResult({ content: [{ type: 'text', text: 'Permission denied' }], isError: true });
-    assert.match(plain(node.render(90)[0]), /×.*failed/);
+    assert.match(plain(row()), /×.*failed/);
     assert.match(node.render(90).map(plain).join('\n'), /Permission denied/);
     node.toolDefinition = { renderShell: 'self', renderCall: () => ({ render: () => ['CUSTOM'] }) };
     assert.doesNotMatch(node.render(90).map(plain).join('\n'), /╭.*Read/, 'self-rendering overrides stay native');

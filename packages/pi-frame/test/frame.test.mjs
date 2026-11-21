@@ -11,7 +11,7 @@ const root = process.env.PI_FRAME_HOST_MODULES || process.env.PI_EGREGORE_HOST_M
 })();
 const { createJiti } = await import(pathToFileURL(join(root, "jiti/lib/jiti.mjs")));
 const jiti = createJiti(import.meta.url, { alias: { "@earendil-works/pi-tui": join(root, "@earendil-works/pi-tui/dist/index.js") } });
-const { frameRail, frameRows, paintFramePerimeter, statusPreset } = await jiti.import(fileURLToPath(new URL("../index.js", import.meta.url)));
+const { frameRail, frameRows, paintFramePerimeter, statusPreset, frameGlyphs, toolRows } = await jiti.import(fileURLToPath(new URL("../index.js", import.meta.url)));
 const { visibleWidth, CURSOR_MARKER } = await import(pathToFileURL(join(root, "@earendil-works/pi-tui/dist/index.js")));
 const theme = { style: (text, { fg }) => `\x1b[38;2;100;120;180m${text}\x1b[39m` };
 const plain = text => text.replace(/\x1b\[[0-9;]*m/g, "");
@@ -122,4 +122,29 @@ test("motion is opt-in, stable in geometry and never paints content", () => {
   assert.notEqual(later[0], first[0], "the top rail still travels");
   assert.notEqual(later.at(-1), first.at(-1), "the bottom rail still travels");
   assert.deepEqual(paintFramePerimeter(fixed, { theme, width: 36, active: false, accent: "#ffffff" }), fixed);
+});
+
+test("heavy weight swaps every perimeter glyph and keeps geometry; perimeter motion still paints it", () => {
+  const light = frameRows({ theme, width: 30, rows: ["body"], corners: { topLeft: " Title " } });
+  const heavy = frameRows({ theme, width: 30, rows: ["body"], corners: { topLeft: " Title " }, weight: "heavy" });
+  assert.deepEqual(heavy.map(row => visibleWidth(row)), light.map(row => visibleWidth(row)));
+  assert.match(plain(heavy[0]), /^┏ Title ━+┓$/); assert.match(plain(heavy[1]), /^┃body +┃$/); assert.match(plain(heavy[2]), /^┗━+┛$/);
+  assert.equal(frameGlyphs().vertical, "│"); assert.equal(frameGlyphs("heavy").vertical, "┃");
+  const painted = paintFramePerimeter(heavy, { theme, width: 30, color: "#334455", accent: "#aabbcc", active: true, now: 500 });
+  assert.notEqual(painted[0], heavy[0], "heavy rails are perimeter cells too");
+  assert.equal(painted[1], heavy[1], "side rows keep their bytes");
+});
+
+test("toolRows lays out marker, name, target and right-aligned detail at every width", () => {
+  for (const width of [0, 4, 8, 12, 24, 40, 90]) {
+    const rows = toolRows({ theme, width, marker: "✓", name: "Read", target: "extensions/pi-tasks/typography.ts", detail: "53 lines", notes: ["a note that is long enough to be clipped at narrow widths"] });
+    for (const row of rows) assert.ok(visibleWidth(row) <= Math.max(width, 0) || width === 0, `width ${width}`);
+  }
+  const [row, note] = toolRows({ theme, width: 60, marker: "✓", name: "Read", target: "a.ts", detail: "3 lines", notes: ["warning"] });
+  assert.match(plain(row), /^┃ ✓ Read +a.ts +3 lines$/); assert.equal(visibleWidth(row), 60);
+  assert.match(plain(note), /^┃   warning/);
+  const tight = plain(toolRows({ theme, width: 30, marker: "✓", name: "Bash", target: "a very long command that cannot fit beside its detail", detail: "21 lines" })[0]);
+  assert.match(tight, /…\s+21 lines$/, "the target yields before the detail");
+  const child = plain(toolRows({ theme, width: 40, indent: 2, marker: "×", name: "Read", nameWidth: 6, target: "file5", detail: "failed" })[0]);
+  assert.match(child, /^┃ {3}× Read +file5 +failed$/);
 });

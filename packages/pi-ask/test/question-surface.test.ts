@@ -28,10 +28,10 @@ test("question progress matches the theme-accent title by default", () => {
   const accent = { r: 128, g: 91, b: 215 };
   const palette = { ...theme, colors: { accent }, appearance: "dark", style(text: string, options: { fg?: unknown }) { styled.push({ text, fg: options.fg }); return text; } };
   const tui: any = { terminal: { rows: 30 }, requestRender() {} };
-  const form = new TabbedQuestions([{ question: "Why?", mode: "text", options: [] }], questionViewport(tui), palette, getKeybindings(), () => {});
+  const form = new TabbedQuestions([{ question: "Why?", mode: "text", options: [] }, { question: "And?", mode: "text", options: [] }], questionViewport(tui), palette, getKeybindings(), () => {});
   frameQuestion(form, palette, tui).render(90);
   const title = styled.find(item => item.text === " Questions ");
-  const progress = styled.find(item => item.text === " 1 of 1 ");
+  const progress = styled.find(item => item.text === " 1 of 2 ");
   assert.ok(title && progress);
   assert.deepEqual(progress.fg, accent);
   assert.deepEqual(title.fg, accent);
@@ -142,9 +142,9 @@ test("question shell keeps native focus/cursor and fits all viewport sizes", () 
     assert.ok(lines.length <= questionHeight(tui));
     for (const line of lines) assert.ok(visibleWidth(line) <= width);
     if (rows >= 24 && width >= 20) {
-      assert.match(sanitizeDisplayText(lines[0]), /^╭ Questions/);
-      if (width >= 38) assert.match(sanitizeDisplayText(lines.at(-1)!), /^╰ 1 of 1 /);
-      assert.match(sanitizeDisplayText(lines.at(-1)!), /^╰/);
+      assert.match(sanitizeDisplayText(lines[0]), /^┏ Questions/);
+      if (width >= 38) assert.doesNotMatch(sanitizeDisplayText(lines.at(-1)!), /1 of 1/, "a single question shows no count");
+      assert.match(sanitizeDisplayText(lines.at(-1)!), /^┗/);
       assert.equal(lines.join("").split(CURSOR_MARKER).length - 1, 1);
     }
     shell.focused = false;
@@ -204,15 +204,15 @@ test("standalone question and context wrap with the same inset on every line", a
       : askMultiChoice(ctx, question, context, options);
     const lines = component.render(58).map(sanitizeDisplayText);
     const first = lines.findIndex((line: string) => line.includes("Where in your code"));
-    const blank = lines.findIndex((line: string, index: number) => index > first && /^│\s+│$/.test(line));
+    const blank = lines.findIndex((line: string, index: number) => index > first && /^┃\s+┃$/.test(line));
     const promptLines = lines.slice(first, blank);
     assert.ok(promptLines.length > 1, `${mode}: prompt wraps`);
-    for (const line of promptLines) assert.match(line, /^│  \S/, `${mode}: prompt line has a consistent inset`);
+    for (const line of promptLines) assert.match(line, /^┃  \S/, `${mode}: prompt line has a consistent inset`);
     const contextFirst = lines.findIndex((line: string) => line.includes("A longer piece of context"));
-    const contextBlank = lines.findIndex((line: string, index: number) => index > contextFirst && /^│\s+│$/.test(line));
+    const contextBlank = lines.findIndex((line: string, index: number) => index > contextFirst && /^┃\s+┃$/.test(line));
     const contextLines = lines.slice(contextFirst, contextBlank);
     assert.ok(contextLines.length > 1, `${mode}: context wraps`);
-    for (const line of contextLines) assert.match(line, /^│  \S/, `${mode}: context line has a consistent inset`);
+    for (const line of contextLines) assert.match(line, /^┃  \S/, `${mode}: context line has a consistent inset`);
     component.handleInput("\x1b");
     await pending;
   }
@@ -231,8 +231,9 @@ test("standalone question requests native input replacement and cancels once", a
   assert.equal(options.overlayOptions, undefined);
   const rendered = component.render(86).map(sanitizeDisplayText);
   assert.match(rendered[0], /Questions/);
-  assert.match(rendered.at(-1)!, /^╰ 1 of 1 /);
-  assert.ok(rendered.filter((line: string) => /╭.*╮/.test(line)).length >= 2, "free-form answer editor embeds its own complete shared frame");
+  assert.match(rendered.at(-1)!, /^┗━/);
+  assert.match(rendered[0], /^┏/, "the question frame is heavy");
+  assert.ok(rendered.some((line: string) => /╭.*╮/.test(line)), "free-form answer editor embeds its own light frame");
   signal.abort();
   assert.equal(await pending, null);
   component.handleInput("\x1b");

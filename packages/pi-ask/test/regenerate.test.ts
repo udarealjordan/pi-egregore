@@ -22,7 +22,7 @@ for (const mode of ["text", "single-select", "multi-select"]) {
     const c = await opened;
     for (const width of [32, 80, 120]) {
       const lines = c.render(width);
-      assert.match(sanitizeDisplayText(lines.join("\n")), /Ctrl\+R Regenerate/);
+      assert.doesNotMatch(sanitizeDisplayText(lines.join("\n")), /Ctrl\+R Regenerate/, "Regenerate lives in F2 More");
       assert.ok(lines.every((line: string) => visibleWidth(line) <= width));
     }
     c.handleInput("\t"); c.handleInput("\r"); c.handleInput("Try a different framing");
@@ -39,7 +39,7 @@ test("fresh batch can regenerate without answering; posted forms cannot silently
   const questions = [{ question: "Why?", mode: "text" as const, options: [] }];
   let result: any;
   const c = new TabbedQuestions(questions, tui, theme, getKeybindings(), value => { result = value; });
-  assert.match(c.render(80).join("\n"), /Ctrl\+R Regenerate/);
+  assert.doesNotMatch(c.render(80).join("\n"), /Ctrl\+R Regenerate/, "Regenerate lives in F2 More");
   assert.ok(c.getMoreActions().some(action => "hint" in action && action.hint === "Ctrl+R"));
   c.handleInput("\x12");
   assert.equal(result.action, "regenerate");

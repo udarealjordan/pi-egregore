@@ -47,7 +47,7 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
     return { rows: content.map(row => truncateToWidth(row.text, width, "…")), hits: [] };
   }
   const changesOnly = prefs.presentation.motion === "changes" && prefs.presentation.states[frame.state]?.motion !== "repeat";
-  const rows = presentationRows({ theme, width, rows: content, title, summary, hint, presentation: prefs.presentation,
+  const rows = presentationRows({ theme, width, rows: content, title, summary, hint, presentation: prefs.presentation, weight: "heavy",
     frame: changesOnly ? { ...frame, active: false } : frame });
   // A steady active-row surface, with one bounded lift on real task progress.
   // Paint inside the rail only, preserving semantic/custom foregrounds and geometry.

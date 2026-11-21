@@ -28,7 +28,7 @@ function fixture(name, args, result, definition = definitions[name], selectedThe
   pendingNodes.add(node);
   if (result) node.updateResult(result);
   root.addChild(node);
-  const blocks = new ActivityBlocks(() => selectedTheme, () => {}, () => 'semantic', () => false, presentation);
+  const blocks = new ActivityBlocks(() => selectedTheme, () => {}, () => 'semantic', presentation);
   blocks.sync(root);
   return { node, blocks, root };
 }
@@ -46,11 +46,11 @@ test('Read compact is a line count; expansion retains syntax/content and cleanup
   const result = textResult(Array.from({ length: 30 }, (_, n) => `line ${n}`).join('\n'));
   const f = fixture('read', { path: '/tmp/example/SKILL.md' }, result);
   try {
-    assert.match(output(f.node), /Read  example\/SKILL.md/); assert.match(output(f.node), /30 returned lines/);
+    assert.match(output(f.node), /┃ ✓ Read +example\/SKILL.md +30 lines/);
     assert.doesNotMatch(output(f.node), /line 0|line 29|Arguments|expand/); assert.equal(f.node.render(90).length, 3);
     f.node.setExpanded(true); assert.match(output(f.node), /line 0/); assert.match(output(f.node), /line 29/); fits(f.node);
     assert.equal(f.node.result, result);
-    f.node.setExpanded(false); f.blocks.dispose(); assert.doesNotMatch(output(f.node), /30 returned lines/);
+    f.node.setExpanded(false); f.blocks.dispose(); assert.doesNotMatch(output(f.node), /┃ ✓ Read/);
   } finally { f.blocks.dispose(); }
 });
 
@@ -58,7 +58,7 @@ test('real native Edit self-shell is compact diff counts, readable diff on expan
   const diff = Array.from({ length: 18 }, (_, n) => `${n % 2 ? '+' : '-'}${n + 1} change${n}`).join('\n');
   const f = fixture('edit', { path: '/tmp/example.ts', edits: [{ oldText: 'old\ntext', newText: 'new\ntext' }] }, textResult('Applied exact edit', { diff }));
   try {
-    assert.match(output(f.node), /╭.*Edit/); assert.match(output(f.node), /\+9 −9 lines/);
+    assert.match(output(f.node), /┃ ✓ Edit +example.ts +\+9 −9/);
     assert.doesNotMatch(output(f.node), /change0|Applied exact edit|Arguments/); assert.equal(f.node.render(90).length, 3);
     f.node.setExpanded(true); assert.match(output(f.node), /Diff/); assert.match(output(f.node), /change17/); assert.match(output(f.node), /Applied exact edit/);
     assert.doesNotMatch(output(f.node), /old\\ntext/); fits(f.node);
@@ -70,12 +70,12 @@ test('real native Edit self-shell is compact diff counts, readable diff on expan
 for (const name of ['bash', 'powershell']) test(`${name} compact tail, early diagnostics and truncation remain visible; zero exit is quiet`, () => {
   const f = fixture(name, { command: 'run-checks' }, textResult('warning: sample\n' + Array.from({ length: 20 }, (_, n) => `log ${n}`).join('\n'), { exitCode: 0 }));
   try {
-    assert.match(output(f.node), /log 19/); assert.match(output(f.node), /warning: sample/); assert.doesNotMatch(output(f.node), /log 0\b|Exit 0/);
-    assert.equal(f.node.render(90).length, 4); fits(f.node);
+    assert.match(output(f.node), /run-checks +21 lines/); assert.doesNotMatch(output(f.node), /log 0\b|log 19|Exit 0|exit 0/);
+    assert.equal(f.node.render(90).length, 3, "one row between run spacers"); fits(f.node);
     f.node.setExpanded(true); assert.match(output(f.node), /log 0\b/); assert.match(output(f.node), /Command/); assert.match(output(f.node), /Exit 0/);
     f.node.setExpanded(false);
     f.node.updateResult(textResult('tail', { exitCode: 2, truncation: { truncated: true }, fullOutputPath: '/tmp/full-output.txt' }));
-    assert.match(output(f.node), /Exit 2/); assert.match(output(f.node), /Output truncated/); assert.match(output(f.node), /Full output:/);
+    assert.match(output(f.node), /exit 2/); assert.match(output(f.node), /Output truncated/); assert.match(output(f.node), /Full output:/);
     f.node.updateResult(textResult('partial'), true); assert.doesNotMatch(output(f.node), /returned/);
   } finally { f.blocks.dispose(); }
 });
@@ -83,17 +83,17 @@ for (const name of ['bash', 'powershell']) test(`${name} compact tail, early dia
 test('Write never dumps content in compact mode; expanded input is source, not escaped JSON', () => {
   const f = fixture('write', { path: '/tmp/new.ts', content: 'const alpha = 1;\nconst beta = 2;' });
   try {
-    assert.match(output(f.node), /2 input lines/); assert.doesNotMatch(output(f.node), /const alpha|Written content/);
-    f.node.updateResult(textResult('Wrote file')); assert.equal(f.node.render(90).length, 3);
+    assert.match(output(f.node), /Write +new.ts/); assert.doesNotMatch(output(f.node), /const alpha|Written content/);
+    f.node.updateResult(textResult('Wrote file')); assert.match(output(f.node), /2 lines/); assert.equal(f.node.render(90).length, 3);
     f.node.setExpanded(true); assert.match(output(f.node), /Input content/); assert.match(output(f.node), /const alpha/); assert.doesNotMatch(output(f.node), /;\\nconst/);
     f.node.setExpanded(false); f.node.updateResult({ ...textResult('Permission denied'), isError: true }); assert.match(output(f.node), /Permission denied/);
   } finally { f.blocks.dispose(); }
 });
 
-for (const name of ['grep', 'find', 'ls']) test(`${name} has a short text preview and all results on expansion`, () => {
+for (const name of ['grep', 'find', 'ls']) test(`${name} is one counted row and all results on expansion`, () => {
   const f = fixture(name, { path: '/tmp', pattern: 'example' }, textResult('one.ts\ntwo.ts\nthree.ts\nfour.ts'));
   try {
-    assert.match(output(f.node), /one.ts/); assert.doesNotMatch(output(f.node), /four.ts/); assert.ok(f.node.render(90).length <= 4);
+    assert.match(output(f.node), /4 lines/); assert.doesNotMatch(output(f.node), /one.ts|four.ts/); assert.equal(f.node.render(90).length, 3);
     f.node.setExpanded(true); assert.match(output(f.node), /four.ts/); fits(f.node);
     f.node.setExpanded(false);
     const key = { grep: 'matchLimitReached', find: 'resultLimitReached', ls: 'entryLimitReached' }[name];
@@ -117,10 +117,10 @@ test('screenshot regression: Codemode wrapper removed, readable records and actu
   const f = fixture('codemode', { code: demoCode }, demoResult);
   try {
     const compact = output(f.node);
-    assert.match(compact, /2 calls/); assert.match(compact, /2 JSON records/); assert.match(compact, /2.0s/);
+    assert.match(compact, /2 calls · 2.0s/);
     assert.doesNotMatch(compact, /demoChild|const results|Script completed|Wall time|Output:|Arguments/);
-    assert.match(compact, /Read  demo.ts · returned/); assert.match(compact, /Bash  sleep 2 · returned/);
-    assert.equal(f.node.render(90).length, 6); fits(f.node);
+    assert.match(compact, /✓ Read +demo.ts/); assert.match(compact, /✓ Bash +sleep 2/); assert.doesNotMatch(compact, /returned/);
+    assert.equal(f.node.render(90).length, 5, "header and two child rows between run spacers"); fits(f.node);
     f.node.setExpanded(true);
     const readable = output(f.node);
     assert.match(readable, /Read  demo.ts/); assert.match(readable, /Bash  sleep 2/);
@@ -144,10 +144,10 @@ test('Codemode strips only the exact first separate wrapper block and retains ch
   const calls = Array.from({ length: 6 }, (_, i) => ({ name: 'read', args: JSON.stringify({ path: 'file' + i }), status: i === 5 ? 'error' : 'ok', error: i === 5 ? 'Missing file' : '', durationMs: 42, cost: i === 5 ? 0.02 : undefined }));
   const f = fixture('codemode', { code: 'try {} catch {}' }, textResult('Script completed\nWall time 2.0 seconds\nOutput:\nuser text in same block', { calls }));
   try {
-    f.blocks.clearHistory(); assert.match(output(f.node), /! Codemode.*child errors/); assert.match(output(f.node), /6 calls · 1 failed/);
-    assert.match(output(f.node), /Read  file5 · failed/);
-    assert.match(output(f.node), /\+3 more recorded calls/);
-    assert.doesNotMatch(output(f.node), /Read  file2/);
+    f.blocks.clearHistory(); assert.match(output(f.node), /! Codemode.*1 failed/);
+    assert.match(output(f.node), /× Read +file5 +failed/);
+    assert.match(output(f.node), /\+3 more/);
+    assert.doesNotMatch(output(f.node), /Read +file2/);
     assert.ok(f.node.render(90).length <= 8); fits(f.node);
     f.node.setExpanded(true); const value = output(f.node);
     assert.match(value, /Script completed/); assert.match(value, /Read  file5 · failed/); assert.match(value, /Missing file/); assert.match(value, /\$0.0200/);
@@ -167,17 +167,17 @@ test('Codemode action preview is bounded, stateful and sourced only from recorde
       f.blocks.finish(`child-${i}`, f.node.toolCallId, false);
     }
     f.blocks.record('bash', { command: 'npm test\nprintf done' }, f.node.toolCallId, 'active');
-    assert.match(output(f.node), /Bash  npm test.*running/);
-    assert.match(output(f.node), /\+3 more recorded calls/);
-    assert.match(output(f.node), /Read  界面-0.ts · returned/); fits(f.node);
+    assert.match(output(f.node), /Bash +npm test.*running/);
+    assert.match(output(f.node), /\+3 more/);
+    assert.match(output(f.node), /✓ Read +界面-0.ts/); fits(f.node);
     f.blocks.finish('active', f.node.toolCallId, true);
-    assert.match(output(f.node), /Bash  npm test.*failed/);
+    assert.match(output(f.node), /× Bash +npm test.*failed/);
     // Persisted metadata takes precedence over live events on completion/reload.
     const calls = [{ name: 'read', args: '{"path":"persisted.ts"}', status: 'cancelled' },
       { name: 'read', args: '{"path":"unknown.ts"}', status: 'future-status' }];
     const saved = textResult('Finished', { calls }); f.node.updateResult(saved);
-    assert.match(output(f.node), /Read  persisted.ts · cancelled/);
-    assert.match(output(f.node), /Read  unknown.ts · observed/);
+    assert.match(output(f.node), /Read +persisted.ts +cancelled/);
+    assert.match(output(f.node), /Read +unknown.ts +observed/);
     assert.doesNotMatch(output(f.node), /npm test|界面|NEVER_RAN/); fits(f.node);
     f.node.setExpanded(true);
     const expanded = output(f.node);
@@ -206,12 +206,12 @@ test('generic JSON, JSONL, duplicate keys and exact numbers are readable; raw ha
 test('generic text sanitizes controls and expanded body/modifier clicks remain selectable', () => {
   const f = fixture('mcp.demo.lookup', { query: 'item', many: [1,2,3] }, textResult('Hello\x1b]52;c;secret\x07\n' + 'long 界面 line '.repeat(60)));
   try {
-    assert.match(output(f.node), /Hello/); assert.doesNotMatch(f.node.render(90).join(''), /\x1b\]52/); assert.ok(f.node.render(90).length <= 4);
+    assert.match(output(f.node), /lookup +item +2 lines/); assert.doesNotMatch(f.node.render(90).join(''), /\x1b\]52/); assert.equal(f.node.render(90).length, 3);
     f.node.setExpanded(true); assert.match(output(f.node), /Arguments/); fits(f.node);
     assert.equal(click(f.node, 2), undefined);
     const rows = f.node.render(90), y = rows.findIndex(row => plain(row).includes('Raw payload'));
     assert.equal(f.node.handleMouse({ type:'click',button:'left',x:3,y,width:90,height:rows.length,screenX:3,screenY:y,ctrl:true }), undefined);
-    f.node.invalidate(); assert.match(output(f.node), /Hello/);
+    f.node.invalidate(); assert.match(output(f.node), /Hello/); assert.doesNotMatch(output(f.node), /secret/);
   } finally { f.blocks.dispose(); }
 });
 
@@ -233,15 +233,15 @@ test('web access adapter frames existing custom call/progress/result components 
   const f = fixture('web_search', { query: 'pi terminal' }, undefined, definition);
   try {
     f.node.markExecutionStarted();
+    assert.match(output(f.node), /◉ Search +pi terminal +running/);
+    f.node.updateResult(textResult('source-linked result'), true);
+    assert.match(output(f.node), /running/);
+    f.node.updateResult(textResult('source-linked result'));
+    assert.match(output(f.node), /✓ Search +pi terminal/);
+    assert.doesNotMatch(output(f.node), /\bdone\b|\breturned\b|preview/);
+    assert.equal(click(f.node, 1)?.handled, true);
     assert.match(output(f.node), /╭ Web · Search/);
     assert.match(output(f.node), /search pi terminal/);
-    f.node.updateResult(textResult('source-linked result'), true);
-    assert.match(output(f.node), /searching 2 of 3/);
-    f.node.updateResult(textResult('source-linked result'));
-    assert.match(output(f.node), /preview source-linked result/);
-    assert.match(output(f.node), /✓/);
-    assert.doesNotMatch(output(f.node), /\bdone\b|\breturned\b/);
-    assert.equal(click(f.node, 0)?.handled, true);
     assert.match(output(f.node), /full source-linked result/);
     fits(f.node);
     assert.deepEqual(f.node.result, textResult('source-linked result'));
@@ -249,6 +249,7 @@ test('web access adapter frames existing custom call/progress/result components 
     assert.match(output(f.node), /× failed/);
     f.node.updateResult({ ...textResult('stopped', { cancelled: true }), isError: true });
     assert.match(output(f.node), /■ cancelled/);
+    f.node.setExpanded(true);
     f.node.updateResult({ content: [{ type: 'image', data: 'x', mimeType: 'image/png' }] });
     assert.doesNotMatch(output(f.node), /╭ Web · Search/, 'image output stays native');
     f.blocks.dispose();
@@ -261,6 +262,7 @@ test('web tool uses transcript identity/status treatment but never matches faile
   let style = { ...transcriptDefaults(), tools: { identity: 'quiet', status: 'semantic' } };
   const f = fixture('web_search', { query: 'sample' }, textResult('unchanged'), definition, theme, () => style);
   try {
+    f.node.setExpanded(true);
     const initial = f.node.render(90)[0];
     style = { ...style, tools: { identity: 'matched', status: 'matched' } };
     const updated = f.node.render(90)[0];
@@ -295,9 +297,10 @@ for (const name of ['dark', 'light']) test(`${name}: status colors/symbols survi
     f.node.markExecutionStarted(); assert.match(output(f.node), /◉ Codemode.*running/);
     f.node.updateResult(textResult('Result')); assert.match(output(f.node), /✓ Codemode/);
     assert.doesNotMatch(output(f.node), /✓ Codemode.*returned/);
-    assert.ok(f.node.render(90)[0].includes(selectedTheme.style(' ✓ ', { fg: toolStateStyle(selectedTheme, 'returned').color, bold: true })),
-      'status symbol keeps its semantic color while title stays readable on a neutral rail');
-    assert.ok(!f.node.render(90)[0].includes(selectedTheme.style('╭', { fg: toolStateStyle(selectedTheme, 'returned').color })));
+    const row = f.node.render(90).find(line => plain(line).includes('Codemode'));
+    assert.ok(row.includes(selectedTheme.style('✓', { fg: toolStateStyle(selectedTheme, 'returned').color, bold: true })),
+      'status symbol keeps its semantic color while the rail stays quiet');
+    assert.ok(!row.includes(selectedTheme.style('┃', { fg: toolStateStyle(selectedTheme, 'returned').color })));
     f.node.setExpanded(true); assert.match(output(f.node), /▾ returned/); f.node.setExpanded(false);
     f.node.updateResult({ ...textResult('Script failed'), isError: true }); assert.match(output(f.node), /× Codemode.*failed/);
     f.node.updateResult({ ...textResult('Stopped', { cancelled: true }), isError: true }); assert.match(output(f.node), /■ Codemode.*cancelled/);
@@ -319,6 +322,6 @@ test('representative actual-renderer captures at wide and narrow widths in compa
       return `WIDTH ${width} · ${expanded ? 'READABLE' : 'COMPACT'}\n` + cases.map(f => output(f.node,width)).join('\n\n');
     })).join('\n\n');
     writeCapture('pi-readable-tool-captures.txt', captures);
-    assert.match(captures, /jordan/); assert.match(captures, /JSON records/); assert.doesNotMatch(captures, /Script completed|\\nreturn/);
+    assert.match(captures, /jordan/); assert.match(captures, /JSON ·/); assert.match(captures, /┃ ✓ Read/); assert.doesNotMatch(captures, /Script completed|\\nreturn/);
   } finally { for (const f of cases) f.blocks.dispose(); }
 });

@@ -6,6 +6,11 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Tool calls are now one row each on a shared rail instead of a box per call: marker, name, target and a quiet detail (line count, diff counts, `exit N`), with error and live-output notes beneath. Tasks and Ask calls use the same rows (`Done`, `Started`, `Asked` with your answer). Expanding a row still opens the full card. The grouped file-tool box is retired.
+- Heavy lines (`┏━┓┃`) now mark what wants attention: the Composer, a question and the live Tasks dock. History stays light. Frame gains `weight` and a `toolRows` primitive.
+- Question dialog: the footer no longer repeats "+ Note" (the row by the options stays), Regenerate moved to F2 More, "Write your own answer." and a lone "1 of 1" are gone, and the discard hint reads "Esc Discard note".
+- Fixed the settings preview reporting a clipped Ask element as visible on short terminals.
+
 - Renamed the remaining Pi Workspace names to Egregore. `/workspace` is gone; use `/egregore`. Source files `workspace-*.ts` are now `runtime.ts` and `settings-*.ts`, runtime IDs use `pi-egregore:` (including the `pi-egregore:interaction:v1` event), and the test host override is `PI_EGREGORE_HOST_MODULES`. The legacy `pi-workspace.json` is still read as a fallback.
 
 - Removed Quests: the `quests` tool, `/quests`, its journal code, tests and design docs. Existing journal data in `~/.pi/agent/quests/` is left untouched.

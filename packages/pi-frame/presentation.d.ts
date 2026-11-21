@@ -31,6 +31,7 @@ export function createFrameController(options?: {
   schedule?: (callback: () => void, delay: number) => any; cancel?: (handle: any) => void;
 }): FrameController;
 export function presentationRows(options: {
+  weight?: import("./primitives.js").FrameWeight;
   theme?: FrameTheme & { appearance?: "light" | "dark"; colors?: Partial<Record<Exclude<FramePaint, `#${string}`>, Color>> };
   width: number; rows: Array<string | { text: string; role?: "text" | "active" | "muted" | "warning" | "error" }>;
   title?: string; summary?: string; hint?: string; presentation?: FramePresentation; frame?: FrameSample; inset?: number;

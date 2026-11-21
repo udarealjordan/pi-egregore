@@ -3,11 +3,16 @@ import { Container, CURSOR_MARKER, sliceByColumn, type Component } from "@earend
 
 // Provenance belongs to the rendering adapter, never to a glyph-pattern filter.
 // Weak keys do not retain messages or sessions. Only the latest render is eligible.
-type Frame = { width: number; rows: string[]; inset: number; padding: number; bottom: number };
+type Frame = { width: number; rows: string[]; inset: number; padding: number; bottom: number; railOnly?: boolean };
 const frames = new WeakMap<Component, Frame>();
 export function forgetCopyFrame(owner: Component): void { frames.delete(owner); }
 export function rememberCopyFrame(owner: Component, width: number, rows: string[], inset = 0, padding = 0, bottom = rows.length - 1): string[] {
   frames.set(owner, { width, rows, inset, padding, bottom });
+  return rows;
+}
+/** Rows with only a left rail and one space (tool rows): every row is content. */
+export function rememberRailRows(owner: Component, width: number, rows: string[]): string[] {
+  frames.set(owner, { width, rows, inset: 0, padding: 0, bottom: rows.length - 1, railOnly: true });
   return rows;
 }
 type Box = { component: Component; children: Box[]; scrollView?: unknown; scrollContentLines?: string[]; lines?: string[]; lineOffset?: number; rect: { x: number; y: number; width: number; height: number }; clip: { x: number; y: number; width: number; height: number } };
@@ -102,6 +107,11 @@ function selectedText(host: Host, native: string | undefined): string | undefine
     // Completion/menu rows after the Composer's bottom rail stay native.
     if (local > frame.bottom) { cleaned.push(original.at(-1)!); continue; }
     changed = true;
+    if (frame.railOnly) {
+      const left = Math.max(columns.start, 2);
+      if (columns.end > left) cleaned.push(text(left, columns.end));
+      continue;
+    }
     if (local <= frame.padding || local >= frame.bottom - frame.padding) continue;
     const left = Math.max(columns.start, 1 + frame.inset);
     const right = Math.min(columns.end, frame.width - 1 - frame.inset);

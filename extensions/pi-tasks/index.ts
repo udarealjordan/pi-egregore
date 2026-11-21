@@ -6,8 +6,9 @@ import { getAgentDir, type ExtensionAPI, type ExtensionContext, type ExtensionCo
 import { wrapTextWithAnsi, type TUI } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { DOCK, isHost, cleanText, layoutDock, type DockAck, type DockColors, type DockSnapshot } from "pi-agent-contracts/dock";
-import { taskFrame } from "../../lib/task-frame.ts";
-import { taskResultCard, type TaskCardDetails } from "./transcript.ts";
+import { taskFrame, taskFrameColor } from "../../lib/task-frame.ts";
+import { toolRows } from "../../lib/frame.ts";
+import { taskResultCard, taskResultRows, type TaskCardDetails } from "./transcript.ts";
 import { ENTRY, STATUSES, progressText, taskOverview, type Plan, type Change, type Mutation } from "./state.ts";
 import { dockRows, questionAttentionSummary } from "./typography.ts";
 import { BOOK_ENTRY, COMPLETION_MS, emptyBook, migratePlan, restoreBook, mutateBook, selectedPlan, resultPlan, planInfo, bookContext, isPlanClosed,
@@ -83,7 +84,7 @@ export default function tasks(pi: ExtensionAPI) {
       if (!current.rows.length) return [];
       const budget = Math.max(3, Math.min(7, Math.floor(tui.terminal.rows / 4)));
       const content = layoutDock(current, Math.max(1, width - 2), budget).map(r => th.fg(r.tone ?? "text", cleanText(r.text)));
-      return taskFrame(th, width, content, cleanText(current.title), current.summary ?? "", current.hint ?? "");
+      return taskFrame(th, width, content, cleanText(current.title), current.summary ?? "", current.hint ?? "", "heavy");
     } }), { placement: "aboveEditor" });
   }
   function publish() {
@@ -166,25 +167,28 @@ export default function tasks(pi: ExtensionAPI) {
           evidence: t.evidence.length > 400 ? t.evidence.slice(0, 400) + "… (full text in /tasks)" : t.evidence }));
         const payload = { revision: book.revision, selectedId: book.selectedId, planId: p?.id ?? null, title: p?.title ?? null, counts: progressText(plan), tasks: page,
           ...pageInfo(changed.length), ...((params.op === "add" || params.op === "create") ? { addedIds: changed.map((t) => t.id) } : {}) };
-        return { content: [{ type: "text", text: JSON.stringify(payload) }], details: { plan, planId: p?.id, title: p?.title } };
+        return { content: [{ type: "text", text: JSON.stringify(payload) }], details: { plan, planId: p?.id, title: p?.title,
+          ...((params.op === "add" || params.op === "create") ? { addedIds: changed.map((t) => t.id) } : {}) } };
       },
       renderCall(args, theme, context) {
-        const labels: Record<string, string> = { plans: "Read plan history", list: "Read tasks", create: "Create plan", add: "Add tasks", update: args.changes?.status ? `Mark task ${args.changes.status}` : "Update task", select: "Select plan", rename: "Rename plan", archive: "Archive plan" };
+        const labels: Record<string, string> = { plans: "Plans", list: "Read", create: "Plan", add: "Added", update: "Updating", select: "Switching", rename: "Renaming", archive: "Archiving" };
         const operation = labels[args.op ?? ""] ?? "Task operation";
         return { invalidate() {}, render(width: number) {
           // Pi retains the call component beside the result; only show it while pending.
           if (!context.isPartial) return [];
-          return taskFrame(theme, width, [theme.fg("accent", `◇ ${operation}`) + theme.fg("muted", " · in progress…")]);
+          return toolRows({ theme, width, marker: "◌", markerColor: theme.colors.accent, railColor: taskFrameColor(theme),
+            name: theme.fg("text", operation), detail: theme.fg("dim", "…") });
         } };
       },
       renderResult(result, options, theme, context) {
         const details = result.details as TaskCardDetails | undefined;
         if (!details?.plan) return { invalidate() {}, render(width: number) {
           const error = cleanText(result.content.filter(c => c.type === "text").map(c => c.text).join("\n"));
-          return taskFrame(theme, width, wrapTextWithAnsi(theme.fg("error", error), Math.max(1, width - 2)));
+          return toolRows({ theme, width, marker: "×", markerColor: theme.colors.error, railColor: theme.colors.error,
+            name: theme.fg("text", "Tasks"), detail: theme.fg("error", "failed"), notes: [theme.fg("error", error.split("\n")[0] ?? "")] });
         } };
         return { invalidate() {}, render(width: number) {
-          return taskResultCard(details, context.args, !!options.expanded, theme, width);
+          return options.expanded ? taskResultCard(details, context.args, true, theme, width) : taskResultRows(details, context.args, theme, width);
         } };
       },
     });

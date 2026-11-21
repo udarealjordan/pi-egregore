@@ -1,30 +1,37 @@
-# Tool cards: compact, readable, raw
+# Tool rows and cards
 
-Available in Composer after a fresh Pi process; `/reload` may retain imported dependencies. Rendering uses no classifier, network call, external formatter, or tool execution. One native tool retains one card and its original transcript position.
+Available in Composer after a fresh Pi process. Rendering uses no classifier, network call, external formatter or tool execution. Each native tool keeps its transcript position.
 
-## Compact is the default
+## Collapsed: one row per call
 
-The header shows the tool, target, a semantic status marker and disclosure arrow. Routine completion needs no repeated “returned” label; running, failure, cancellation and child problems remain written. Ordinary compact cards have **at most two body rows**, plus their border/header. Codemode additionally shows up to three recorded child-action rows and one omitted-action count. Explicit safety notices can add rows; compactness must not hide a tool's stated limits.
+A collapsed call is a single row on a left rail: status marker, tool name, target, and a quiet detail at the right edge. Adjacent calls share the rail and read as one block, with a blank line before and after the run. Assistant turns that show no text don't break a run.
 
-| Tool/content | Compact | Expanded readable |
+```
+┃ ✓ Read     extensions/pi-tasks/typography.ts          22 lines
+┃ ✓ Edit     composer-style.ts                            +3 −1
+┃ × Bash     npm test                                    exit 1
+┃   1 failing test: preview-selection
+┃ ◉ Bash     npm run build                              running
+┃   compiling 14 of 20 modules
+```
+
+| Tool/content | Detail at the right | Note lines beneath |
 | --- | --- | --- |
-| Read | Returned text-line count | Source with native syntax highlighting; JSON can use the structured view |
-| Write | Input-line count, not the whole file | Returned result and highlighted input content |
-| Edit | Added/removed line counts from the supplied diff | Native colored diff and returned text; requested replacements remain in raw arguments |
-| Bash / PowerShell | Last two nonempty lines, with an explicit diagnostic line promoted when found | Full returned text and command as source |
-| Grep / Find / List | Short returned-text preview | Full returned text and remaining arguments |
-| Codemode | Call count and output summary; up to three recorded tool names/targets with states; omitted-action count; failed/cancelled/pending counts | Highlighted submitted script first; recorded child identities, states, durations, errors and reported costs; readable result blocks |
-| JSON / JSONL | Field/item/record counts; explicit diagnostic-field count and one excerpt | Readable nested fields and multiline string blocks |
-| Generic text | Two short text lines | Full returned text and readable arguments |
-| Error / cancellation | Short diagnostic preview and explicit lifecycle | Returned error content; input details remain inspectable |
+| Read | Returned line count | |
+| Write | Input line count | |
+| Edit | Added/removed counts from the supplied diff | |
+| Bash / PowerShell | Line count, or `exit N` when nonzero | First error line on failure; latest output line while running |
+| Grep / Find / List | Line count | Limit and truncation notices |
+| Codemode | Call count and wall time | Up to three child calls (problems and live work first), then `+N more` |
+| JSON / JSONL | `JSON · 4 fields` or record count | First diagnostic field the data reports |
+| Web search / fetch | Result count when known | First error line |
+| Tasks, Ask | The change itself (`Done`, `Started`, `Asked`…) and plan progress | Blocker reason, or your answer |
 
-No escaped script, full input-content dump, or repeated argument block appears by default. The disclosure arrow indicates expansion; there is no expansion instruction after every subsection. Long targets are shortened in the header; full target/command details are available on expansion and raw view.
-
-Read line counts count returned text, not a claim that the entire file was read. Edit counts come from the supplied display diff, not a speculative filesystem diff. Write counts describe input, not an independent write verification.
+Success shows only the marker; `failed`, `cancelled` and `running` are written. The rail stays quiet unless a call is running, failed or needs attention.
 
 ## Readable expansion
 
-Click anywhere on a collapsed card to expand. Click its heading to collapse. Pi's tool-expansion shortcut (normally Ctrl+O) still controls native expansion.
+Click a collapsed row to expand it into a framed card. Click the card heading to collapse. Pi's tool-expansion shortcut (normally Ctrl+O) still controls native expansion.
 
 - Scripts, shell commands, and written source render as actual lines, not JSON-escaped strings.
 - Single JSON objects/arrays and complete JSONL records get a readable nested view. Strings are decoded **once**. Literal backslash-n text stays literal; actual newline characters become lines.

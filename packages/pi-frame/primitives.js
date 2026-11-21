@@ -15,6 +15,14 @@ const rememberRail = (row, width, columns) => {
   return row;
 };
 
+/** Box glyphs by line weight. Heavy marks a surface that wants attention now
+ * (an input, a question, live work); light marks history. */
+export const FRAME_GLYPHS = Object.freeze({
+  light: Object.freeze({ topLeft: "╭", topRight: "╮", bottomLeft: "╰", bottomRight: "╯", horizontal: "─", vertical: "│" }),
+  heavy: Object.freeze({ topLeft: "┏", topRight: "┓", bottomLeft: "┗", bottomRight: "┛", horizontal: "━", vertical: "┃" }),
+});
+export const frameGlyphs = weight => FRAME_GLYPHS[weight === "heavy" ? "heavy" : "light"];
+
 /** Optional, Pi-independent presentation preset. The caller owns state detection and rerenders. */
 export function statusPreset({ state = "observed", appearance = "dark", attention = false, markers = {}, colors = {}, labels = {} }) {
   const tone = state === "failed" ? "failed" : state === "cancelled" || attention ? "attention"
@@ -29,7 +37,8 @@ export function statusPreset({ state = "observed", appearance = "dark", attentio
 }
 
 /** Draw a single rail. Labels may contain ANSI styling; every position is optional. */
-export function frameRail({ theme, width, left = "", center = "", right = "", side = "top", color, textColor, surface }) {
+export function frameRail({ theme, width, left = "", center = "", right = "", side = "top", color, textColor, surface, weight }) {
+  const g = frameGlyphs(weight);
   width = Math.max(0, Math.floor(width));
   if (width < 4) return cover(fit(left, width), width, surface);
   const inner = width - 2;
@@ -37,7 +46,7 @@ export function frameRail({ theme, width, left = "", center = "", right = "", si
   const columns = new Set([0, width - 1]);
   const rule = (count, start) => {
     for (let x = start; x < start + count; x++) columns.add(x);
-    return ink(theme, "─".repeat(count), color);
+    return ink(theme, g.horizontal.repeat(count), color);
   };
   let content;
   if (center) {
@@ -55,21 +64,22 @@ export function frameRail({ theme, width, left = "", center = "", right = "", si
     left = fit(left, inner - visibleWidth(right));
     content = label(left) + rule(Math.max(0, inner - visibleWidth(left) - visibleWidth(right)), 1 + visibleWidth(left)) + label(right);
   }
-  return rememberRail(cover(ink(theme, side === "top" ? "╭" : "╰", color) + content
-    + ink(theme, side === "top" ? "╮" : "╯", color), width, surface), width, columns);
+  return rememberRail(cover(ink(theme, side === "top" ? g.topLeft : g.bottomLeft, color) + content
+    + ink(theme, side === "top" ? g.topRight : g.bottomRight, color), width, surface), width, columns);
 }
 
 /** Frame pre-rendered content without taking over its input, mouse, or focus. */
-export function frameRows({ theme, width, rows, corners = {}, color, textColor, inset = 0, minWidth = 4, surface, motion }) {
+export function frameRows({ theme, width, rows, corners = {}, color, textColor, inset = 0, minWidth = 4, surface, motion, weight }) {
+  const g = frameGlyphs(weight);
   width = Math.max(0, Math.floor(width));
   if (width < minWidth || width < 4) return rows.map(row => cover(fit(row, width), width, surface));
   inset = Math.max(0, Math.min(Math.floor(inset), Math.floor((width - 4) / 2)));
   const inner = width - 2 - 2 * inset;
   const content = rows.map(row => cover(
-    ink(theme, "│", color) + " ".repeat(inset) + cover(fit(row, inner), inner, surface)
-      + " ".repeat(inset) + ink(theme, "│", color), width, surface));
-  const result = [frameRail({ theme, width, left: corners.topLeft, center: corners.topCenter, right: corners.topRight, color, textColor, surface }),
-    ...content, frameRail({ theme, width, left: corners.bottomLeft, center: corners.bottomCenter, right: corners.bottomRight, side: "bottom", color, textColor, surface })];
+    ink(theme, g.vertical, color) + " ".repeat(inset) + cover(fit(row, inner), inner, surface)
+      + " ".repeat(inset) + ink(theme, g.vertical, color), width, surface));
+  const result = [frameRail({ theme, width, left: corners.topLeft, center: corners.topCenter, right: corners.topRight, color, textColor, surface, weight }),
+    ...content, frameRail({ theme, width, left: corners.bottomLeft, center: corners.bottomCenter, right: corners.bottomRight, side: "bottom", color, textColor, surface, weight })];
   return motion?.active ? paintFramePerimeter(result, { theme, width, bottom: result.length - 1, color, ...motion, surface }) : result;
 }
 
@@ -99,7 +109,7 @@ export function paintFramePerimeter(rows, { theme, width, bottom = rows.length -
     if (y > bottom) return row;
     if (y === 0 || y === bottom) {
       const mask = railMasks.get(row);
-      return cover(row.replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))|[╭╮╰╯─]/g, (glyph, offset) => {
+      return cover(row.replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))|[╭╮╰╯─┏┓┗┛━]/g, (glyph, offset) => {
         if (glyph.startsWith("\x1b")) return glyph;
         const prefix = row.slice(0, offset), x = visibleWidth(prefix);
         const owned = mask?.width === width ? mask.columns.has(x) : x === 0 || x === width - 1;
@@ -112,4 +122,29 @@ export function paintFramePerimeter(rows, { theme, width, bottom = rows.length -
     // it, so the host would erase and resend every content row on each tick.
     return row;
   });
+}
+
+/** One collapsed tool call: rail, status marker, name, target and a quiet detail
+ * at the right edge, plus optional indented note rows (an error, a child call).
+ * Labels may carry ANSI styling; the caller owns colors and state. Consecutive
+ * rows share the rail, so a turn's calls read as one block without boxes. */
+export function toolRows({ theme, width, marker = "", markerColor, rail = "┃", railColor, name = "", nameWidth = 8, target = "", detail = "", notes = [], indent = 0, bold = true, surface }) {
+  width = Math.max(0, Math.floor(width));
+  const lead = ink(theme, rail, railColor) + " " + " ".repeat(Math.max(0, indent));
+  const leadWidth = 2 + Math.max(0, indent);
+  if (width < leadWidth + 6) return [cover(fit(lead + name, width), width, surface)];
+  const head = (marker ? ink(theme, marker, markerColor, true) + " " : "")
+    + (bold && theme?.style ? theme.style(name, { bold: true }) : name);
+  const headWidth = visibleWidth(head);
+  const pad = Math.max(1, (marker ? 2 : 0) + nameWidth - headWidth + 1);
+  const room = width - leadWidth - headWidth - pad;
+  detail = visibleWidth(detail) > Math.floor(room / 2) ? "" : detail;
+  const targetRoom = Math.max(0, room - (detail ? visibleWidth(detail) + 2 : 0));
+  const shown = fit(target, targetRoom);
+  const gap = Math.max(detail ? 2 : 0, room - visibleWidth(shown) - visibleWidth(detail));
+  const rows = [cover(fit(lead + head + " ".repeat(pad) + shown + (detail ? " ".repeat(gap) + detail : ""), width), width, surface)];
+  const noteLead = lead + " ".repeat(marker ? 2 : 0);
+  const noteRoom = width - leadWidth - (marker ? 2 : 0);
+  for (const note of notes) rows.push(cover(noteLead + fit(note, noteRoom), width, surface));
+  return rows;
 }

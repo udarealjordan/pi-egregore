@@ -57,7 +57,7 @@ test("standalone question applies saved presentation without changing focus or a
     const pending = askText(ctx, "Real question 界面?", undefined, signal.signal);
     const rows = panel.render(90);
     assert.match(stripVTControlCharacters(rows[0]), /My questions/);
-    assert.match(stripVTControlCharacters(rows.at(-1)), /1 of 1/);
+    assert.doesNotMatch(stripVTControlCharacters(rows.at(-1)), /1 of 1/, "a single question shows no count");
     const questionRow = rows.find((row: string) => row.includes("Real question"));
     assert.ok(questionRow && !questionRow.includes("\x1b[1m"), "only emphasis changes, not the question itself");
     assert.equal(rows.join("").split(CURSOR_MARKER).length - 1, 1);

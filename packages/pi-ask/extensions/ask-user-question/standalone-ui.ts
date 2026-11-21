@@ -166,11 +166,11 @@ export function askText(
 					]));
 				} else {
 					const tokens: HintToken[] = noteFocused
-						? ["Enter/Tab Save note", { label: "Ctrl+C/Esc Discard note", tone: "error" }, "F2 More"]
+						? ["Enter/Tab Save note", { label: "Esc Discard note", tone: "error" }, "F2 More"]
 						: noteActionFocused
 							? ["Enter/+ Edit note", "Tab/Esc Back", "F2 More"]
 							: [answerEditor.getExpandedText().trim() ? "Enter Submit" : "Write answer",
-								{ label: "Tab Note", tone: "accent" }, "Ctrl+S Skip", "Ctrl+R Regenerate",
+								{ label: "Tab Note", tone: "accent" }, "Ctrl+S Skip",
 								{ label: "Esc Close", tone: "error" }, "F2 More"];
 					addActionHints(lines, width, theme, tokens);
 				}
@@ -395,13 +395,13 @@ export function askSingleChoice(
 					renderDismissBanner(tail, width, theme, dismissSummary());
 				} else {
 					const tokens: HintToken[] = noteFocused
-						? ["Enter/Tab Save note", { label: "Ctrl+C/Esc Discard note", tone: "error" }, "F2 More"]
+						? ["Enter/Tab Save note", { label: "Esc Discard note", tone: "error" }, "F2 More"]
 						: noteActionFocused
 							? ["Enter/+ Edit note", "Tab/Esc Back", "F2 More"]
 							: editMode
 								? ["Enter Save answer", "Ctrl+C Clear", "Alt+↑/↓ Options", "Tab Note", "Esc Back", "Ctrl+S Skip", "F2 More"]
-								: [stagedAnswer ? "Enter Confirm or replace" : "Enter Select", { label: "+ Note", tone: "accent" },
-									"Ctrl+S Skip", "Ctrl+R Regenerate", { label: "Esc Close", tone: "error" }, "F2 More"];
+								: [stagedAnswer ? "Enter Confirm or replace" : "Enter Select",
+									"Ctrl+S Skip", { label: "Esc Close", tone: "error" }, "F2 More"];
 					addActionHints(tail, width, theme, tokens);
 				}
 				tail.push(truncateToWidth(theme.fg("accent", "─".repeat(width)), width));
@@ -680,13 +680,13 @@ export function askMultiChoice(
 					renderDismissBanner(tail, width, theme, dismissSummary());
 				} else {
 					const tokens: HintToken[] = noteFocused
-						? ["Enter/Tab Save note", { label: "Ctrl+C/Esc Discard note", tone: "error" }, "F2 More"]
+						? ["Enter/Tab Save note", { label: "Esc Discard note", tone: "error" }, "F2 More"]
 						: noteActionFocused
 							? ["Enter/+ Edit note", "Tab/Esc Back", "F2 More"]
 							: editMode
 								? ["Enter Save answer", "Ctrl+C Clear", "Alt+↑/↓ Options", "Tab Note", "Esc Back", "Ctrl+S Skip", "F2 More"]
-								: [choiceList.selectedItem.isOther ? "Enter Edit" : selected.size ? "Enter Submit" : "Space Select", { label: "+ Note", tone: "accent" },
-									"Ctrl+S Skip", "Ctrl+R Regenerate", { label: "Esc Close", tone: "error" }, "F2 More"];
+								: [choiceList.selectedItem.isOther ? "Enter Edit" : selected.size ? "Enter Submit" : "Space Select",
+									"Ctrl+S Skip", { label: "Esc Close", tone: "error" }, "F2 More"];
 					addActionHints(tail, width, theme, tokens);
 				}
 				tail.push(truncateToWidth(theme.fg("accent", "─".repeat(width)), width));

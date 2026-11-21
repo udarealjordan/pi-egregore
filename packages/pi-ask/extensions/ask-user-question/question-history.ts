@@ -1,7 +1,8 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { addWrappedWithPrefix, sanitizeDisplayText } from "./tui-primitives.ts";
 import { suggestionLabel } from "./domain.ts";
-import { questionTheme } from "./question-surface.ts";
+import { questionAccent, questionTheme } from "./question-surface.ts";
+import { toolRows } from "./frame.ts";
 
 /** One question/answer pair per card. Original choices are opt-in on expansion. */
 export function questionHistory(args: any, result: any | undefined, sourceTheme: any, expanded = false) {
@@ -14,6 +15,7 @@ export function questionHistory(args: any, result: any | undefined, sourceTheme:
       const output: string[] = [];
       const details = result?.details;
       const questions = details?.questions ?? args?.questions ?? [{ question: details?.question ?? args?.question, details: details?.context ?? args?.details, options: details?.options ?? args?.options }];
+      if (result && !expanded && width >= 24 && sourceTheme?.style) return answerRows(questions, details, result, sourceTheme, width);
       for (let index = 0; index < questions.length; index++) {
         const rows: string[] = [], q = questions[index];
         const add = (text: unknown, tone = "text", prefix = "", bold = false) => {
@@ -81,4 +83,29 @@ export function questionCall(_args: any, _theme: any, _context: any) {
 export function questionResult(result: any, options: any, theme: any, context: any) {
   if (context?.state) context.state.hasQuestionResult = true;
   return questionHistory(context?.args ?? {}, result, theme, options.expanded);
+}
+
+/** Collapsed transcript: one row per question with the answer beneath it. */
+function answerRows(questions: any[], details: any, result: any, theme: any, width: number): string[] {
+  const accent = questionAccent(theme), rows: string[] = [];
+  const batch = Array.isArray(details?.questions);
+  questions.forEach((q: any, index: number) => {
+    const answer = batch ? details?.answers?.find((a: any) => a.questionIndex === index) : undefined;
+    const value = batch ? answer?.answer : details?.answers;
+    const labels = (Array.isArray(value) ? value : value == null ? [] : [value])
+      .map((a: any) => sanitizeDisplayText(typeof a === "string" ? a : a?.label ?? a?.value ?? "")).filter(Boolean);
+    const skipped = details?.skippedQuestionIndexes?.includes(index) || details?.status === "skipped";
+    const status = labels.length ? "" : skipped ? "skipped" : details?.status === "cancelled" ? "cancelled"
+      : details?.status === "unavailable" ? "unavailable" : details?.status === "clarification_requested" ? "you asked back" : "not answered";
+    const note = batch ? answer?.note : details?.note;
+    const notes = [
+      ...labels.map((label: string) => theme.style("✓ ", { fg: accent, bold: true }) + theme.fg("text", label.replace(/\s+/g, " "))),
+      ...(note ? [theme.fg("muted", "Note: " + sanitizeDisplayText(note).replace(/\s+/g, " "))] : []),
+      ...(details?.clarification && (!batch || details.activeQuestionIndex === index) ? [theme.fg("muted", "You asked: " + sanitizeDisplayText(details.clarification).replace(/\s+/g, " "))] : []),
+    ];
+    rows.push(...toolRows({ theme, width, marker: "?", markerColor: accent, railColor: accent, name: theme.fg("text", "Asked"),
+      target: theme.fg("text", sanitizeDisplayText(q?.question || "Question").replace(/\s+/g, " ")),
+      detail: status ? theme.fg("muted", status) : "", notes }));
+  });
+  return rows;
 }

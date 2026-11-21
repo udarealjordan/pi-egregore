@@ -144,7 +144,7 @@ test("no question text is ever dropped without a counted marker", () => {
     const text = rowsOut.join("\n");
     assert.ok(rowsOut.length <= componentRows, `rows ${rows}: the panel fits the screen`);
     assert.equal(shownChoices(rowsOut), 3, `rows ${rows}: every choice is named`);
-    assert.ok(rowsOut.some(row => /│\s+\+ Note\s*│/.test(row)), `rows ${rows}: tight chrome keeps the note action`);
+    assert.ok(rowsOut.some(row => /┃\s+\+ Note\s*┃/.test(row)), `rows ${rows}: tight chrome keeps the note action`);
     const missing = words.filter(word => !text.includes(word)).length;
     if (missing > 0) assert.match(text, /↓ \d+ more lines · Alt\+↓/, `rows ${rows}: the ${missing} hidden question words are counted`);
     else assert.doesNotMatch(text, /more lines/, `rows ${rows}: a whole question claims no hidden rows`);
@@ -225,7 +225,7 @@ test("the real Pi screen writes all three choices at 132x29", () => {
     writes.length = 0;
     tui.renderNow(true);
     const written = stripVTControlCharacters(writes.join(""));
-    assert.match(written, /╰ 1 of 1/, "the progress label survives the taller panel");
+    assert.match(written, /┗━/, "the bottom border survives the taller panel");
     assert.match(written, /2\. Claim only/, "the second choice reaches the screen");
     assert.match(written, /Why: The grounds are/, "the focused rationale is not replaced by a marker");
   } finally { tui.stop(); }
@@ -261,7 +261,7 @@ test("multi-select keeps its selection header inside the allocated region", () =
     const text = plain.join("\n");
     assert.ok(plain.length <= questionHeight(tui) - 2, `rows ${rows}: the panel fits its region (${plain.length})`);
     assert.match(text, /1 selected/, `rows ${rows}: the selection header is rendered`);
-    assert.ok(plain.some(row => /│\s+\+ Note\s*│/.test(row)), `rows ${rows}: the note action survives the header rows`);
+    assert.ok(plain.some(row => /┃\s+\+ Note\s*┃/.test(row)), `rows ${rows}: the note action survives the header rows`);
     assert.match(text, /1\. Claim plus grounds/, `rows ${rows}: the focused choice is readable`);
     const missing = (multi.details ?? "").split(/\s+/).filter(word => !text.includes(word)).length;
     if (missing > 0) assert.match(text, /↓ \d+ more lines · Alt\+↓/, `rows ${rows}: hidden question text is counted`);

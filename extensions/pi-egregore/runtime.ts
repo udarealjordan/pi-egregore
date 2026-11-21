@@ -7,7 +7,6 @@ import { installFrameAwareCopy } from "./copy-selection.ts";
 import { ActivityBlocks } from "./activity-blocks.ts";
 import { SentMessageFrames } from "./sent-messages.ts";
 import { calendarDay } from "./sent-metadata.ts";
-import { GroupedTools } from "./grouped-tools.ts";
 import { readTranscript, transcriptDefaults } from "./transcript-presentation.ts";
 import { dressComposerEditor, isEditorComponent } from "./composer-editor.ts";
 import { createFooter, createHeader, ComposerEditor } from "./ui.ts";
@@ -110,10 +109,8 @@ export default function egregore(pi: ExtensionAPI) {
   };
   const themeLease = new ThemeLease();
   const sentFrames = new SentMessageFrames();
-  const groupedTools = new GroupedTools(() => current().ui.theme, () => state.layout,
-    () => !!state.chronomancerDay && state.chronomancerDay !== calendarDay(Date.now()));
   const activityBlocks = new ActivityBlocks(() => current().ui.theme, () => tui?.requestRender(),
-    () => state.layout?.toolLabels ?? "semantic", groupedTools.isGrouped,
+    () => state.layout?.toolLabels ?? "semantic",
     () => readTranscript(state.layout?.transcript, state.layout) ?? transcriptDefaults(),
     () => state.layout?.density ?? "spaced");
   let paintCleanup: (() => void) | undefined;
@@ -121,10 +118,9 @@ export default function egregore(pi: ExtensionAPI) {
   let copySelectionCleanup: (() => void) | undefined;
   let lastMessageScan = 0;
   function syncSentFrames(now = Date.now(), beforePaint = false) {
-    if (!installed) { groupedTools.dispose(); sentFrames.dispose(); activityBlocks.dispose(); return; }
+    if (!installed) { sentFrames.dispose(); activityBlocks.dispose(); return; }
     if (!tui || !context || (!beforePaint && now - lastMessageScan < 250)) return;
     lastMessageScan = now;
-    const groupsChanged = groupedTools.sync(tui);
     const blocksChanged = activityBlocks.sync(tui);
     const messagesChanged = sentFrames.sync(tui, () => current().ui.theme, () => current().model?.name || current().model?.id || "Assistant", () => {
       const now = Date.now();
@@ -137,7 +133,7 @@ export default function egregore(pi: ExtensionAPI) {
         : message.content.filter(part => part.type === "text").map(part => part.text).join("");
       return Number.isFinite(message.timestamp) && text ? [{ text, timestamp: message.timestamp }] : [];
     }) }));
-    if (!beforePaint && (groupsChanged || blocksChanged || messagesChanged)) tui.requestRender();
+    if (!beforePaint && (blocksChanged || messagesChanged)) tui.requestRender();
   }
   function syncTheme(ctx: ExtensionContext) {
     if (ctx.mode !== "tui") return;
@@ -287,7 +283,6 @@ export default function egregore(pi: ExtensionAPI) {
     if (!installed) { themeLease.restore(ctx); return; }
     installed = false;
     paintCleanup?.(); paintCleanup = undefined;
-    groupedTools.dispose();
     activityBlocks.dispose();
     sentFrames.dispose(); lastMessageScan = 0;
     undressEditor?.(); undressEditor = undefined; dressedEditor = undefined;

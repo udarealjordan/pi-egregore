@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { frameRail } from "../../lib/frame.ts";
+import { frameGlyphs, frameRail, type FrameWeight } from "../../lib/frame.ts";
 import { foregroundAnsi, mixColors, parseColor, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import { inheritColors } from "./composer-theme.ts";
 import { makeComposerPalette } from "./composer-palette.ts";
@@ -14,6 +14,9 @@ import { sessionBadge } from "./composer-title.ts";
 
 /** Padding yields in short/narrow panes; no animation changes geometry. */
 export function composerPadding(width: number, rows: number, density: "spaced" | "compact" = "spaced"): number { return density === "spaced" && width >= 44 && rows >= 34 ? 1 : 0; }
+/** The Composer is where your attention is, so it draws in heavy lines; history stays light. */
+export const COMPOSER_WEIGHT: FrameWeight = "heavy";
+export const composerEdge = () => frameGlyphs(COMPOSER_WEIGHT).vertical;
 /** Composer, assistant transcript, and Tasks use the same active Pi accent. */
 export function composerBorder(theme: Theme): Color { return theme.colors.accent; }
 /** User-send metadata uses the same red/pink identity as the user message frame. */
@@ -52,7 +55,7 @@ export function composerMessageRail(theme: Theme, width: number, egregore: Egreg
   const titleWidth = Math.max(0, width - 2 - 2 * (side + 1));
   const center = egregore.layout?.railTitle === "off" || width < 40 || titleWidth < 5 ? ""
     : sessionBadge(theme, truncateToWidth(` ${clean(title?.trim() || "Untitled session")} `, titleWidth, "…"), border);
-  return composerRail(theme, width, left, right, true, border, center);
+  return composerRail(theme, width, left, right, true, border, center, COMPOSER_WEIGHT);
 }
 
 /** Motion belongs to the status marker, never the native input or the full perimeter. */
@@ -122,10 +125,10 @@ export function composerBottomRail(theme: Theme, width: number, egregore: Egrego
     ? theme.style(` ${modelName} `, { fg: border }) + (level ? quietFrameLabel(theme, `· ${level} `, border) : "")
     : quietFrameLabel(theme, ` ${level} `, border) : ""));
   const center = mode ? theme.style(` ${clean(mode)} `, { fg: border, bold: true }) : "";
-  return composerRail(theme, width, left, right, false, border, center);
+  return composerRail(theme, width, left, right, false, border, center, COMPOSER_WEIGHT);
 }
 
-export function composerRail(theme: Theme, width: number, left = "", right = "", top = true, color: Color = composerBorder(theme), center = ""): string {
-  return frameRail({ theme, width, left, center, right, side: top ? "top" : "bottom", color,
+export function composerRail(theme: Theme, width: number, left = "", right = "", top = true, color: Color = composerBorder(theme), center = "", weight: FrameWeight = "light"): string {
+  return frameRail({ theme, width, left, center, right, side: top ? "top" : "bottom", color, weight,
     surface: (text, cells) => composerSurface(theme, text, cells) });
 }

@@ -1023,18 +1023,18 @@ export class TabbedQuestions {
 			tokens = this.reviewEditDigits
 				? [`Enter Edit ${this.reviewEditDigits}`, "Esc Clear number", "F2 More"]
 				: [pending ? `Enter Submit without ${pending} unanswered` : "Enter Submit",
-					...(this.canRegenerate() ? ["Ctrl+R Regenerate"] : []), editHint, "Esc Back", "F2 More"];
+					editHint, "Esc Back", "F2 More"];
 		} else {
 			const tab = this.getActiveTab();
 			const primary = this.noteFocused ? "Enter/Tab Save note" : this.noteActionFocused ? "Enter/+ Edit note" : this.editMode ? "Enter Save answer"
 				: tab.skipped ? "Enter Restore" : this.primaryActionLabel(tab);
-			if (this.noteFocused) tokens = [primary, { label: "Ctrl+C/Esc Discard note", tone: "error" }, "F2 More"];
+			if (this.noteFocused) tokens = [primary, { label: "Esc Discard note", tone: "error" }, "F2 More"];
 			else if (this.noteActionFocused) tokens = [primary, "Tab/Esc Back", "F2 More"];
 			else if (this.editMode) tokens = [primary, "Ctrl+C Clear", "Alt+↑/↓ Options", "Tab Note", "Esc Back",
 				tab.skipped ? "Ctrl+S Restore" : "Ctrl+S Skip", "F2 More"];
-			else tokens = [primary, tab.mode === "text" ? { label: "Tab Note", tone: "accent" } : { label: "+ Note", tone: "accent" },
+			// Choice questions show their "+ Note" row beside the options; only free text needs the Tab hint.
+			else tokens = [primary, ...(tab.mode === "text" ? [{ label: "Tab Note", tone: "accent" } as HintToken] : []),
 				tab.skipped ? "Ctrl+S Restore" : "Ctrl+S Skip",
-				...(this.canRegenerate() ? ["Ctrl+R Regenerate"] : []),
 				...(this.tabs.some((candidate) => this.isAnswered(candidate)) || this.tabs.every((candidate) => candidate.skipped) ? ["Ctrl+Enter Review"] : []),
 				...(this.tabs.length > 1 ? [tab.mode === "text" ? "Ctrl+←/→ Questions" : "←/→ Questions"] : []),
 				{ label: "Esc Close", tone: "error" }, "F2 More"];

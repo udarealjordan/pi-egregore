@@ -87,6 +87,12 @@ test("real tool frame records cached and expanded render provenance", () => {
       tool.setExpanded(expanded); f.paint();
       const rows = f.tui.currentLayout.root.scrollContentLines;
       const selected = f.select(0, 0, rows.length - 1, 60);
+      if (!expanded) {
+        // A collapsed row copies its text without the rail.
+        assert.ok(selected.split("\n").some(line => line.startsWith("✓ Edit")), selected);
+        assert.ok(!selected.split("\n").some(line => line.startsWith("┃")));
+        continue;
+      }
       assert.ok(selected.includes("literal | │"));
       assert.ok(!selected.includes("╭") && !selected.includes("╰"));
       assert.ok(!selected.split("\n").some(line => line.startsWith("│")));

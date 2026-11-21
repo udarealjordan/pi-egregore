@@ -86,7 +86,7 @@ export function createFrameController({ requestRender = () => {}, automatic = fa
 const resolve = (theme, value) => value === "highlight" ? parseColor(theme?.appearance === "light" ? "#29354a" : "#f5f6ff")
   : typeof value === "string" && value.startsWith("#") ? parseColor(value) : theme?.colors?.[value] ?? value;
 /** Styles labels and semantic body rows without changing stored content, input state, or cursor coordinates. */
-export function presentationRows({ theme, width, rows, title = "", summary = "", hint = "", presentation, frame, inset = 1, surface }) {
+export function presentationRows({ theme, width, rows, title = "", summary = "", hint = "", presentation, frame, inset = 1, surface, weight }) {
   const p = readFramePresentation(presentation), style = { ...p, ...p.states[frame?.state ?? "idle"] };
   const highlight = resolve(theme, style.highlightColor);
   const glow = frame?.active ? (.5 - .5 * Math.cos(2 * Math.PI * frame.elapsed / p.periodMs)) * p.intensity * .5 : 0;
@@ -102,7 +102,7 @@ export function presentationRows({ theme, width, rows, title = "", summary = "",
   const content = rows.map(row => typeof row === "string" ? ink(row, style.textColor, false) :
     ink(row.text, row.role === "error" ? "error" : row.role === "warning" ? "warning" : row.role === "muted" ? "muted" : row.role === "active" ? style.activeColor : style.textColor,
       row.role === "active" && p.activeBold, row.role === "active" && ["active", "both"].includes(p.textEffect)));
-  return frameRows({ theme, width, rows: content, corners, color: resolve(theme, style.borderColor), inset, surface,
+  return frameRows({ theme, width, rows: content, corners, color: resolve(theme, style.borderColor), inset, surface, weight,
     motion: { active: !!frame?.active, now: frame?.elapsed ?? 0, accent: highlight, periodMs: p.periodMs,
       intensity: p.intensity, direction: p.direction, effect: p.effect } });
 }

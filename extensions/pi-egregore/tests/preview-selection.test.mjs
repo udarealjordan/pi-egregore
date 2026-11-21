@@ -132,10 +132,10 @@ test("preview target clicks retain geometry after highlighting and property edit
     h.click("[Tasks]"); h.click("3 of 6 done · 1 blocked");
     assert.match(h.rows().join("\n"), /Selected: Progress · Top right/);
     h.click("Count position"); h.pick("bottomCenter");
-    const lines = h.rows(), y = lines.findIndex(row => row.startsWith("╰") && row.includes("3 of 6 done"));
+    const lines = h.rows(), y = lines.findIndex(row => row.startsWith("┗") && row.includes("3 of 6 done"));
     h.clickAt(visibleWidth(lines[y].split("3 of 6 done · 1 blocked")[0]), y);
     assert.match(h.rows().join("\n"), /Selected: Progress · Bottom center/);
-    assert.ok(background.test(previewRows(h).find(row => plain(row).startsWith("╰") && plain(row).includes("3 of 6 done"))));
+    assert.ok(background.test(previewRows(h).find(row => plain(row).startsWith("┗") && plain(row).includes("3 of 6 done"))));
     h.click("[Ask]"); h.click("Question frame");
     assert.match(h.rows().join("\n"), /Pi theme accent/); assert.doesNotMatch(h.rows().join("\n"), /orange/i);
     h.click("Question progress"); h.click("Progress position"); h.pick("bottomRight");
@@ -165,9 +165,11 @@ test("unavailable targets explain hidden settings, inactive states, clipping and
     assert.match(h.rows().join("\n"), /Selected: More hint/);
     assert.doesNotMatch(previewRows(h).map(plain).join("\n"), /\+ \d+ more/);
     assert.match(previewRows(h).map(plain).join("\n"), /\/tasks/, "the /tasks route stays on the rail");
-    h.click("[Ask]"); h.click("Question progress"); h.tui.terminal.rows = 16;
-    assert.match(h.rows().join("\n"), /Not visible now/);
-    assert.ok(h.panel.render(120).length <= 16);
+    // The question preview now sizes itself to the screen, so only a very short
+    // terminal clips its lower rail.
+    h.click("[Ask]"); h.click("Question progress"); h.tui.terminal.rows = 12;
+    assert.match(h.rows().join("\n"), /Selected: Question progress · Bottom left · not visible now/);
+    assert.ok(h.panel.render(120).length <= 12);
   } finally { h.tui.terminal.rows = 40; await h.discard(); }
 });
 
@@ -185,7 +187,7 @@ test("a status-specific border control identifies the perimeter without changing
     assert.match(h.rows().join("\n"), /Affects: Input box border · Input perimeter/);
     h.panel.handleInput("\x1b");
     assert.match(h.rows().join("\n"), /• Assistant status/);
-    const rail = previewRows(h).find(row => plain(row).startsWith("╭"));
+    const rail = previewRows(h).find(row => plain(row).startsWith("┏"));
     assert.ok(background.test(rail));
     const plainRail = plain(rail), status = plainRail.indexOf("your turn");
     assert.ok(status >= 0);

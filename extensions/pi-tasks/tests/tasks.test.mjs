@@ -390,7 +390,7 @@ test("Egregore and Tasks remain independent in both extension startup orders", a
       let egregore = h.widgets.get("pi-egregore:dock").render(100).map(plain).join("\n");
       assert.match(egregore, /A real task/);
       assert.match(h.editor.render(100).map(plain).join("\n"), /Current session/, "identity belongs in Composer's native editor rail");
-      assert.match(egregore, /╭ Session plan .*╮[\s\S]*╰─/);
+      assert.match(egregore, /┏ Session plan .*┓[\s\S]*┗━/);
       await h.command("tasks", "off");
       assert.equal(h.editor, editor);
       assert.equal(h.editor.getText(), "draft stays intact");
@@ -400,7 +400,7 @@ test("Egregore and Tasks remain independent in both extension startup orders", a
       await h.command("tasks", "on");
       await h.command("composer", "off");
       assert.ok(h.widgets.has("pi-tasks:fallback"));
-      assert.match(h.widgets.get("pi-tasks:fallback").render(100).map(plain).join("\n"), /^╭ Session plan .*╮[\s\S]*╰─/);
+      assert.match(h.widgets.get("pi-tasks:fallback").render(100).map(plain).join("\n"), /^┏ Session plan .*┓[\s\S]*┗━/);
       assert.ok(h.active.has("tasks"));
       assert.equal(h.widgets.has("pi-egregore:dock"), false);
       await h.command("composer", "on");
@@ -504,30 +504,34 @@ test("tool results show committed checklist state without raw revisions, and upd
     const initial = await h.call({ op: "list" });
     const result = await h.call({ op: "add", revision: initial.details.plan.revision, items: [{ title: "One" }, { title: "Two" }, { title: "Three" }] });
     const tool = h.tools.get("tasks");
-    const render = (args) => tool.renderResult(result, { expanded: false }, theme, { args }).render(80).map(plain).join("\n");
+    const row = (args) => tool.renderResult(result, { expanded: false }, theme, { args }).render(80).map(plain).join("\n");
+    assert.match(row({ op: "add" }), /^┃ \+ Added +One \+2 more +0\/3$/, "a collapsed add is one row naming the first task");
+    assert.match(row({ op: "update", id: "t2" }), /^┃ · Updated +Two +0\/3$/);
+    const render = (args) => tool.renderResult(result, { expanded: true }, theme, { args }).render(80).map(plain).join("\n");
     assert.match(render({ op: "add" }), /^╭ Tasks /);
     assert.doesNotMatch(render({ op: "add" }).split("\n")[0], /\bresult\b/);
-    assert.match(render({ op: "add" }), /One.*\n.*Two.*\n.*Three/);
-    assert.doesNotMatch(render({ op: "add" }), /revision|t1|0\/3/);
+    assert.match(render({ op: "add" }), /One[\s\S]*Two[\s\S]*Three/);
+    assert.doesNotMatch(render({ op: "add" }), /revision|0\/3/);
     assert.match(render({ op: "add" }), /\+ Added 3 tasks · not started/);
     assert.equal((render({ op: "add" }).match(/Added 3 tasks/g) ?? []).length, 1, "one acknowledgment for a batch");
     assert.match(render({ op: "add" }), /○ One/);
     assert.doesNotMatch(render({ op: "add" }), /\bpending\b/);
     assert.equal(result.details.plan.tasks[0].status, "pending", "the display label does not change stored state");
     for (const selected of [getThemeByName("dark"), getThemeByName("light")]) {
-      const card = tool.renderResult(result, {}, selected, { args: { op: "add", items: [1, 2, 3] } }).render(80);
+      const card = tool.renderResult(result, { expanded: true }, selected, { args: { op: "add", items: [1, 2, 3] } }).render(80);
       assert.ok(card.some(line => line.includes(selected.style("+ Added 3 tasks · not started", { fg: "accent", bold: false }))));
     }
     assert.match(render({ op: "update", id: "t2" }), /Updated · not started/);
     assert.match(render({ op: "update", id: "t2" }), /○ Two/);
     assert.doesNotMatch(render({ op: "update", id: "t2" }), /○ One|○ Three|Task ·/);
-    const emptyHistory = tool.renderResult({ content: [], details: { plan: result.details.plan, plans: [] } }, {}, theme, { args: { op: "plans" } }).render(80).map(plain).join("\n");
+    const emptyHistory = tool.renderResult({ content: [], details: { plan: result.details.plan, plans: [] } }, { expanded: true }, theme, { args: { op: "plans" } }).render(80).map(plain).join("\n");
     assert.match(emptyHistory, /No saved plans/);
     const error = tool.renderResult({ content: [{ type: "text", text: "Update rejected" }] }, {}, theme, { args: { op: "update" } }).render(80);
     assert.match(plain(error.join("\n")), /Update rejected/);
     assert.ok(error[1].includes(theme.fg("error", "Update rejected")));
     const next = await h.call({ op: "add", revision: JSON.parse(result.content[0].text).revision, items: [{ title: "Four" }] });
-    const single = tool.renderResult(next, {}, theme, { args: { op: "add", items: [{ title: "Four" }] } }).render(80).map(plain).join("\n");
+    assert.match(tool.renderResult(next, {}, theme, { args: { op: "add" } }).render(80).map(plain).join("\n"), /\+ Added +Four +0\/4/, "the result's own added IDs name the task");
+    const single = tool.renderResult(next, { expanded: true }, theme, { args: { op: "add", items: [{ title: "Four" }] } }).render(80).map(plain).join("\n");
     assert.match(single, /\+ Added 1 task · not started/);
     assert.match(single, /○ Four/);
   } finally { await h.close(); }
@@ -542,20 +546,19 @@ test("task transcript cards wrap full titles and show status without a row cutof
     const result = await h.call(args);
     const tool = h.tools.get("tasks");
     for (const width of [12, 30, 80]) {
-      const lines = tool.renderResult(result, { expanded: false }, theme, { args }).render(width).map(plain);
+      assert.ok(tool.renderResult(result, { expanded: false }, theme, { args }).render(width).every(line => visibleWidth(line) <= width));
+      const lines = tool.renderResult(result, { expanded: true }, theme, { args }).render(width).map(plain);
       assert.ok(lines.every(line => visibleWidth(line) <= width));
       const joined = lines.slice(1, -1).map(line => line.slice(1, -1).trimEnd()).join("").replace(/\s+/g, "");
       for (let i = 0; i < 15; i++) assert.ok(joined.includes(`○ ${i} ${title}`.replace(/\s+/g, "")));
-      assert.ok(joined.includes("Added15tasks·notstarted"));
       assert.doesNotMatch(joined, /…|pending/);
     }
     const updateArgs = { op: "update", revision: JSON.parse(result.content[0].text).revision, id: "t15", changes: { status: "active" } };
     const updated = await h.call(updateArgs);
     for (const selected of [getThemeByName("dark"), getThemeByName("light")]) {
       const pending = tool.renderCall(updateArgs, selected, { isPartial: true }).render(80);
-      assert.doesNotMatch(plain(pending[0]), /\bcall\b/);
-      assert.ok(pending[1].includes(selected.fg("accent", "◇ Mark task active")));
-      assert.ok(pending[1].includes(selected.fg("muted", " · in progress…")));
+      assert.equal(pending.length, 1);
+      assert.match(plain(pending[0]), /^┃ ◌ Updating +…$/);
       assert.deepEqual(tool.renderCall(updateArgs, selected, { isPartial: false }).render(80), [], "completed call yields to result");
       assert.deepEqual(tool.renderCall(updateArgs, selected, { isPartial: false, isError: true }).render(80), [], "failed call yields to error");
       for (const width of [8, 12, 30, 80]) {
@@ -563,7 +566,8 @@ test("task transcript cards wrap full titles and show status without a row cutof
         assert.ok(lines.every(line => visibleWidth(line) <= width));
       }
     }
-    const text = tool.renderResult(updated, { expanded: false }, theme, { args: updateArgs }).render(30).map(plain).slice(1, -1).map(line => line.slice(1, -1).trimEnd()).join("").replace(/\s+/g, "");
+    assert.match(plain(tool.renderResult(updated, { expanded: false }, theme, { args: updateArgs }).render(80)[0]), /^┃ ◉ Started +14 Review/);
+    const text = tool.renderResult(updated, { expanded: true }, theme, { args: updateArgs }).render(30).map(plain).slice(1, -1).map(line => line.slice(1, -1).trimEnd()).join("").replace(/\s+/g, "");
     assert.ok(text.includes(`● 14 ${title}`.replace(/\s+/g, "")));
     assert.doesNotMatch(text, /pending/);
   } finally { await h.close(); }
@@ -577,20 +581,20 @@ test("Pi transcript replaces a pending Tasks call with its final result, includi
     const args = { op: "update", id: "t1", changes: { status: "active" } };
     const component = () => new ToolExecutionComponent("tasks", "test-call", args, {}, tool, h.tui, h.scratch);
     const card = component();
-    assert.match(plain(card.render(80).join("\n")), /Mark task active · in progress…/);
+    assert.match(plain(card.render(80).join("\n")), /◌ Updating/);
     const result = { content: [], details: { plan: { tasks: [{ id: "t1", title: "Check the outcome", status: "active" }] } }, isError: false };
     card.updateResult(result);
     const completed = plain(card.render(80).join("\n"));
-    assert.match(completed, /● Check the outcome/);
-    assert.doesNotMatch(completed, /Mark task active|in progress…/);
+    assert.match(completed, /◉ Started +Check the outcome/);
+    assert.doesNotMatch(completed, /Updating/);
     const restored = component();
     restored.updateResult(result);
     assert.equal(plain(restored.render(80).join("\n")), completed);
     const failed = component();
     failed.updateResult({ content: [{ type: "text", text: "Revision expired" }], isError: true });
     const failure = plain(failed.render(80).join("\n"));
-    assert.match(failure, /Revision expired/);
-    assert.doesNotMatch(failure, /Mark task active|in progress…/);
+    assert.match(failure, /× Tasks/); assert.match(failure, /Revision expired/);
+    assert.doesNotMatch(failure, /Updating/);
   } finally { await h.close(); }
 });
 
@@ -1177,7 +1181,8 @@ test("compact typography uses semantic glyphs and neutral titles without changin
     result.details.plan.tasks.forEach((t, i) => Object.assign(t, { status: states[i], note: i === 0 ? "Checked locally; not independently verified." : "", reason: i === 2 ? "Waiting for permission." : "" }));
     const before = structuredClone(result), tool = h.tools.get("tasks");
     for (const th of [getThemeByName("dark"), getThemeByName("light")]) {
-      const lines = tool.renderResult(result, { expanded: false }, th, { args: { op: "list" } }).render(120);
+      assert.match(plain(tool.renderResult(result, { expanded: false }, th, { args: { op: "list" } }).render(120)[0]), /^┃ · Read +Synthetic typography · 5 tasks +2\/5$/);
+      const lines = tool.renderResult(result, { expanded: true }, th, { args: { op: "list" } }).render(120);
       const text = lines.map(plain).join("\n");
       assert.match(text, /✓ Complete item/); assert.match(text, /● Active item/); assert.match(text, /! Blocked item/);
       assert.match(text, /○ Pending item/); assert.match(text, /– Cancelled item · cancelled/);
@@ -1187,7 +1192,7 @@ test("compact typography uses semantic glyphs and neutral titles without changin
       assert.ok(complete.includes(th.fg("success", "✓ ")));
       assert.ok(complete.includes(th.style("Complete item", { fg: "text", bold: false })));
       assert.ok(!complete.includes(th.fg("success", "Complete item")), "success colors the mark, not the title");
-      const expanded = tool.renderResult(result, { expanded: true }, th, { args: { op: "list" } }).render(120).map(plain).join("\n");
+      const expanded = text;
       assert.match(expanded, /Outcome · agent report/); assert.match(expanded, /not independently verified/); assert.match(expanded, /Reference\s+t1/);
     }
     assert.deepEqual(result, before, "rendering must never mutate stored outcomes");

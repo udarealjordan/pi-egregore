@@ -1,6 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { mixColors, parseColor, sliceByColumn, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import { frameRail } from "../../lib/frame.ts";
+import { COMPOSER_WEIGHT } from "./composer-style.ts";
 import { basename } from "node:path";
 import { ELEMENTS, STATE_TEXT, type ElementId, type Position, type AppearanceState, type AppearanceColor, type AppearanceHit } from "./appearance.ts";
 import { clean, duration, gitLabel, homePath, FOOTER_DEFAULTS } from "./footer-state.ts";
@@ -141,7 +142,7 @@ export function appearanceRow(theme: Theme, width: number, egregore: EgregoreSta
     egregore.appearanceHits.push(...rendered[i].hits.map(hit => ({ ...hit, x: hit.x + starts[i] + (framed ? 1 : 0), position: positions[i] } as AppearanceHit)));
   }
   if (framed) {
-    const rail = frameRail({ theme, width, left, center, right, color: border, side: row });
+    const rail = frameRail({ theme, width, left, center, right, color: border, side: row, weight: COMPOSER_WEIGHT });
     if (!egregore.footerPickerOpen || egregore.appearancePreview?.selected !== "frame") return rail;
     // Highlight the border, not unrelated labels whose custom colors may differ.
     let painted = "", x = 0;

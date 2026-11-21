@@ -1,13 +1,14 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { cleanText, type Tone } from "pi-agent-contracts/dock";
-import { taskFrame } from "../../lib/task-frame.ts";
+import { taskFrame, taskFrameColor } from "../../lib/task-frame.ts";
+import { toolRows } from "../../lib/frame.ts";
 import type { Plan, Status, Task } from "./state.ts";
 import type { planInfo } from "./book.ts";
 import { WORK_STATUS as STATES, planWord } from "./typography.ts";
 
 type Row = { text: string; tone?: Tone; bold?: boolean; indent?: number; prose?: boolean; glyph?: string; glyphTone?: Tone };
-export type TaskCardDetails = { plan?: Plan; title?: string; plans?: ReturnType<typeof planInfo>[] };
+export type TaskCardDetails = { plan?: Plan; title?: string; plans?: ReturnType<typeof planInfo>[]; addedIds?: string[] };
 type Args = { op?: string; id?: string; items?: unknown[]; changes?: { status?: string } };
 
 function field(rows: Row[], label: string, value: string) {
@@ -83,4 +84,50 @@ export function taskResultCard(details: TaskCardDetails, args: Args, expanded: b
     });
   });
   return taskFrame(theme, width, content, "Tasks", detail);
+}
+
+const VERBS: Record<string, { name: string; glyph: string; tone: Tone }> = {
+  done: { name: "Done", glyph: "✓", tone: "success" }, active: { name: "Started", glyph: "◉", tone: "accent" },
+  blocked: { name: "Blocked", glyph: "!", tone: "warning" }, cancelled: { name: "Dropped", glyph: "–", tone: "muted" },
+  pending: { name: "Reopened", glyph: "○", tone: "muted" },
+};
+const progress = (plan?: Plan) => plan?.tasks.length
+  ? `${plan.tasks.filter(t => t.status === "done" || t.status === "cancelled").length}/${plan.tasks.length}` : "";
+
+/** One transcript row per Tasks call: the verb is the change, progress sits at the right. */
+export function taskResultRows(details: TaskCardDetails, args: Args & { title?: string }, theme: Theme, width: number): string[] {
+  const p = details.plan, rail = taskFrameColor(theme);
+  const row = (glyph: string, tone: Tone, name: string, target: string, detail = progress(p), notes: string[] = []) => toolRows({
+    theme, width, marker: glyph, markerColor: theme.colors[tone], railColor: rail,
+    name: theme.fg("text", name), target, detail: theme.fg("dim", detail), notes,
+  });
+  const title = (t: Task) => cleanText(t.title);
+  if (details.plans) return row("·", "muted", "Plans", theme.fg("muted", `${details.plans.length} saved`), "");
+  if (!p) return row("·", "muted", "Tasks", theme.fg("muted", "no current plan"), "");
+  const plan = cleanText(details.title ?? "Plan");
+  switch (args.op) {
+    case "create": {
+      const n = details.addedIds?.length ?? args.items?.length ?? 0;
+      return row("◆", "accent", "Plan", theme.fg("text", plan) + theme.fg("muted", n ? ` · ${n} task${n === 1 ? "" : "s"}` : ""));
+    }
+    case "add": {
+      const added = details.addedIds ? p.tasks.filter(t => details.addedIds!.includes(t.id))
+        : args.items?.length ? p.tasks.slice(-args.items.length) : [];
+      const more = added.length > 1 ? theme.fg("muted", ` +${added.length - 1} more`) : "";
+      return row("+", "accent", "Added", (added[0] ? theme.fg("text", title(added[0])) : "") + more);
+    }
+    case "update": {
+      const task = p.tasks.find(t => t.id === args.id);
+      if (!task) return row("·", "muted", "Updated", theme.fg("muted", args.id ?? "task"));
+      const verb = args.changes?.status ? VERBS[task.status] ?? VERBS.pending : { name: "Updated", glyph: "·", tone: "muted" as Tone };
+      const label = task.status === "done" || task.status === "cancelled" ? theme.strikethrough(theme.fg("dim", title(task))) : theme.fg("text", title(task));
+      const notes = task.status === "blocked" && task.reason ? [theme.fg("warning", cleanText(task.reason))] : [];
+      return row(verb.glyph, verb.tone, verb.name, label, progress(p), notes);
+    }
+    case "select": return row("·", "accent", "Switched", theme.fg("text", plan));
+    case "rename": return row("·", "accent", "Renamed", theme.fg("text", plan));
+    case "archive": return row("·", "muted", "Archived", theme.fg("text", plan), "");
+    case "list": return row("·", "muted", "Read", theme.fg("muted", `${plan} · ${p.tasks.length} task${p.tasks.length === 1 ? "" : "s"}`));
+    default: return row("·", "muted", "Tasks", theme.fg("text", plan));
+  }
 }

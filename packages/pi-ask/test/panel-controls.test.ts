@@ -62,9 +62,10 @@ function ensurePinned(shell: any, width = 80) {
 
 test("the keybind bar names + Note for choices and Tab Note for free text", () => {
 	const h = setup([single, freeText]);
-	const primaryRow = h.view().split("\n").find(row => /↵ Select/.test(row))!;
-	assert.match(primaryRow, /<accent>\+ Note<\/accent>/, "the note action shares the primary action row");
-	assert.match(h.view(), /<err>Esc Close<\/err>/, "closing is destructive and styled as such");
+	const primaryRow = h.view(120).split("\n").find(row => /↵ Select/.test(row))!;
+	assert.doesNotMatch(primaryRow, /\+ Note/, "the footer does not repeat the note row");
+	assert.match(h.view(120), /\+ Note/, "the note row sits beside the options");
+	assert.match(h.view(120), /<err>Esc Close<\/err>/, "closing is destructive and styled as such");
 	h.shell.handleInput(keys.plus);
 	assert.ok(h.shell.render(80).join("").includes(CURSOR_MARKER), "+ opens the note editor");
 
@@ -85,7 +86,7 @@ test("Esc Back is navigation, not a destructive action, while editing", () => {
 	assert.doesNotMatch(h.view(), /<err>Esc Back<\/err>/);
 	h.shell.handleInput(keys.tab); // Note action row.
 	h.shell.handleInput(keys.enter); // Note editor.
-	assert.match(h.view(), /<err>Ctrl\+C\/Esc Discard note<\/err>/, "discarding a note edit keeps the error tone");
+	assert.match(h.view(), /<err>Esc Discard note<\/err>/, "discarding a note edit keeps the error tone");
 	assert.doesNotMatch(h.view(), /Esc Close/, "the note editor does not advertise a form close");
 });
 
