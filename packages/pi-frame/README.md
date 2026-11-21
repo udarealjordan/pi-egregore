@@ -32,6 +32,33 @@ The local Egregore/Tasks integration uses `lib/frame.ts`; pi-ask has a self-cont
 
 Start a fresh Pi process after package/export or imported-module changes; `/reload` can refresh ordinary extension code but may retain cached dependencies. Regression coverage must include an old export table as well as old code, and real reload failure/recovery—not only fresh startup. This does not promise that Pi reloads every arbitrary future native dependency change.
 
+## Building a new surface
+
+Pick a placement first. It decides where the surface goes, how heavy its lines are and how much height it may use, so it sits beside existing surfaces with the same spacing.
+
+| Placement | Use it for | Where it goes | Lines |
+| --- | --- | --- | --- |
+| `input` | Something you answer or type into: questions, `/btw` | Takes the composer's place; the composer and its draft return when it closes | Heavy |
+| `panel` | Something you browse: `/paths`, plan history, settings | Centered over the transcript | Heavy |
+| `dock` | Live status for current work: the Tasks dock | Just above the composer | Heavy |
+| `transcript` | History: messages, tool rows and cards | In the scrollback | Light |
+
+```ts
+import { framePlacement, frameRows } from "pi-embeddable-frame";
+
+const placement = framePlacement("input");
+await ctx.ui.custom((tui, theme, _kb, done) => ({
+  render: width => frameRows({ theme, width, weight: placement.weight, inset: 1,
+    rows: content.slice(-placement.rows(tui.terminal.rows)), corners: { topLeft: " My surface " } }),
+  handleInput: data => { /* your keys */ },
+  invalidate() {},
+}), placement.custom);
+```
+
+Every frame is rounded. `weight: "heavy"` keeps the rounded corners and bolds the edges; it marks what wants attention now. For one collapsed tool call or action, use `toolRows` so it joins the shared rail in the transcript.
+
+Frame describes placement. Your extension still owns mounting, focus, input, state and redraws.
+
 ## Design tips for a coherent terminal UI
 
 Treat color as a small **visual grammar**, not a rule to paint every word alike:

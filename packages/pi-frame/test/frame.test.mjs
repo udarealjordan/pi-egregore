@@ -148,3 +148,14 @@ test("toolRows lays out marker, name, target and right-aligned detail at every w
   const child = plain(toolRows({ theme, width: 40, indent: 2, marker: "×", name: "Read", nameWidth: 6, target: "file5", detail: "failed" })[0]);
   assert.match(child, /^┃ {3}× Read +file5 +failed$/);
 });
+
+test("placements give each kind of surface one weight, one mounting style and a bounded height", async () => {
+  const { framePlacement, FRAME_PLACEMENTS } = await jiti.import(fileURLToPath(new URL("../index.js", import.meta.url)));
+  assert.deepEqual(Object.keys(FRAME_PLACEMENTS), ["input", "panel", "dock", "transcript"]);
+  assert.equal(framePlacement("panel").custom.overlay, true, "panels float over the transcript");
+  assert.equal(framePlacement("input").custom.overlay, undefined, "input surfaces take the composer's place");
+  assert.equal(framePlacement("transcript").weight, "light");
+  assert.equal(framePlacement("input").rows(40), 19); assert.equal(framePlacement("panel").rows(40), 29);
+  assert.equal(framePlacement("dock").rows(8), 4, "never fewer than four rows");
+  assert.equal(framePlacement("unknown").share, FRAME_PLACEMENTS.panel.share);
+});

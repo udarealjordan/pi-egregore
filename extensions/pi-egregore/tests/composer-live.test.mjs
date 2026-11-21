@@ -201,10 +201,12 @@ test("live ember moves during work and typing; pauses for dialogs/off; stops wit
   assert.equal(composerPadding(90, 24), 0);
   assert.equal(composerPadding(30, 40), 0);
   egregore.prefs.motion = "work"; egregore.clock.settle(11000, "done");
-  const arrival = composerMessageRail(theme, 100, egregore, 11100, "a real session");
+  // A successful run plays one short settle (SETTLE_MS = 700), then holds still.
+  assert.notEqual(composerMessageRail(theme, 100, egregore, 11100, "a real session"), composerMessageRail(theme, 100, egregore, 11500, "a real session"), "the finish settles in");
+  const arrival = composerMessageRail(theme, 100, egregore, 11800, "a real session");
   assert.match(plain(arrival), /a real session/);
   assert.doesNotMatch(plain(arrival), /[✧✦⋆·]/);
-  assert.equal(arrival, composerMessageRail(theme, 100, egregore, 11500, "a real session"), "finished state is static");
+  assert.equal(arrival, composerMessageRail(theme, 100, egregore, 12500, "a real session"), "finished state is static after the settle");
   assert.equal(composerMessageRail(theme, 100, egregore, 12000, "a real session"), composerMessageRail(theme, 100, egregore, 13000, "a real session"));
   egregore.clock.begin(11100); egregore.clock.settle(11200, "error");
   const failed = composerMessageRail(theme, 100, egregore, 11200, "a real session");
@@ -360,7 +362,8 @@ test("composer uses the terminal background and interrupts effects on real state
   egregore.clock.settle(1400, "error");
   assert.equal(render(1400), render(1700), "failed run cancels motion immediately");
   egregore.clock.begin(1800); egregore.clock.settle(2000, "done");
-  assert.equal(render(2100), render(2400), "settlement is static");
+  assert.notEqual(render(2100), render(2500), "a successful run settles in once");
+  assert.equal(render(2800), render(3000), "then the settlement is static");
   assert.equal(render(2800), render(3200), "completed transitions do not linger");
 });
 

@@ -18,13 +18,14 @@ import { registerRecaps } from "./recaps.ts";
 import { registerEgregoreAppearance } from "./footer.ts";
 import { registerAside } from "./aside.ts";
 import { registerPaths } from "./paths.ts";
+import { registerWelcome } from "./welcome.ts";
 import { registerComposerControls } from "./composer-controls.ts";
 import { loadComposerPreferences, saveComposerPreferences, COMPOSER_SETTINGS } from "./composer-preferences.ts";
 import { SurfaceScope } from "./surface-lifecycle.ts";
 import { EgregoreSounds } from "./sounds.ts";
 import {
   DEFAULTS, TIMING_ENTRY, RunClock, shouldAnimate,
-  type EgregoreState, type Outcome, type Preferences, QUESTION_TOOLS } from "./state.ts";
+  type EgregoreState, type Outcome, type Preferences, QUESTION_TOOLS, settling } from "./state.ts";
 
 type EditorFactory = Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0];
 const IDENTITY_WIDGET = "pi-egregore:dock";
@@ -181,7 +182,7 @@ export default function egregore(pi: ExtensionAPI) {
     const now = Date.now();
     const focused = activeEditor()?.focused ?? false;
     const taskAnimated = state.taskPanel?.tick(state, now, focused) ?? false;
-    const animated = shouldAnimate(state, now, focused) || taskAnimated;
+    const animated = shouldAnimate(state, now, focused) || taskAnimated || settling(state, now);
     const second = Math.floor(now / 1000);
     // Recording and transcription own the second-by-second readout, not just run state.
     const dictating = state.dictation?.busy() ?? false;
@@ -390,6 +391,8 @@ export default function egregore(pi: ExtensionAPI) {
     if (ctx.mode !== "tui") return;
     const type = event.assistantMessageEvent.type;
     const phase = type.startsWith("thinking_") ? "thinking" : type.startsWith("text_") ? "responding" : undefined;
+    // Streaming text brightens the marker like a tool event, at most every 450 ms.
+    if (type === "text_delta") { const now = Date.now(); if (state.activityEventAt === undefined || now - state.activityEventAt >= 450) state.activityEventAt = now; }
     if (phase && phase !== state.phase) { state.phase = phase; refresh(); }
   });
   pi.on("message_end", (event, ctx) => {
@@ -468,6 +471,7 @@ export default function egregore(pi: ExtensionAPI) {
   const recaps = registerRecaps(pi, () => state.prefs.enabled);
   registerAside(pi);
   registerPaths(pi, state);
+  registerWelcome(pi);
 
   pi.registerCommand("sounds", {
     description: "Egregore audio: on, off, test, or question (session-only; macOS, Windows, Linux).",

@@ -1,6 +1,9 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry, SessionTreeNode, Theme } from "@earendil-works/pi-coding-agent";
 import { Input, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
-import { frameRows } from "../../lib/frame.ts";
+import { framePlacement, frameRows } from "../../lib/frame.ts";
+
+/** Paths is something you browse, so it opens as a centered panel. */
+const PLACEMENT = framePlacement("panel");
 import { userFrameColor } from "./composer-style.ts";
 import { clean } from "./footer-state.ts";
 import type { EgregoreState } from "./state.ts";
@@ -111,8 +114,7 @@ class PathsPanel implements Component {
     const theme = this.theme, color = theme.colors.accent, inner = Math.max(20, width - 4), red = userFrameColor(theme);
     const rows: string[] = [], list = this.visible();
     // Most of the panel is the list; the preview takes up to four rows.
-    const height = Math.max(8, Math.floor((this.tui.terminal.rows ?? 30) * .8) - 3);
-    const listRoom = Math.max(3, height - 6);
+    const listRoom = Math.max(3, PLACEMENT.rows(this.tui.terminal.rows) - 6); // the preview takes up to six rows
     const at = Math.max(0, list.indexOf(this.selected));
     const start = Math.max(0, Math.min(at - Math.floor(listRoom / 2), list.length - listRoom));
     for (const i of list.slice(start, start + listRoom)) {
@@ -141,7 +143,7 @@ class PathsPanel implements Component {
     if (this.searching || this.search.getValue()) { this.search.focused = this.searching; rows.push(theme.fg("accent", "/ ") + (this.search.render(inner - 2)[0] ?? "")); }
     const where = this.map.path ? ` path ${this.map.path.index} of ${this.map.path.total} · ` : " ";
     const hint = this.open >= 0 ? " ↵ go to this path · e edit & branch · ← back · esc " : ` ↵ go · e edit & branch · → other paths · l label · / search · esc `;
-    return frameRows({ theme, width, rows, inset: 1, color, weight: "heavy",
+    return frameRows({ theme, width, rows, inset: 1, color, weight: PLACEMENT.weight,
       corners: { topLeft: theme.style(" Paths ", { fg: color, bold: true }), topRight: theme.fg("muted", `${where}turn ${this.selected + 1} of ${this.map.turns.length} `), bottomLeft: theme.fg("dim", hint) } });
   }
 }
@@ -162,7 +164,7 @@ export function registerPaths(pi: ExtensionAPI, state: EgregoreState) {
       if (ctx.mode !== "tui") { ctx.ui.notify("/paths needs the interactive terminal.", "info"); return; }
       const map = pathMap(ctx.sessionManager.getTree(), ctx.sessionManager.getLeafId());
       const pick = await ctx.ui.custom<Pick | undefined>((tui, theme, _kb, done) => new PathsPanel(tui, theme, map, done),
-        { overlay: true, overlayOptions: { anchor: "center", width: "92%", maxHeight: "80%" } });
+        PLACEMENT.custom);
       if (!pick) return;
       try {
         if (pick.action === "label") {

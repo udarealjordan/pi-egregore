@@ -1,4 +1,4 @@
-import type { Color } from "@earendil-works/pi-tui";
+import type { Color, OverlayOptions } from "@earendil-works/pi-tui";
 
 export interface FrameTheme {
   style?(text: string, options: any): string;
@@ -72,3 +72,15 @@ export function statusPreset(options: StatusPresetOptions): { marker: string; co
 export function frameRail(options: Omit<FrameOptions, "rows" | "corners" | "motion"> & { left?: string; center?: string; right?: string; side?: "top" | "bottom" }): string;
 export function frameRows(options: FrameOptions): string[];
 export function paintFramePerimeter(rows: string[], options: Omit<FrameOptions, "rows" | "corners" | "inset" | "minWidth" | "textColor"> & FrameMotion & { bottom?: number }): string[];
+
+export type FramePlacementKind = "input" | "panel" | "dock" | "transcript";
+export interface FramePlacement {
+  weight: FrameWeight;
+  /** Share of the terminal height the surface may use. */
+  share: number;
+  /** Options for Pi's ctx.ui.custom: an overlay for panels, in place for the others. */
+  custom: { overlay?: boolean; overlayOptions?: OverlayOptions };
+}
+export const FRAME_PLACEMENTS: Readonly<Record<FramePlacementKind, Readonly<FramePlacement>>>;
+/** A placement with its content-row budget for the current terminal height. */
+export function framePlacement(kind: FramePlacementKind): FramePlacement & { rows(terminalRows?: number): number };

@@ -1,7 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { mixColors, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import type { AppearanceState } from "./appearance.ts";
-import { shouldAnimate, type EgregoreState } from "./state.ts";
+import { SETTLE_MS, settling, shouldAnimate, type EgregoreState } from "./state.ts";
 
 const working = new Set<AppearanceState>(["working", "thinking", "responding", "tools", "compacting"]);
 const CELLS = 5;
@@ -134,6 +134,11 @@ const SCENE_BY_STATE: Partial<Record<AppearanceState, Scene>> = {
 /** Five fixed grid scenes in five cells. Deterministic from elapsed run time; no clocks, randomness, or state writes in rendering. */
 export function emberMarker(theme: Theme, state: AppearanceState, egregore: EgregoreState, now: number, color: Color): string {
   const moving = working.has(state) && shouldAnimate(egregore, now, egregore.editorFocused?.() ?? true);
+  // Finishing: the four corners draw in to the centre once, then the ✓ stays.
+  if (state === "done" && settling(egregore, now)) {
+    const progress = (now - egregore.clock.transitionAt) / SETTLE_MS;
+    return renderFrame(theme, collapse(Math.min(.99, progress) * 2.4, progress > .8 ? 1 : 0), color);
+  }
   if (!moving) {
     const glyph = state === "done" ? "✓" : ["error", "waiting", "interrupted", "stopped"].includes(state) ? "!" : working.has(state) ? "●" : "○";
     // Centre the single mark in the same five cells a scene fills, so idle and working

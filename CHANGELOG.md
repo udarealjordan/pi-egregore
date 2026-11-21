@@ -6,6 +6,9 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Frame now names four standard placements: `input` (takes the composer's place), `panel` (centered over the transcript), `dock` (above the composer) and `transcript`. Each has a line weight and a height budget (`framePlacement`). `/btw` is an input surface, so it no longer half covers the composer, and `/paths` is a panel. The Frame and root READMEs explain how to build a new surface.
+- A sense of time: your message frame shows "2 h later" when you come back after a pause; resuming a session idle for over two hours shows one line, "Back after 3 days · you last asked: …", until your next run; a running tool row counts up ("running 12s"); the composer marker pulses with streaming text and plays one short settle into ✓ when a run succeeds.
+
 - New `/btw` (also `/aside`): ask a side question about the session without adding to the chat. It streams in a teal panel, sees the conversation including a reply still being written, and has no tools. Follow-ups continue the thread, and threads can be named (`n`) and reopened with `/btw @name`. `c` copies, `i` sends the answer to the chat, `f` forks a branch that continues with tools. Threads are saved as session entries outside the model's context.
 - New `/paths`: your messages down the left, `⑂N` where you rewound, the other paths one step away, a preview of the chosen message, labels as bookmarks and search. Enter goes there; `e` rewinds and puts the message back to edit. The Composer title shows `⑂ 2/3` while you are on one of several paths.
 - Frame's heavy weight keeps rounded corners and bolds only the edges, so every frame stays rounded.

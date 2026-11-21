@@ -174,6 +174,14 @@ export function activity(state: EgregoreState): string {
   return state.clock.timing?.outcome === "error" ? "error" : state.clock.timing?.outcome === "stopped" ? "stopped" : "ready";
 }
 
+/** How long the finish animation plays after a successful run settles. */
+export const SETTLE_MS = 700;
+/** The short window after a successful run in which the marker settles into ✓. */
+export function settling(state: EgregoreState, now: number): boolean {
+  return !state.clock.active && state.clock.timing?.outcome === "done" && state.clock.transitionAt > 0 &&
+    now - state.clock.transitionAt < SETTLE_MS && !state.footerPickerOpen && state.prefs.enabled &&
+    state.prefs.motion !== "off" && state.layout?.motion !== "off" && state.promptDepth === 0;
+}
 export function shouldAnimate(state: EgregoreState, now: number, focused: boolean): boolean {
   return !state.footerPickerOpen && state.prefs.enabled && state.prefs.motion !== "off" && state.layout?.motion !== "off" &&
     state.promptDepth === 0 && (state.clock.active || state.compacting);

@@ -33,6 +33,8 @@ export function terminalBackground(text: string): string {
 export class SentMessageFrames {
   private mounted = new Map<MessageComponent, () => void>();
   private timestamps = new Map<MessageComponent, number>();
+  /** Time since your previous message, when it is long enough to orient by. */
+  private gaps = new Map<MessageComponent, number>();
   private presentation?: { prefs?: FooterPrefs; users?: { text: string; timestamp: number }[]; chronomancerDay?: string };
   sync(root: Component & { children?: Component[] }, theme: () => Theme, modelName: () => string = () => "Assistant",
     thinkingMotion?: () => { active: boolean; now: number; startAt: number },
@@ -56,8 +58,11 @@ export class SentMessageFrames {
     for (const node of found) if (node instanceof UserMessageComponent) {
       const facts = nativeMessageFacts(node);
       const index = facts?.kind === "user" ? users.findIndex((entry, i) => !taken.has(i) && entry.text === facts.text) : -1;
-      if (index >= 0) { taken.add(index); this.timestamps.set(node, users[index].timestamp); }
-      else this.timestamps.delete(node);
+      if (index >= 0) {
+        taken.add(index); this.timestamps.set(node, users[index].timestamp);
+        const gap = index > 0 ? users[index].timestamp - users[index - 1].timestamp : 0;
+        if (gap >= GAP_MS) this.gaps.set(node, gap); else this.gaps.delete(node);
+      } else { this.timestamps.delete(node); this.gaps.delete(node); }
     }
     for (const node of found) {
       if (this.mounted.has(node) || !nativeMessageFacts(node)) continue;
@@ -112,6 +117,7 @@ export class SentMessageFrames {
           ? thinkingMotion?.() : undefined;
         const framed = frameRows({ theme: t, width, rows: messageBodyRows(lines.map(terminalBackground), density), color,
           corners: { topLeft: assistant ? assistantIdentity(t, ` ${label} `, color, style) : t.style(` ${label} `, { fg: color, bold: true }),
+            ...(!assistant && this.gaps.has(node) && width >= 40 ? { topCenter: t.fg("dim", ` ${gapLabel(this.gaps.get(node)!)} `) } : {}),
             [style.chat.sentPosition]: styledSentLabel(t, time, color, assistant ? "quiet" : "user", options?.prefs?.icons) },
           surface: (text, cells) => composerSurface(t, text, cells),
           motion: motion ? { ...motion, accent: mixColors(color, t.colors.text, .35) } : undefined });
@@ -139,5 +145,17 @@ export class SentMessageFrames {
     }
     return changed;
   }
-  dispose(): void { for (const dispose of this.mounted.values()) dispose(); this.mounted.clear(); this.timestamps.clear(); this.presentation = undefined; }
+  dispose(): void { for (const dispose of this.mounted.values()) dispose(); this.mounted.clear(); this.timestamps.clear(); this.gaps.clear(); this.presentation = undefined; }
+}
+
+/** A pause between your messages worth marking: half an hour or more. */
+export const GAP_MS = 30 * 60_000;
+/** "45 min later", "2 h later", "3 days later". */
+export function gapLabel(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} min later`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h later`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "a day later" : `${days} days later`;
 }

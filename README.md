@@ -11,7 +11,7 @@ An *egregore* is a thought-form that grows from shared attention and intention. 
 | Egregore | Composer frame, chat and tool frames, footer, and `/egregore` appearance settings with live preview | [Egregore](extensions/pi-egregore/README.md) |
 | Tasks | Named plans of tasks with status, notes and history; the `tasks` tool and `/tasks` | [Tasks](extensions/pi-tasks/README.md) |
 | Ask | Questions that pause for your answer, and posted questions that can wait | [Ask](packages/pi-ask/README.md) |
-| Frame | Shared terminal frame drawing used by the other parts | [Frame](packages/pi-frame/README.md) |
+| Frame | The shared frame every surface draws with: rounded frames, line weights, tool rows and standard placements | [Frame](packages/pi-frame/README.md) |
 | Contracts | Small versioned data protocols between the parts | [Contracts](packages/pi-agent-contracts/README.md) |
 
 Pi stays the host. It owns sessions, the model and tool loop, and the native editor. The root package loads Egregore, Tasks and Ask once and bundles Frame and Contracts as libraries.
@@ -26,13 +26,25 @@ Pi stays the host. It owns sessions, the model and tool loop, and the native edi
 | Answer or revise questions | [Ask usage](packages/pi-ask/README.md#best-usage-ask-when-inquiry-is-worth-the-interruption) |
 | Look up a setting | [Settings reference](docs/SETTINGS-REVIEW.md) |
 | Change the code | [Contributing](CONTRIBUTING.md) and [architecture](docs/ARCHITECTURE.md) |
+| Build your own surface | [Building a new surface](packages/pi-frame/README.md#building-a-new-surface) |
 | Build on Tasks or Ask | [Primitive contracts](docs/PRIMITIVES.md) |
 
 The [documentation index](docs/README.md) lists everything else.
 
+## How it fits together
+
+Every surface in the suite is one of four kinds, and Frame names them so a new component lands in the right place with the same spacing:
+
+- **Input** takes the composer's place while you answer or type: questions (`consult`) and side questions (`/btw`).
+- **Panel** opens centered over the transcript for browsing: `/paths`, plan history, `/egregore`.
+- **Dock** shows live status just above the composer: the Tasks checklist.
+- **Transcript** is history: your messages, the agent's replies, and tool calls as rows on one rail.
+
+All frames are rounded. Heavy edges mark what wants attention now (the composer, a question, the live dock); history stays light. To build your own surface, start with [Building a new surface](packages/pi-frame/README.md#building-a-new-surface).
+
 ## What persists
 
-- **Tasks and posted questions** live in the session, per branch. Forks and rewinds keep the state of the branch you're on.
+- **Tasks, posted questions and side questions** live in the session, per branch. Forks and rewinds keep the state of the branch you're on. Side questions never enter the model's context.
 - **Appearance** lives in `pi-egregore.json` in the Pi agent directory. Tasks keeps its on/off and dock visibility in `pi-tasks.json`.
 
 ## Deploying

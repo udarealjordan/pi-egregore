@@ -149,3 +149,23 @@ export function toolRows({ theme, width, marker = "", markerColor, rail = "┃",
   for (const note of notes) rows.push(cover(noteLead + fit(note, noteRoom), width, surface));
   return rows;
 }
+
+/** Where a surface goes, so every component lands in a place users already know.
+ * - input: takes the composer's place while you answer or type (questions, side questions)
+ * - panel: a centered panel over the transcript for browsing (plans, paths, settings)
+ * - dock: live status just above the composer (the current plan)
+ * - transcript: history in the scrollback (messages, tool rows)
+ * `custom` is the option object for Pi's ctx.ui.custom; `rows(terminalRows)` is the height
+ * budget for the surface's own content. Frame only describes placement; the caller owns
+ * mounting, focus and input. */
+export const FRAME_PLACEMENTS = Object.freeze({
+  input: Object.freeze({ weight: "heavy", share: .55, custom: Object.freeze({}) }),
+  panel: Object.freeze({ weight: "heavy", share: .8, custom: Object.freeze({ overlay: true, overlayOptions: Object.freeze({ anchor: "center", width: "92%", maxHeight: "80%" }) }) }),
+  dock: Object.freeze({ weight: "heavy", share: .25, custom: Object.freeze({}) }),
+  transcript: Object.freeze({ weight: "light", share: 1, custom: Object.freeze({}) }),
+});
+export function framePlacement(kind) {
+  const placement = FRAME_PLACEMENTS[kind] ?? FRAME_PLACEMENTS.panel;
+  // Two rows of frame plus one of breathing room; never fewer than four content rows.
+  return { ...placement, rows: terminalRows => Math.max(4, Math.floor((Number.isFinite(terminalRows) ? terminalRows : 30) * placement.share) - 3) };
+}

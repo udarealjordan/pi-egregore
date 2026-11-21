@@ -115,6 +115,14 @@ export class ActivityBlocks {
   private entries = new Map<ToolExecutionComponent, Entry>();
   /** Tool components that open or close a run of adjacent tool calls. */
   private runEdges = new WeakMap<ToolExecutionComponent, { first: boolean; last: boolean }>();
+  /** When each call was first seen running, for a live elapsed time on its row. */
+  private started = new Map<string, number>();
+  private running(id: string, state: VisualState): string {
+    if (state !== "running") { this.started.delete(id); return "running"; }
+    const now = Date.now(), since = this.started.get(id) ?? (this.started.set(id, now), now), seconds = Math.floor((now - since) / 1000);
+    if (this.started.size > 512) this.started.delete(this.started.keys().next().value!);
+    return seconds < 2 ? "running" : seconds < 60 ? `running ${seconds}s` : `running ${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  }
   private nested = new Map<string, Children>();
   private rawMode = false;
   setOutputMode(raw: boolean): void {
@@ -190,7 +198,7 @@ export class ActivityBlocks {
         const theme = this.theme(), state = phase(meta), { name, target } = splitLocation(toolLocation(meta.toolName, meta.args, meta.cwd, 10000));
         const { color, marker } = toolStateStyle(theme, state);
         const results = record(meta.result?.details).results;
-        const detail = state === "running" ? "running" : state === "failed" || state === "cancelled" ? state
+        const detail = state === "running" ? this.running(meta.toolCallId, state) : state === "failed" || state === "cancelled" ? state
           : Array.isArray(results) ? `${results.length} result${results.length === 1 ? "" : "s"}` : "";
         const error = state === "failed" ? compactLines(outputText(meta.result) || "No error text returned")[0] : "";
         const rows = toolRows({ theme, width, marker, markerColor: color, railColor: toolRailColor(theme, state), name: theme.fg("text", name),
@@ -224,7 +232,9 @@ export class ActivityBlocks {
       const version = children?.version ?? -1;
       const appearance = this.presentation(), labels = appearance?.tools.status ?? this.labels();
       const edges = this.runEdges.get(node);
-      const styleKey = `${appearance?.tools.identity ?? "quiet"}:${labels}:${this.density()}:${edges?.first}:${edges?.last}`;
+      // A running row's key includes its elapsed second, so the clock advances on re-render.
+      const clock = state === "running" ? this.running(meta.toolCallId, state) : (this.started.delete(meta.toolCallId), "");
+      const styleKey = `${appearance?.tools.identity ?? "quiet"}:${labels}:${this.density()}:${edges?.first}:${edges?.last}:${clock}`;
       if (cache && cache.args === meta.args && cache.result === meta.result && cache.expanded === expanded && cache.width === width && cache.theme === theme && cache.version === version && cache.state === state && cache.labels === styleKey) {
         framedWidth = width; expandable = cache.expandable; rawRow = cache.rawRow;
         return expanded ? rememberCopyFrame(node, width, cache.rows, 1) : rememberRailRows(node, width, cache.rows);
@@ -294,7 +304,7 @@ export class ActivityBlocks {
         const structured = error ? undefined : structuredDetail(output, meta.isPartial);
         const diff = typeof details.diff === "string" ? details.diff.split("\n") : undefined;
         const lines = (n: number, unit = "line") => `${n} ${unit}${n === 1 ? "" : "s"}`;
-        const detail = state === "preparing" ? "…" : state === "running" ? "running"
+        const detail = state === "preparing" ? "…" : state === "running" ? clock
           : state === "failed" && typeof exit === "number" && exit !== 0 ? `exit ${exit}` : state === "failed" || state === "cancelled" ? state
           : attention ? failures ? `${failures} failed` : stopped ? `${stopped} cancelled` : `${unfinished} pending`
           : typeof exit === "number" && exit !== 0 ? `exit ${exit}`

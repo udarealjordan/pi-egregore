@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { buildSessionContext, convertToLlm, copyToClipboard, getMarkdownTheme, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { Input, Key, Markdown, matchesKey, parseColor, truncateToWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
-import { frameRows } from "../../lib/frame.ts";
+import { framePlacement, frameRows } from "../../lib/frame.ts";
+
+/** An aside is something you type into, so it takes the composer's place like a question. */
+const PLACEMENT = framePlacement("input");
 import { userFrameColor } from "./composer-style.ts";
 
 /** Side questions ("asides"): asked about the session without entering its transcript. */
@@ -124,7 +127,7 @@ class AsidePanel implements Component {
     }
     if (!body.length) body.push(theme.fg("dim", "No side questions yet. Type one below."));
     // Follow the newest text unless scrolled back; keep within a bounded height.
-    const room = Math.max(4, Math.floor((this.tui.terminal.rows ?? 30) * .55) - 5);
+    const room = Math.max(4, PLACEMENT.rows(this.tui.terminal.rows) - 2); // minus the input line and its gap
     const end = Math.max(0, body.length - Math.min(this.scroll, Math.max(0, body.length - room)));
     const shown = body.slice(Math.max(0, end - room), end);
     this.input.focused = this.focused && !this.naming;
@@ -137,7 +140,7 @@ class AsidePanel implements Component {
       : this.naming ? theme.fg("dim", " ↵ save name · esc cancel ")
       : theme.fg("dim", ` ↵ ask · c copy · i send to chat · f fork · n name${count > 1 ? " · ←→ asides" : ""} · esc close `);
     const title = thread && (thread.name || thread.exchanges.length) ? ` aside · ${truncateToWidth(threadName(thread), Math.max(8, Math.floor(width / 3)), "…")} ` : " aside ";
-    return frameRows({ theme, width, rows, inset: 1, color, weight: "heavy",
+    return frameRows({ theme, width, rows, inset: 1, color, weight: PLACEMENT.weight,
       corners: { topLeft: theme.style(title, { fg: color, bold: true }), topCenter: nav,
         topRight: theme.fg("muted", ` ${truncateToWidth(this.model(), 24, "…")}${this.busy() ? " · answering" : ""} `), bottomLeft: hint } });
   }
@@ -215,7 +218,9 @@ export function registerAside(pi: ExtensionAPI) {
         });
       refresh = () => tui.requestRender();
       return panel;
-    }, { overlay: true, overlayOptions: { anchor: "bottom-center", width: "100%", maxHeight: "70%", margin: { bottom: 1 } } });
+    }, PLACEMENT.custom);
+    // Like a question, the aside takes the composer's place, so nothing is half covered;
+    // the composer and its draft come back when it closes.
     refresh = undefined;
     if (done?.action !== "fork") return;
     // Fork: a new session from here, continuing with tools from the side answer.
