@@ -9,7 +9,8 @@ import { homedir } from "node:os";
 import type { EgregoreState } from "./state.ts";
 import { dictationSpan } from "./dictation.ts";
 import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
-import { composerBottomRail, composerFrame, composerThinkingBorder, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
+import { composerBottomRail, composerFrame, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
+import { appearanceBorder } from "./appearance-render.ts";
 
 const BOTTOM = "\0pi-egregore:bottom\0"; // Internal layout sentinel; replaced before render returns.
 const NERD = { home: "\uf015", folder: "\uf07b", branch: "\ue725", clock: "\uf017" };
@@ -98,7 +99,7 @@ export class ComposerEditor extends CustomEditor {
     if (this.baseBottom < 0) throw new Error("pi-egregore: editor border contract changed");
     const topRight = this.hiddenAbove ? theme.fg("muted", ` ↑ ${this.hiddenAbove} more `) : "";
     const bottomRight = this.hiddenBelow ? theme.fg("muted", ` ↓ ${this.hiddenBelow} more `) : "";
-    const edge = theme.style("│", { fg: composerThinkingBorder(theme, this.homeState.thinkingLevel?.()) });
+    const edge = theme.style("│", { fg: appearanceBorder(theme, this.homeState) });
     const blank = composerSurface(theme, edge + composerSurface(theme, "", inner, true) + edge, width);
     const result = [this.rail(width, true, topRight)];
     if (this.verticalPad) result.push(blank);

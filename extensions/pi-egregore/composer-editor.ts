@@ -1,7 +1,8 @@
 import { stripVTControlCharacters } from "node:util";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, sliceByColumn, truncateToWidth, visibleWidth, type EditorComponent, type TuiMouseEvent } from "@earendil-works/pi-tui";
-import { composerBottomRail, composerFrame, composerThinkingBorder, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
+import { composerBottomRail, composerFrame, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
+import { appearanceBorder } from "./appearance-render.ts";
 import { dictationSpan } from "./dictation.ts";
 import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
 import type { EgregoreState } from "./state.ts";
@@ -55,7 +56,7 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
     }
     verticalPad = composerPadding(width, terminalRows(), egregore.layout?.density);
     nativeBottom = bottom;
-    const edge = theme.style("│", { fg: composerThinkingBorder(theme, egregore.thinkingLevel?.(), egregore) });
+    const edge = theme.style("│", { fg: appearanceBorder(theme, egregore) });
     const blank = composerSurface(theme, edge + composerSurface(theme, "", inner, true) + edge, width);
     const caption = (line: string) => plain(line).replace(/^[─━\s]+|[─━\s]+$/gu, "").trim();
     const topHint = caption(lines[0]);

@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { jiti, source, root, kb, theme, plain, visibleWidth, CURSOR_MARKER } from "./host.mjs";
 const { ModalEditor } = await jiti.import(join(source, "../../node_modules/pi-vim/index.ts"));
 const { dressComposerEditor } = await jiti.import(join(source, "composer-editor.ts"));
-const { composerPadding, composerMessageRail, composerBottomRail, composerFrame, composerRail, composerSurface, composerThemeColors, composerThinkingBorder, userFrameColor } = await jiti.import(join(source, "composer-style.ts"));
+const { composerPadding, composerMessageRail, composerBottomRail, composerFrame, composerRail, composerSurface, composerThemeColors, userFrameColor } = await jiti.import(join(source, "composer-style.ts"));
 const { ComposerEditor } = await jiti.import(join(source, "ui.ts"));
 const { COMPOSER_ICONS } = await jiti.import(join(source, "composer-icons.ts"));
 const { DEFAULTS, RunClock } = await jiti.import(join(source, "state.ts"));
@@ -23,8 +23,7 @@ test("Pi accent stays on the composer border while model and selected thinking l
   const levels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
   const palette = composerThemeColors(false);
   const roleTheme = { ...theme, colors: { ...theme.colors, ...Object.fromEntries(Object.entries(palette).map(([role, hex]) => [role, hex ? parseColor(hex) : theme.colors[role]])) } };
-  for (const level of levels) assert.equal(colorToHex(composerThinkingBorder(roleTheme, level)), palette.accent);
-  assert.equal(colorToHex(composerThinkingBorder(theme, "unknown")), colorToHex(theme.colors.accent));
+  for (const thinkingLevel of levels) assert.equal(colorToHex(appearanceBorder(roleTheme, { ...state(), thinkingLevel: () => thinkingLevel })), palette.accent);
   let level = "off";
   const egregore = state(); egregore.prefs.motion = "off"; egregore.thinkingLevel = () => level;
   const tui = { terminal: { rows: 40 }, requestRender() {} };
@@ -48,6 +47,40 @@ test("Pi accent stays on the composer border while model and selected thinking l
     level = "high"; const movingHigh = vim.render(85);
     assert.equal(movingLow[0], movingHigh[0], "motion stays on the same accent regardless of thinking level");
     assert.notEqual(plain(movingLow.at(-1)), plain(movingHigh.at(-1)), "level changes only its bottom-right text");
+  } finally { cleanup(); }
+});
+
+test("the composer's side edges use the same frame color as its rails in both editor paths", () => {
+  const sgr = (row, at) => {
+    // The color in effect where the border glyph at visible column `at` is drawn.
+    let col = 0, color = "";
+    for (const part of row.split(/(\x1b\[[0-9;]*m)/)) {
+      if (part.startsWith("\x1b[")) { const m = /38;2;(\d+);(\d+);(\d+)/.exec(part); if (m) color = m.slice(1).join(","); else if (part === "\x1b[0m" || part === "\x1b[39m") color = ""; continue; }
+      for (const ch of Array.from(part.replace(CURSOR_MARKER, ""))) { if (col === at) return color; col += visibleWidth(ch); }
+    }
+    return color;
+  };
+  const egregore = state(); egregore.prefs.motion = "off"; egregore.thinkingLevel = () => "medium";
+  egregore.layout = { ...FOOTER_DEFAULTS, appearance: { ...appearanceDefaults(FOOTER_DEFAULTS), frameColor: "text" } };
+  const expected = colorToHex(appearanceBorder(theme, egregore)).slice(1).match(/../g).map(h => parseInt(h, 16)).join(",");
+  assert.notEqual(colorToHex(appearanceBorder(theme, egregore)), colorToHex(theme.colors.accent), "fixture uses a non-default frame color");
+  const tui = { terminal: { rows: 40 }, requestRender() {} };
+  const fullCtx = { ...ctx, cwd: "/tmp", model: { id: "test-model" }, getContextUsage: () => ({ percent: 24, contextWindow: 200000 }) };
+  const native = new ComposerEditor(tui, getEditorTheme(), kb, () => fullCtx, egregore, () => "medium", () => 10000);
+  native.focused = true; native.setText("draft");
+  const vim = new ModalEditor(tui, getEditorTheme(), kb); vim.focused = true; vim.setText("draft");
+  const cleanup = dressComposerEditor(vim, () => fullCtx, egregore, () => 10000, () => 40);
+  try {
+    for (const editor of [native, vim]) {
+      const rows = editor.render(60);
+      assert.equal(sgr(rows[0], 0), expected, "top-left corner");
+      const sides = rows.filter(row => plain(row).startsWith("│"));
+      assert.ok(sides.length > 0);
+      for (const row of sides) {
+        assert.equal(sgr(row, 0), expected, `left edge: ${JSON.stringify(row)}`);
+        assert.equal(sgr(row, visibleWidth(row) - 1), expected, `right edge: ${JSON.stringify(row)}`);
+      }
+    }
   } finally { cleanup(); }
 });
 

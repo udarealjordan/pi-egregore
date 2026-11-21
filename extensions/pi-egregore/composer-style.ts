@@ -16,9 +16,6 @@ import { sessionBadge } from "./composer-title.ts";
 export function composerPadding(width: number, rows: number, density: "spaced" | "compact" = "spaced"): number { return density === "spaced" && width >= 44 && rows >= 34 ? 1 : 0; }
 /** Composer, assistant transcript, and Tasks use the same active Pi accent. */
 export function composerBorder(theme: Theme): Color { return theme.colors.accent; }
-export function composerThinkingBorder(theme: Theme, _level?: string, egregore?: EgregoreState): Color {
-  return egregore ? appearanceBorder(theme, egregore) : composerBorder(theme);
-}
 /** User-send metadata uses the same red/pink identity as the user message frame. */
 export function userFrameColor(theme: Theme): Color {
   return parseColor(theme.appearance === "light" ? "#a84760" : "#f0a3b1");
