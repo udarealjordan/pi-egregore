@@ -1,10 +1,11 @@
+import { stripVTControlCharacters } from "node:util";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry, SessionTreeNode, Theme } from "@earendil-works/pi-coding-agent";
 import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Input, Key, Markdown, matchesKey, parseColor, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
 import { framePlacement, frameRows } from "../../lib/frame.ts";
 
-/** Paths is something you browse, so it opens as a centered panel. */
-const PLACEMENT = framePlacement("panel");
+/** Paths takes the composer's place at the bottom, like /btw and questions, so it never covers the chat. */
+const PLACEMENT = framePlacement("input");
 import { clean } from "./footer-state.ts";
 import type { EgregoreState } from "./state.ts";
 
@@ -17,6 +18,12 @@ const textOf = (content: unknown): string => typeof content === "string" ? conte
   : Array.isArray(content) ? content.filter((c: any) => c?.type === "text").map((c: any) => c.text ?? "").join(" ") : "";
 const userText = (entry: SessionEntry): string | undefined =>
   entry.type === "message" && (entry as any).message?.role === "user" ? clean(textOf((entry as any).message.content)).replace(/\s+/g, " ").trim() : undefined;
+/** A reply keeps its line breaks so the preview can render its markdown (tables, lists). */
+const replyText = (entry: SessionEntry): string => {
+  const content = (entry as any).message?.content;
+  const raw = typeof content === "string" ? content : Array.isArray(content) ? content.filter((c: any) => c?.type === "text").map((c: any) => c.text ?? "").join("\n\n") : "";
+  return stripVTControlCharacters(raw).replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, " ").trim();
+};
 const time = (entry: SessionEntry) => Date.parse((entry as { timestamp?: string }).timestamp ?? "") || 0;
 
 /** The session as a spine: your turns on the active path, each with the other paths that left from the same point. */
@@ -32,7 +39,7 @@ export function pathMap(tree: SessionTreeNode[], leafId: string | null): PathMap
     let first: SessionTreeNode | undefined, reply = "", cursor: SessionTreeNode | undefined = node;
     while (cursor) {
       if (!first && userText(cursor.entry)) first = cursor;
-      else if (first && !reply && cursor.entry.type === "message" && (cursor.entry as any).message?.role === "assistant") reply = clean(textOf((cursor.entry as any).message.content)).trim();
+      else if (first && !reply && cursor.entry.type === "message" && (cursor.entry as any).message?.role === "assistant") reply = replyText(cursor.entry);
       const next: SessionTreeNode | undefined = [...cursor.children].sort((a, b) => time(b.entry) - time(a.entry))[0];
       if (!next) break;
       cursor = next;
@@ -52,7 +59,7 @@ export function pathMap(tree: SessionTreeNode[], leafId: string | null): PathMap
     for (const later of pathIds.slice(i + 1)) {
       const entry = nodes.get(later)!.entry;
       if (userText(entry) !== undefined) break;
-      if (entry.type === "message" && (entry as any).message?.role === "assistant") { const t = clean(textOf((entry as any).message.content)).trim(); if (t) reply = t; }
+      if (entry.type === "message" && (entry as any).message?.role === "assistant") { const t = replyText(entry); if (t) reply = t; }
     }
     const up = parent.get(id) ?? null;
     const alternatives = forks.flatMap(f => { const p = parent.get(f) ?? null; return p ? nodes.get(p)!.children : tree; })
@@ -160,8 +167,13 @@ export class PathsPanel implements Component {
     const shown = this.open >= 0 && fork ? fork.alternatives[this.sub] : fork?.turn;
     rows.push(theme.fg("dim", "─".repeat(inner)));
     if (shown) {
-      rows.push(...wrapTextWithAnsi(theme.style(shown.text, { fg: "text", bold: true }), inner).slice(0, 2));
-      if (shown.reply) rows.push(...new Markdown(shown.reply, 0, 0, getMarkdownTheme()).render(inner).filter(l => l.trim()).slice(0, 4));
+      const asked = wrapTextWithAnsi(theme.style(shown.text, { fg: "text", bold: true }), inner).slice(0, 2);
+      rows.push(...asked);
+      // The reply gets whatever room the list leaves, at least four lines.
+      const room = Math.max(4, PLACEMENT.rows(this.tui.terminal.rows) - rows.length - 1);
+      const reply = shown.reply ? new Markdown(shown.reply, 0, 0, getMarkdownTheme()).render(inner).filter(l => l.trim()) : [];
+      rows.push(...reply.slice(0, reply.length > room ? room - 1 : room));
+      if (reply.length > room) rows.push(theme.fg("muted", "…"));
     }
     if (this.searching || this.search.getValue()) { this.search.focused = this.searching; rows.push(theme.style("/ ", { fg: gold, bold: true }) + (this.search.render(inner - 2)[0] ?? "")); }
     const where = this.map.path ? ` path ${this.map.path.index} of ${this.map.path.total} · ` : " ";

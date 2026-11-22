@@ -6,6 +6,8 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- `/paths` opens at the bottom in the composer's place (the `input` placement), like `/btw` and questions, instead of floating over the chat. Its reply preview keeps line breaks, so tables and lists render, and it uses the room the list leaves.
+
 - `/paths` is easier to read:
   - It is gold and full width, so the transcript no longer shows through at the sides.
   - Each message row drops the repeated "you" and shortens long file paths to their last part.

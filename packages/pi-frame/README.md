@@ -38,8 +38,8 @@ Pick a placement first. It decides where the surface goes, whether it wants atte
 
 | Placement | Use it for | Where it goes | Weight |
 | --- | --- | --- | --- |
-| `input` | Something you answer or type into: questions, `/btw` | Takes the composer's place; the composer and its draft return when it closes | Heavy |
-| `panel` | Something you browse: `/paths`, plan history, settings | Centered over the transcript | Heavy |
+| `input` | Something you answer, type into or step through: questions, `/btw`, `/paths` | Takes the composer's place; the composer and its draft return when it closes | Heavy |
+| `panel` | Something you browse at length: plan history, settings | Full width over the transcript | Heavy |
 | `dock` | Live status for current work: the Tasks dock | Just above the composer | Heavy |
 | `transcript` | History: messages, tool rows and cards | In the scrollback | Light |
 

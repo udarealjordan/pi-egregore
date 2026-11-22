@@ -63,3 +63,12 @@ test("the panel is gold, lists messages without a repeated 'you', marks days, hi
   const selected = raw.find(line => plain(line).includes("what now?") && plain(line).includes("›"));
   assert.ok(selected && /\x1b\[48;/.test(selected), "the selected row has a background, so it is the most visible row");
 });
+
+test("the reply preview keeps line breaks, so a markdown table renders as a table", () => {
+  const t = [user("u1", "Compare them", 1, [reply("a1", "Start small.\n\n| Version | Size |\n|---|---|\n| oQ2 | 10 GiB |", 2)])];
+  const panel = new PathsPanel({ terminal: { rows: 40 }, requestRender() {} }, theme, pathMap(t, "a1"), () => {});
+  const view = panel.render(80).map(plain).join("\n");
+  assert.doesNotMatch(view, /\|---\|/, "no raw table syntax");
+  assert.match(view, /Version\s+│?\s*Size|Version.*Size/);
+  assert.doesNotMatch(view, /Start small\. \| Version/, "paragraphs are not run together");
+});

@@ -35,8 +35,8 @@ The [documentation index](docs/README.md) lists everything else.
 
 Every surface in the suite is one of four kinds, and Frame names them so a new component lands in the right place with the same spacing:
 
-- **Input** takes the composer's place while you answer or type: questions (`consult`) and side questions (`/btw`).
-- **Panel** opens centered over the transcript for browsing: `/paths`, plan history, `/egregore`.
+- **Input** takes the composer's place at the bottom while you answer, type or step through something: questions (`consult`), side questions (`/btw`) and `/paths`.
+- **Panel** opens over the transcript for browsing: plan history, `/egregore`.
 - **Dock** shows live status just above the composer: the Tasks checklist.
 - **Transcript** is history: your messages, the agent's replies, and tool calls as rows on one rail.
 
