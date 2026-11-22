@@ -74,7 +74,7 @@ test("the composer's side edges use the same frame color as its rails in both ed
     for (const editor of [native, vim]) {
       const rows = editor.render(60);
       assert.equal(sgr(rows[0], 0), expected, "top-left corner");
-      const sides = rows.filter(row => plain(row).startsWith("┃"));
+      const sides = rows.filter(row => plain(row).startsWith("│"));
       assert.ok(sides.length > 0);
       for (const row of sides) {
         assert.equal(sgr(row, 0), expected, `left edge: ${JSON.stringify(row)}`);
@@ -149,10 +149,10 @@ test("decorated Vim retains literal rules, scroll hints, large paste storage and
   try {
     editor.setText("──── literal rule\nfollowing line");
     const rows = editor.render(90).map(plain);
-    assert.match(rows.join("\n"), /┃.*──── literal rule/);
-    assert.match(rows.join("\n"), /┃.*following line/);
+    assert.match(rows.join("\n"), /│.*──── literal rule/);
+    assert.match(rows.join("\n"), /│.*following line/);
     assert.equal(rows.filter(row => row.startsWith("╰")).length, 1);
-    assert.match(rows[1], /^┃\s+┃$/);
+    assert.match(rows[1], /^│\s+│$/);
     const cursor = editor.getCursor();
     editor.handleMouse({ type: "click", button: "left", x: 5, y: 1, width: 90, height: rows.length });
     assert.deepEqual(editor.getCursor(), cursor, "padding does not move the cursor");
@@ -332,7 +332,7 @@ test("ember changes shape without moving text or border geometry, and obeys moti
   assert.notEqual(a, b, "bloom changes its brightness");
   assert.equal(plain(a).slice(8).replace(/\d+s/, "time"), plain(b).slice(8).replace(/\d+s/, "time"), "only the fixed marker and elapsed time change");
   assert.equal(visibleWidth(a), visibleWidth(b));
-  assert.match(plain(a), /━{8}/, "the Composer rail draws in heavy lines");
+  assert.match(plain(a), /─{8}/, "the Composer rail draws in heavy lines");
   for (const gate of ["off", "dialog"]) {
     egregore.prefs.motion = gate === "off" ? "off" : "work";
     egregore.lastInputAt = gate === "typing" ? 7700 : 0;

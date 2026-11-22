@@ -24,10 +24,10 @@ test("adjacent tool calls are one run of rows: identity, counts, live output, ex
     result(a, Array.from({ length: 20 }, (_, i) => "line " + i).join("\n")); result(b, "Exact edit result");
     blocks.sync(root);
     const rows = root.render(90);
-    assert.match(text(rows), /┃ ✓ Read +a.ts +20 lines/); assert.match(text(rows), /┃ ✓ Edit +a.ts +1 line/);
+    assert.match(text(rows), /│ ✓ Read +a.ts +20 lines/); assert.match(text(rows), /│ ✓ Edit +a.ts +1 line/);
     assert.doesNotMatch(text(rows), /Working|operations|Click heading|line 19|Exact edit result/);
     assert.equal(rows.length, 4, "one run: spacer, two rows, spacer");
-    assert.equal(rows.filter(row => plain(row).startsWith("┃")).length, 2);
+    assert.equal(rows.filter(row => plain(row).startsWith("│")).length, 2);
     assert.deepEqual(root.children, [a, b]); assert.ok(b.render(90).length);
     assert.equal(click(a, a.render(90))?.handled, true);
     assert.match(text(root.render(90)), /line 19/);
@@ -71,7 +71,7 @@ test("nested observed calls retain names and states, not inferred activity label
   const blocks = new ActivityBlocks(() => theme, () => {});
   try {
     blocks.record("read", { path: "a" }, a.toolCallId, "child-1"); blocks.sync(root);
-    assert.match(text(root.render(90)), /┃ +◉ Read +a/);
+    assert.match(text(root.render(90)), /│ +◉ Read +a/);
     blocks.finish("child-1", a.toolCallId, false);
     a.setExpanded(true); assert.match(text(root.render(90)), /✓ Read  a/); a.setExpanded(false);
     for (let i = 0; i < 6; i++) { blocks.record("edit", { path: "file" + i }, a.toolCallId, "edit-" + i); blocks.finish("edit-" + i, a.toolCallId, i === 5); }
@@ -141,9 +141,9 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) test(`${Renderer.name}: na
   try {
     result(a, "First exact result"); result(b, "Second exact result");
     tui.start(); blocks.sync(tui); tui.renderNow(true);
-    const rows = tui.render(90); assert.match(text(rows), /┃ ✓ Read +a/); assert.match(text(rows), /┃ ✓ Read +b/);
+    const rows = tui.render(90); assert.match(text(rows), /│ ✓ Read +a/); assert.match(text(rows), /│ ✓ Read +b/);
     assert.equal(click(root, rows, 1)?.handled, true, "collapsed body click is routed to the card");
-    tui.renderNow(true); assert.match(text(tui.render(90)), /First exact result/); assert.match(text(tui.render(90)), /┃ ✓ Read +b/);
+    tui.renderNow(true); assert.match(text(tui.render(90)), /First exact result/); assert.match(text(tui.render(90)), /│ ✓ Read +b/);
     blocks.dispose(); assert.equal(a.render, native); assert.ok(b.render(90).length);
   } finally { blocks.dispose(); tui.stop(); }
 });

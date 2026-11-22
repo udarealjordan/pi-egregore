@@ -46,11 +46,11 @@ test('Read compact is a line count; expansion retains syntax/content and cleanup
   const result = textResult(Array.from({ length: 30 }, (_, n) => `line ${n}`).join('\n'));
   const f = fixture('read', { path: '/tmp/example/SKILL.md' }, result);
   try {
-    assert.match(output(f.node), /┃ ✓ Read +example\/SKILL.md +30 lines/);
+    assert.match(output(f.node), /│ ✓ Read +example\/SKILL.md +30 lines/);
     assert.doesNotMatch(output(f.node), /line 0|line 29|Arguments|expand/); assert.equal(f.node.render(90).length, 3);
     f.node.setExpanded(true); assert.match(output(f.node), /line 0/); assert.match(output(f.node), /line 29/); fits(f.node);
     assert.equal(f.node.result, result);
-    f.node.setExpanded(false); f.blocks.dispose(); assert.doesNotMatch(output(f.node), /┃ ✓ Read/);
+    f.node.setExpanded(false); f.blocks.dispose(); assert.doesNotMatch(output(f.node), /│ ✓ Read/);
   } finally { f.blocks.dispose(); }
 });
 
@@ -58,7 +58,7 @@ test('real native Edit self-shell is compact diff counts, readable diff on expan
   const diff = Array.from({ length: 18 }, (_, n) => `${n % 2 ? '+' : '-'}${n + 1} change${n}`).join('\n');
   const f = fixture('edit', { path: '/tmp/example.ts', edits: [{ oldText: 'old\ntext', newText: 'new\ntext' }] }, textResult('Applied exact edit', { diff }));
   try {
-    assert.match(output(f.node), /┃ ✓ Edit +example.ts +\+9 −9/);
+    assert.match(output(f.node), /│ ✓ Edit +example.ts +\+9 −9/);
     assert.doesNotMatch(output(f.node), /change0|Applied exact edit|Arguments/); assert.equal(f.node.render(90).length, 3);
     f.node.setExpanded(true); assert.match(output(f.node), /Diff/); assert.match(output(f.node), /change17/); assert.match(output(f.node), /Applied exact edit/);
     assert.doesNotMatch(output(f.node), /old\\ntext/); fits(f.node);
@@ -300,7 +300,7 @@ for (const name of ['dark', 'light']) test(`${name}: status colors/symbols survi
     const row = f.node.render(90).find(line => plain(line).includes('Codemode'));
     assert.ok(row.includes(selectedTheme.style('✓', { fg: toolStateStyle(selectedTheme, 'returned').color, bold: true })),
       'status symbol keeps its semantic color while the rail stays quiet');
-    assert.ok(!row.includes(selectedTheme.style('┃', { fg: toolStateStyle(selectedTheme, 'returned').color })));
+    assert.ok(!row.includes(selectedTheme.style('│', { fg: toolStateStyle(selectedTheme, 'returned').color })));
     f.node.setExpanded(true); assert.match(output(f.node), /▾ returned/); f.node.setExpanded(false);
     f.node.updateResult({ ...textResult('Script failed'), isError: true }); assert.match(output(f.node), /× Codemode.*failed/);
     f.node.updateResult({ ...textResult('Stopped', { cancelled: true }), isError: true }); assert.match(output(f.node), /■ Codemode.*cancelled/);
@@ -322,6 +322,6 @@ test('representative actual-renderer captures at wide and narrow widths in compa
       return `WIDTH ${width} · ${expanded ? 'READABLE' : 'COMPACT'}\n` + cases.map(f => output(f.node,width)).join('\n\n');
     })).join('\n\n');
     writeCapture('pi-readable-tool-captures.txt', captures);
-    assert.match(captures, /jordan/); assert.match(captures, /JSON ·/); assert.match(captures, /┃ ✓ Read/); assert.doesNotMatch(captures, /Script completed|\\nreturn/);
+    assert.match(captures, /jordan/); assert.match(captures, /JSON ·/); assert.match(captures, /│ ✓ Read/); assert.doesNotMatch(captures, /Script completed|\\nreturn/);
   } finally { for (const f of cases) f.blocks.dispose(); }
 });

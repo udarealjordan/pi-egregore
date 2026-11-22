@@ -34,9 +34,9 @@ Start a fresh Pi process after package/export or imported-module changes; `/relo
 
 ## Building a new surface
 
-Pick a placement first. It decides where the surface goes, how heavy its lines are and how much height it may use, so it sits beside existing surfaces with the same spacing.
+Pick a placement first. It decides where the surface goes, whether it wants attention and how much height it may use, so it sits beside existing surfaces with the same spacing.
 
-| Placement | Use it for | Where it goes | Lines |
+| Placement | Use it for | Where it goes | Weight |
 | --- | --- | --- | --- |
 | `input` | Something you answer or type into: questions, `/btw` | Takes the composer's place; the composer and its draft return when it closes | Heavy |
 | `panel` | Something you browse: `/paths`, plan history, settings | Centered over the transcript | Heavy |
@@ -55,7 +55,7 @@ await ctx.ui.custom((tui, theme, _kb, done) => ({
 }), placement.custom);
 ```
 
-Every frame is rounded. `weight: "heavy"` keeps the rounded corners and bolds the edges; it marks what wants attention now. For one collapsed tool call or action, use `toolRows` so it joins the shared rail in the transcript.
+Every frame is drawn with thin rounded lines, whatever its weight. `weight: "heavy"` marks what wants attention now; show that with color and bold labels, not thicker lines. Unicode has no bold rounded corners, so bold edges always met thinner corners, and many terminals draw both weights alike. For one collapsed tool call or action, use `toolRows` so it joins the shared rail in the transcript.
 
 Frame describes placement. Your extension still owns mounting, focus, input, state and redraws.
 

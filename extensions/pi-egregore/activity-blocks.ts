@@ -1,6 +1,6 @@
 import { ToolExecutionComponent, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, createGrepToolDefinition, createFindToolDefinition, createLsToolDefinition, getLanguageFromPath, renderDiff, type Theme } from "@earendil-works/pi-coding-agent";
 import { Text, parseColor, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { statusPreset, toolRows, type FrameStatus } from "../../lib/frame.ts";
+import { frameGlyphs, statusPreset, toolRows, type FrameStatus } from "../../lib/frame.ts";
 import { forgetCopyFrame, rememberCopyFrame, rememberRailRows } from "./copy-selection.ts";
 import { homedir } from "node:os";
 import { composerRail, composerSurface, quietFrameLabel } from "./composer-style.ts";
@@ -216,7 +216,7 @@ export class ActivityBlocks {
       }
       if (active && meta && SUITE_ROWS.has(meta.toolName) && definition?.renderShell === "self" && !meta.expanded) {
         const native = fallback();
-        if (native[0] !== "" || native.length < 2 || !native.slice(1).every(row => plainText(row).startsWith("┃"))) return native;
+        if (native[0] !== "" || native.length < 2 || !native.slice(1).every(row => plainText(row).startsWith(frameGlyphs().vertical))) return native;
         const spaced = this.spaced(node, native.slice(1), width);
         framedWidth = width; expandable = !!meta.result; webRows = spaced.length;
         return rememberRailRows(node, width, spaced);

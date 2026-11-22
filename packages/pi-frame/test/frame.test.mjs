@@ -128,8 +128,9 @@ test("heavy weight swaps every perimeter glyph and keeps geometry; perimeter mot
   const light = frameRows({ theme, width: 30, rows: ["body"], corners: { topLeft: " Title " } });
   const heavy = frameRows({ theme, width: 30, rows: ["body"], corners: { topLeft: " Title " }, weight: "heavy" });
   assert.deepEqual(heavy.map(row => visibleWidth(row)), light.map(row => visibleWidth(row)));
-  assert.match(plain(heavy[0]), /^╭ Title ━+╮$/); assert.match(plain(heavy[1]), /^┃body +┃$/); assert.match(plain(heavy[2]), /^╰━+╯$/);
-  assert.equal(frameGlyphs().vertical, "│"); assert.equal(frameGlyphs("heavy").vertical, "┃");
+  assert.match(plain(heavy[0]), /^╭ Title ─+╮$/); assert.match(plain(heavy[1]), /^│body +│$/); assert.match(plain(heavy[2]), /^╰─+╯$/);
+  assert.equal(frameGlyphs().vertical, "│");
+  assert.deepEqual(frameGlyphs("heavy"), frameGlyphs("light"), "every frame is thin and rounded; weight marks attention, not line thickness");
   const painted = paintFramePerimeter(heavy, { theme, width: 30, color: "#334455", accent: "#aabbcc", active: true, now: 500 });
   assert.notEqual(painted[0], heavy[0], "heavy rails are perimeter cells too");
   assert.equal(painted[1], heavy[1], "side rows keep their bytes");
@@ -141,12 +142,12 @@ test("toolRows lays out marker, name, target and right-aligned detail at every w
     for (const row of rows) assert.ok(visibleWidth(row) <= Math.max(width, 0) || width === 0, `width ${width}`);
   }
   const [row, note] = toolRows({ theme, width: 60, marker: "✓", name: "Read", target: "a.ts", detail: "3 lines", notes: ["warning"] });
-  assert.match(plain(row), /^┃ ✓ Read +a.ts +3 lines$/); assert.equal(visibleWidth(row), 60);
-  assert.match(plain(note), /^┃   warning/);
+  assert.match(plain(row), /^│ ✓ Read +a.ts +3 lines$/); assert.equal(visibleWidth(row), 60);
+  assert.match(plain(note), /^│   warning/);
   const tight = plain(toolRows({ theme, width: 30, marker: "✓", name: "Bash", target: "a very long command that cannot fit beside its detail", detail: "21 lines" })[0]);
   assert.match(tight, /…\s+21 lines$/, "the target yields before the detail");
   const child = plain(toolRows({ theme, width: 40, indent: 2, marker: "×", name: "Read", nameWidth: 6, target: "file5", detail: "failed" })[0]);
-  assert.match(child, /^┃ {3}× Read +file5 +failed$/);
+  assert.match(child, /^│ {3}× Read +file5 +failed$/);
 });
 
 test("placements give each kind of surface one weight, one mounting style and a bounded height", async () => {

@@ -87,7 +87,7 @@ test('ordinary tool rail changes with appearance while status and native fallbac
     node.updateResult(original); blocks.sync(parent);
     const row = () => node.render(90).find(line => plain(line).includes('Read'));
     const first = row();
-    assert.match(plain(first), /┃ ✓ Read +sample.txt/);
+    assert.match(plain(first), /│ ✓ Read +sample.txt/);
     assert.match(plain(first), /✓/); // Compact success intentionally omits the redundant status word.
     style = { ...style, tools: { identity: 'matched', status: 'matched' } };
     const second = row();

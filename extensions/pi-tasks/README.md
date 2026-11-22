@@ -19,7 +19,7 @@ A visible checklist for substantial work. The agent keeps named plans of tasks i
 - **Phases:** when a plan has more than one phase, each phase gets a header with its progress, such as `Research · 2/3`.
 - **Questions** the agent posted for you lead the dock as `?` rows. Answer with `/questions` or from the `/tasks` panel. Once you answer, the row goes away.
 - **When every task is done or dropped,** the dock shows `✓ Plan finished` for about four seconds and then gets out of the way. The plan stays in `/tasks history`.
-- The live dock draws in heavy lines because it is current work. Use `/tasks hide` to hide it while keeping the plan.
+- Use `/tasks hide` to hide it while keeping the plan.
 
 ## In the transcript
 

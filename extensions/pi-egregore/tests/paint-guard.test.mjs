@@ -23,7 +23,7 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) test(`${Renderer.name}: fi
     edit.updateResult({ content: [{ type: "text", text: "Replaced text" }], details: { diff: "-1 old\n+1 new" }, isError: false });
     chat.addChild(edit);
     tui.renderNow(true);
-    assert.match(writes.map(plain).join(""), /┃ ✓ Edit +example.md +\+1 −1/);
+    assert.match(writes.map(plain).join(""), /│ ✓ Edit +example.md +\+1 −1/);
     assert.ok(writes[0].startsWith("\x1b[?2026h\x1b[?25l"));
     assert.equal(writes.length, 1, "ordinary repaint and cursor restore are one write");
     assert.ok(writes[0].endsWith("\x1b[?2026l"));

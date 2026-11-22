@@ -17,11 +17,12 @@ const rememberRail = (row, width, columns) => {
 
 /** Box glyphs by line weight. Heavy marks a surface that wants attention now
  * (an input, a question, live work); light marks history. */
-export const FRAME_GLYPHS = Object.freeze({
-  light: Object.freeze({ topLeft: "╭", topRight: "╮", bottomLeft: "╰", bottomRight: "╯", horizontal: "─", vertical: "│" }),
-  // Frames are always rounded. Heavy keeps the rounded corners and bolds the edges.
-  heavy: Object.freeze({ topLeft: "╭", topRight: "╮", bottomLeft: "╰", bottomRight: "╯", horizontal: "━", vertical: "┃" }),
-});
+// Every frame is thin and rounded. Unicode has rounded corners only in the thin weight,
+// so bold edges always met thinner corners; many terminals also draw both weights alike.
+// `weight` stays part of the contract: "heavy" marks a surface that wants attention now,
+// which callers show with color and bold labels, not thicker lines.
+const THIN = Object.freeze({ topLeft: "╭", topRight: "╮", bottomLeft: "╰", bottomRight: "╯", horizontal: "─", vertical: "│" });
+export const FRAME_GLYPHS = Object.freeze({ light: THIN, heavy: THIN });
 export const frameGlyphs = weight => FRAME_GLYPHS[weight === "heavy" ? "heavy" : "light"];
 
 /** Optional, Pi-independent presentation preset. The caller owns state detection and rerenders. */
@@ -129,7 +130,7 @@ export function paintFramePerimeter(rows, { theme, width, bottom = rows.length -
  * at the right edge, plus optional indented note rows (an error, a child call).
  * Labels may carry ANSI styling; the caller owns colors and state. Consecutive
  * rows share the rail, so a turn's calls read as one block without boxes. */
-export function toolRows({ theme, width, marker = "", markerColor, rail = "┃", railColor, name = "", nameWidth = 8, target = "", detail = "", notes = [], indent = 0, bold = true, surface }) {
+export function toolRows({ theme, width, marker = "", markerColor, rail = THIN.vertical, railColor, name = "", nameWidth = 8, target = "", detail = "", notes = [], indent = 0, bold = true, surface }) {
   width = Math.max(0, Math.floor(width));
   const lead = ink(theme, rail, railColor) + " " + " ".repeat(Math.max(0, indent));
   const leadWidth = 2 + Math.max(0, indent);

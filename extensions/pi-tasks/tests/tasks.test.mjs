@@ -391,7 +391,7 @@ test("Egregore and Tasks remain independent in both extension startup orders", a
       let egregore = h.widgets.get("pi-egregore:dock").render(100).map(plain).join("\n");
       assert.match(egregore, /A real task/);
       assert.match(h.editor.render(100).map(plain).join("\n"), /Current session/, "identity belongs in Composer's native editor rail");
-      assert.match(egregore, /╭ Session plan .*╮[\s\S]*╰━/);
+      assert.match(egregore, /╭ Session plan .*╮[\s\S]*╰─/);
       await h.command("tasks", "off");
       assert.equal(h.editor, editor);
       assert.equal(h.editor.getText(), "draft stays intact");
@@ -401,7 +401,7 @@ test("Egregore and Tasks remain independent in both extension startup orders", a
       await h.command("tasks", "on");
       await h.command("composer", "off");
       assert.ok(h.widgets.has("pi-tasks:fallback"));
-      assert.match(h.widgets.get("pi-tasks:fallback").render(100).map(plain).join("\n"), /^╭ Session plan .*╮[\s\S]*╰━/);
+      assert.match(h.widgets.get("pi-tasks:fallback").render(100).map(plain).join("\n"), /^╭ Session plan .*╮[\s\S]*╰─/);
       assert.ok(h.active.has("tasks"));
       assert.equal(h.widgets.has("pi-egregore:dock"), false);
       await h.command("composer", "on");
@@ -507,8 +507,8 @@ test("tool results show committed checklist state without raw revisions, and upd
     const result = await h.call({ op: "add", revision: initial.details.plan.revision, items: [{ title: "One" }, { title: "Two" }, { title: "Three" }] });
     const tool = h.tools.get("tasks");
     const row = (args) => tool.renderResult(result, { expanded: false }, theme, { args }).render(80).map(plain).join("\n");
-    assert.match(row({ op: "add" }), /^┃ \+ Added +One \+2 more +0\/3$/, "a collapsed add is one row naming the first task");
-    assert.match(row({ op: "update", id: "t2" }), /^┃ · Updated +Two +0\/3$/);
+    assert.match(row({ op: "add" }), /^│ \+ Added +One \+2 more +0\/3$/, "a collapsed add is one row naming the first task");
+    assert.match(row({ op: "update", id: "t2" }), /^│ · Updated +Two +0\/3$/);
     const render = (args) => tool.renderResult(result, { expanded: true }, theme, { args }).render(80).map(plain).join("\n");
     assert.match(render({ op: "add" }), /^╭ Tasks /);
     assert.doesNotMatch(render({ op: "add" }).split("\n")[0], /\bresult\b/);
@@ -560,7 +560,7 @@ test("task transcript cards wrap full titles and show status without a row cutof
     for (const selected of [getThemeByName("dark"), getThemeByName("light")]) {
       const pending = tool.renderCall(updateArgs, selected, { isPartial: true }).render(80);
       assert.equal(pending.length, 1);
-      assert.match(plain(pending[0]), /^┃ ◌ Updating +…$/);
+      assert.match(plain(pending[0]), /^│ ◌ Updating +…$/);
       assert.deepEqual(tool.renderCall(updateArgs, selected, { isPartial: false }).render(80), [], "completed call yields to result");
       assert.deepEqual(tool.renderCall(updateArgs, selected, { isPartial: false, isError: true }).render(80), [], "failed call yields to error");
       for (const width of [8, 12, 30, 80]) {
@@ -568,7 +568,7 @@ test("task transcript cards wrap full titles and show status without a row cutof
         assert.ok(lines.every(line => visibleWidth(line) <= width));
       }
     }
-    assert.match(plain(tool.renderResult(updated, { expanded: false }, theme, { args: updateArgs }).render(80)[0]), /^┃ ◉ Started +14 Review/);
+    assert.match(plain(tool.renderResult(updated, { expanded: false }, theme, { args: updateArgs }).render(80)[0]), /^│ ◉ Started +14 Review/);
     const text = tool.renderResult(updated, { expanded: true }, theme, { args: updateArgs }).render(30).map(plain).slice(1, -1).map(line => line.slice(1, -1).trimEnd()).join("").replace(/\s+/g, "");
     assert.ok(text.includes(`◉ 14 ${title}`.replace(/\s+/g, "")));
     assert.doesNotMatch(text, /pending/);
@@ -1041,7 +1041,7 @@ test("the panel action bar never clips at 64 columns; keyboard help is the only 
   const panel = new TaskPanel({ terminal: { rows: 24 }, requestRender() {} }, theme, () => b, () => undefined, () => {}, {});
   const lines = panel.render(64).map(plain);
   assert.ok(lines.every(line => visibleWidth(line) <= 64), "every line fits 64 columns");
-  assert.match(lines.at(-2), /\? help\s*┃$/, "the last action-bar segment is the help key");
+  assert.match(lines.at(-2), /\? help\s*│$/, "the last action-bar segment is the help key");
   for (const line of lines) assert.doesNotMatch(line, /Q requests|Tab\/|J questions|←→/);
   const help = (() => { panel.handleInput("?"); return panel.render(64).map(plain); })();
   assert.ok(help.every(line => visibleWidth(line) <= 64));
@@ -1055,7 +1055,7 @@ test("a default panel shows the work view and keeps the F disclosure in the foot
   const panel = new TaskPanel({ terminal: { rows: 24 }, requestRender() {} }, theme, () => b, () => undefined, () => {}, nav);
   const lines = panel.render(80).map(plain);
   assert.doesNotMatch(lines.join("\n"), /Requests · read-only/);
-  assert.match(lines.at(-2), /\? help\s*┃$/);
+  assert.match(lines.at(-2), /\? help\s*│$/);
   assert.match(lines.join("\n"), /▸ 1 done · F/, "the F disclosure survives a full list");
   panel.handleInput("f");
   assert.match(panel.render(80).map(plain).join("\n"), /▾ 1 done · F/, "F flips the disclosure");
@@ -1066,7 +1066,7 @@ test("a default panel shows the work view and keeps the F disclosure in the foot
     const sized = new TaskPanel({ terminal: { rows }, requestRender() {} }, theme, () => b, () => undefined, () => {}, {});
     const rendered = sized.render(width).map(plain);
     assert.ok(rendered.every(line => visibleWidth(line) <= width), `${rows}x${width}`);
-    assert.match(rendered.at(-2), /\? help\s*┃$/, `${rows}x${width}: action bar stays last`);
+    assert.match(rendered.at(-2), /\? help\s*│$/, `${rows}x${width}: action bar stays last`);
     assert.match(rendered.join("\n"), /▸ 1 done · F/, `${rows}x${width}: F is never clipped`);
   }
 });
@@ -1183,7 +1183,7 @@ test("compact typography uses semantic glyphs and neutral titles without changin
     result.details.plan.tasks.forEach((t, i) => Object.assign(t, { status: states[i], note: i === 0 ? "Checked locally; not independently verified." : "", reason: i === 2 ? "Waiting for permission." : "" }));
     const before = structuredClone(result), tool = h.tools.get("tasks");
     for (const th of [getThemeByName("dark"), getThemeByName("light")]) {
-      assert.match(plain(tool.renderResult(result, { expanded: false }, th, { args: { op: "list" } }).render(120)[0]), /^┃ · Read +Synthetic typography · 5 tasks +2\/5$/);
+      assert.match(plain(tool.renderResult(result, { expanded: false }, th, { args: { op: "list" } }).render(120)[0]), /^│ · Read +Synthetic typography · 5 tasks +2\/5$/);
       const lines = tool.renderResult(result, { expanded: true }, th, { args: { op: "list" } }).render(120);
       const text = lines.map(plain).join("\n");
       assert.match(text, /✓ Complete item/); assert.match(text, /◉ Active item/); assert.match(text, /! Blocked item/);

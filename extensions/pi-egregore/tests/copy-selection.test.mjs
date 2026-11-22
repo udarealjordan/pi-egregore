@@ -90,7 +90,7 @@ test("real tool frame records cached and expanded render provenance", () => {
       if (!expanded) {
         // A collapsed row copies its text without the rail.
         assert.ok(selected.split("\n").some(line => line.startsWith("✓ Edit")), selected);
-        assert.ok(!selected.split("\n").some(line => line.startsWith("┃")));
+        assert.ok(!selected.split("\n").some(line => line.startsWith("│")));
         continue;
       }
       assert.ok(selected.includes("literal | │"));

@@ -40,7 +40,7 @@ Every surface in the suite is one of four kinds, and Frame names them so a new c
 - **Dock** shows live status just above the composer: the Tasks checklist.
 - **Transcript** is history: your messages, the agent's replies, and tool calls as rows on one rail.
 
-All frames are rounded. Heavy edges mark what wants attention now (the composer, a question, the live dock); history stays light. To build your own surface, start with [Building a new surface](packages/pi-frame/README.md#building-a-new-surface).
+All frames are thin and rounded. What wants attention now (the composer, a question, the live dock) stands out by color and bold labels. To build your own surface, start with [Building a new surface](packages/pi-frame/README.md#building-a-new-surface).
 
 ## What persists
 
