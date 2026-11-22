@@ -13,7 +13,9 @@ import type { EgregoreState } from "./state.ts";
 /** One of your messages, on the current path or on an alternative you rewound from. */
 export type Turn = { id: string; parentId: string | null; text: string; at: number; label?: string; reply: string; leaf: string };
 export type Fork = { turn: Turn; alternatives: Turn[] };
-export type PathMap = { turns: Fork[]; leafId: string | null; path: { index: number; total: number } | undefined };
+/** Where you were: the newest point anywhere in the session, when you are not at it. */
+export type Latest = { leaf: string; text: string; at: number };
+export type PathMap = { turns: Fork[]; leafId: string | null; path: { index: number; total: number } | undefined; latest?: Latest };
 
 const textOf = (content: unknown): string => typeof content === "string" ? content
   : Array.isArray(content) ? content.filter((c: any) => c?.type === "text").map((c: any) => c.text ?? "").join(" ") : "";
@@ -69,7 +71,21 @@ export function pathMap(tree: SessionTreeNode[], leafId: string | null): PathMap
   }
   const last = [...turns].reverse().find(f => f.alternatives.length);
   const path = last ? { index: [...last.alternatives, last.turn].sort((a, b) => a.at - b.at).indexOf(last.turn) + 1, total: last.alternatives.length + 1 } : undefined;
-  return { turns, leafId, path };
+  // Your latest work is the newest message anywhere in the session (settings, labels and
+  // model changes don't count). If it is not on the path you are on, you have gone back in
+  // time, and "where you were" is the end of the branch that holds it.
+  const isMessage = (n: SessionTreeNode) => n.entry.type === "message" && ["user", "assistant"].includes((n.entry as any).message?.role);
+  let newest: SessionTreeNode | undefined;
+  for (const node of nodes.values()) if (isMessage(node) && (!newest || time(node.entry) > time(newest.entry))) newest = node;
+  let latest: Latest | undefined;
+  if (newest && !onPath.has(newest.entry.id)) {
+    let end = newest;
+    while (end.children.length) end = [...end.children].sort((a, b) => time(b.entry) - time(a.entry))[0];
+    let asked: SessionTreeNode | undefined;
+    for (let id: string | null = newest.entry.id; id && !asked; id = parent.get(id) ?? null) if (userText(nodes.get(id)!.entry) !== undefined) asked = nodes.get(id);
+    if (asked) latest = { leaf: end.entry.id, text: userText(asked.entry)!, at: time(asked.entry) };
+  }
+  return { turns, leafId, path, ...(latest ? { latest } : {}) };
 }
 
 const clock = (at: number) => at ? new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
@@ -85,7 +101,8 @@ export function dayLabel(at: number, now = Date.now()): string {
 export const shortenPaths = (text: string) => text.replace(/(?:~\/|\/)(?:[^\s/]+\/)+([^\s/]+)/g, "…/$1");
 /** Gold marks /paths, so it never reads as chat or as the composer. */
 export function pathsColor(theme: Theme) { return parseColor(theme.appearance === "light" ? "#8a6400" : "#e2b55a"); }
-type Pick = { action: "go"; target: string } | { action: "edit"; turn: Turn } | { action: "label"; turn: Turn };
+/** go: move to a point and keep going. rewind: back to just before your message, which returns to the Composer. */
+type Pick = { action: "go"; target: string } | { action: "rewind"; turn: Turn } | { action: "label"; turn: Turn };
 
 export class PathsPanel implements Component {
   private selected: number;
@@ -120,8 +137,11 @@ export class PathsPanel implements Component {
     else if (matchesKey(data, Key.right) && fork?.alternatives.length) { this.open = this.selected; this.sub = 0; }
     else if (matchesKey(data, Key.left)) this.open = -1;
     else if (data === "/") this.searching = true;
-    else if (matchesKey(data, Key.enter) && fork) return this.done(this.open >= 0 ? { action: "go", target: fork.alternatives[this.sub].leaf } : { action: "go", target: this.replyEnd(this.selected) });
-    else if (data === "e" && fork) return this.done({ action: "edit", turn: this.open >= 0 ? fork.alternatives[this.sub] : fork.turn });
+    // Enter on your message takes you back to it, ready to resend; on another version it switches to that version.
+    else if (matchesKey(data, Key.enter) && fork) return this.done(this.open >= 0 ? { action: "go", target: fork.alternatives[this.sub].leaf } : { action: "rewind", turn: fork.turn });
+    else if (data === "e" && fork && this.open >= 0) return this.done({ action: "rewind", turn: fork.alternatives[this.sub] });
+    else if (data === "c" && fork && this.open < 0) return this.done({ action: "go", target: this.replyEnd(this.selected) });
+    else if (data === "b" && this.map.latest) return this.done({ action: "go", target: this.map.latest.leaf });
     else if (data === "l" && fork) return this.done({ action: "label", turn: fork.turn });
     this.tui.requestRender();
   }
@@ -136,11 +156,13 @@ export class PathsPanel implements Component {
     // The list: a day line whenever the day changes, then one row per message (all of them are yours).
     type Line = { text: string; turn?: number };
     const lines: Line[] = [];
+    const latest = this.map.latest;
     let day = "";
     for (const i of list) {
       const { turn, alternatives } = this.map.turns[i], chosen = i === this.selected && this.open < 0;
       if (dayKey(turn.at) !== day) { day = dayKey(turn.at); lines.push({ text: theme.style(dayLabel(turn.at), { fg: gold, bold: true }) }); }
-      const fork = alternatives.length ? theme.style(`⑂${alternatives.length}`, { fg: gold, bold: true }) : "";
+      const holdsLatest = !!this.map.latest && alternatives.some(a => a.leaf === this.map.latest!.leaf);
+      const fork = alternatives.length ? theme.style(`⑂${alternatives.length}${holdsLatest ? " ↩" : ""}`, { fg: gold, bold: true }) : "";
       const right = [turn.label ? theme.style(`◆ ${turn.label}`, { fg: gold }) : "", fork, theme.fg("muted", clock(turn.at))].filter(Boolean).join("  ");
       const number = String(i + 1).padStart(3);
       const left = (chosen ? theme.style("›", { fg: gold, bold: true }) + theme.style(number, { fg: gold, bold: true }) : " " + theme.fg("muted", number)) + "  ";
@@ -153,17 +175,20 @@ export class PathsPanel implements Component {
       lines.push({ text: chosen ? theme.bg("selectedBg", truncateToWidth(row, inner, "")) : row, turn: i });
       if (this.open === i) alternatives.forEach((alt, j) => {
         const on = j === this.sub, tail = theme.fg("muted", clock(alt.at));
-        const body = truncateToWidth(`↳ ${shortenPaths(alt.text)}`, Math.max(4, inner - 8 - visibleWidth(tail)), "…");
+        const where = this.map.latest?.leaf === alt.leaf ? " ↩ where you were" : "";
+        const body = truncateToWidth(`↳ ${shortenPaths(alt.text)}${where}`, Math.max(4, inner - 8 - visibleWidth(tail)), "…");
         const altRow = (on ? theme.style("›", { fg: gold, bold: true }) : " ") + "      " + (on ? theme.style(body, { fg: gold, bold: true }) : theme.fg("muted", body))
           + " ".repeat(Math.max(1, inner - 7 - visibleWidth(body) - visibleWidth(tail))) + tail;
         lines.push({ text: on ? theme.bg("selectedBg", truncateToWidth(altRow, inner, "")) : altRow, turn: i });
       });
     }
     // Keep the selection in view, centered when the list is long.
-    const listRoom = Math.max(3, PLACEMENT.rows(this.tui.terminal.rows) - 7); // preview and its rule take up to seven rows
+    // Pinned above the list, so it never scrolls away: you are behind your latest work.
+    const banner = latest ? [theme.style(truncateToWidth(`↩ You are back in time. b returns to where you were: “${shortenPaths(latest.text)}” ${clock(latest.at)}`, inner, "…"), { fg: gold, bold: true })] : [];
+    const listRoom = Math.max(3, PLACEMENT.rows(this.tui.terminal.rows) - 7 - banner.length); // preview and its rule take up to seven rows
     const at = Math.max(0, lines.findIndex(l => l.turn === this.selected));
     const start = Math.max(0, Math.min(at - Math.floor(listRoom / 2), lines.length - listRoom));
-    const rows = lines.slice(start, start + listRoom).map(l => l.text);
+    const rows = [...banner, ...lines.slice(start, start + listRoom).map(l => l.text)];
     if (!list.length) rows.push(theme.fg("muted", this.map.turns.length ? "Nothing matches." : "No messages yet."));
     // Preview: the chosen message, then the start of its reply, rendered rather than raw markdown.
     const fork = this.map.turns[this.selected];
@@ -180,11 +205,15 @@ export class PathsPanel implements Component {
     }
     if (this.searching || this.search.getValue()) { this.search.focused = this.searching; rows.push(theme.style("/ ", { fg: gold, bold: true }) + (this.search.render(inner - 2)[0] ?? "")); }
     const where = this.map.path ? ` path ${this.map.path.index} of ${this.map.path.total} · ` : " ";
-    // The footer lists exactly the keys that work on this row.
+    // The footer lists the keys that work on this row, most important first, as many as fit.
     const others = fork?.alternatives.length ?? 0;
-    const hint = this.open >= 0
-      ? " ↑↓ choose · ↵ switch to it · e edit & resend · ← back "
-      : ` ↑↓ move · ↵ go here · e edit & resend${others ? ` · → ${others} other version${others > 1 ? "s" : ""}` : ""} · l label · / search · esc `;
+    const keys = this.open >= 0
+      ? ["↑↓ choose", "↵ switch to it", "e go back to it", "← back"]
+      : ["↵ go back to this message", "↑↓ move", ...(latest ? ["b back to where you were"] : []),
+        ...(others ? [`→ ${others} other version${others > 1 ? "s" : ""}`] : []), "c continue after it", "l label", "/ search", "esc"];
+    let hint = "";
+    for (const key of keys) { const next = hint ? `${hint} · ${key}` : key; if (visibleWidth(next) + 4 > inner) break; hint = next; }
+    hint = ` ${hint} `;
     return frameRows({ theme, width, rows, inset: 1, color: gold, weight: PLACEMENT.weight,
       corners: { topLeft: theme.style(" Paths ", { fg: gold, bold: true }), topRight: theme.fg("muted", `${where}message ${this.selected + 1} of ${this.map.turns.length} `), bottomLeft: theme.fg("muted", hint) } });
   }
@@ -213,10 +242,12 @@ export function registerPaths(pi: ExtensionAPI, state: EgregoreState) {
         if (pick.action === "label") {
           const next = await askText(ctx, "Label this message", pick.turn.label ?? "", { color: pathsColor(ctx.ui.theme), placeholder: "a short name; empty removes it" });
           if (next !== undefined) pi.setLabel(pick.turn.id, next.trim() || undefined);
-        } else if (pick.action === "edit") {
-          // Rewind to just before the message and put it back in the editor to edit and resend.
-          if (pick.turn.parentId) await ctx.navigateTree(pick.turn.parentId, { summarize: false });
-          ctx.ui.setEditorText(pick.turn.text);
+        } else if (pick.action === "rewind") {
+          // Like /tree on your message: Pi moves to just before it (the first message too)
+          // and puts its text in the Composer when the Composer is empty.
+          const draft = ctx.ui.getEditorText().trim();
+          await ctx.navigateTree(pick.turn.id, { summarize: false });
+          if (draft) ctx.ui.notify("Back in time. Your draft stayed in the Composer, so the message was not put there.", "info");
         } else if (pick.target !== ctx.sessionManager.getLeafId()) await ctx.navigateTree(pick.target, { summarize: false });
       } catch (error) { ctx.ui.notify(`Paths: ${error instanceof Error ? error.message : String(error)}`, "warning"); }
       update(ctx);

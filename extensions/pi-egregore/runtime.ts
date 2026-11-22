@@ -1,3 +1,4 @@
+import { recordedTime } from "./footer-state.ts";
 import { askConfirm } from "../../lib/dialogs.ts";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isViewportTUI, type EditorComponent, type TUI } from "@earendil-works/pi-tui";
@@ -134,7 +135,8 @@ export default function egregore(pi: ExtensionAPI) {
       const message = entry.message;
       const text = typeof message.content === "string" ? message.content
         : message.content.filter(part => part.type === "text").map(part => part.text).join("");
-      return Number.isFinite(message.timestamp) && text ? [{ text, timestamp: message.timestamp }] : [];
+      const timestamp = recordedTime(message.timestamp);
+      return timestamp !== undefined && text ? [{ text, timestamp }] : [];
     }) }));
     if (!beforePaint && (blocksChanged || messagesChanged)) tui.requestRender();
   }

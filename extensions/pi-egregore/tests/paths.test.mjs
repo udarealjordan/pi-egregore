@@ -77,12 +77,57 @@ test("the reply preview keeps line breaks, so a markdown table renders as a tabl
   assert.doesNotMatch(view, /Start small\. \| Version/, "paragraphs are not run together");
 });
 
-test("the footer lists the keys that work on the selected row, including → only where there are other versions", () => {
+test("the footer lists the keys that work on the selected row, most important first; → only where there are other versions", () => {
   const panel = new PathsPanel({ terminal: { rows: 40 }, requestRender() {} }, theme, pathMap(tree, "a2"), () => {});
-  const foot = () => plain(panel.render(100).at(-1));
-  assert.match(foot(), /↑↓ move · ↵ go here · e edit & resend · → 2 other versions · l label/);
+  const foot = () => plain(panel.render(160).at(-1));
+  assert.match(foot(), /↵ go back to this message · ↑↓ move · → 2 other versions · c continue after it · l label/);
   panel.handleInput("\x1b[A");
   assert.doesNotMatch(foot(), /→/, "the first message has no other versions, so → is not offered");
   panel.handleInput("\x1b[B"); panel.handleInput("\x1b[C");
-  assert.match(foot(), /↑↓ choose · ↵ switch to it · e edit & resend · ← back/);
+  assert.match(foot(), /↑↓ choose · ↵ switch to it · e go back to it · ← back/);
+  assert.match(plain(new PathsPanel({ terminal: { rows: 40 }, requestRender() {} }, theme, pathMap(tree, "a2"), () => {}).render(50).at(-1)), /^╰ ↵ go back to this message · ↑↓ move ─/, "narrow: the most important keys stay, nothing is cut mid-word");
+});
+
+test("Enter goes back to your message (ready to resend), c continues after its reply, b returns to where you were", () => {
+  const picks = [];
+  const open = leaf => new PathsPanel({ terminal: { rows: 40 }, requestRender() {} }, theme, pathMap(tree, leaf), pick => picks.push(pick));
+  open("a2").handleInput("\r");
+  assert.equal(picks.at(-1).action, "rewind"); assert.equal(picks.at(-1).turn.id, "u2");
+  open("a2").handleInput("c"); assert.deepEqual(picks.at(-1), { action: "go", target: "a2" });
+  const first = open("a2"); first.handleInput("\x1b[A"); first.handleInput("\r");
+  assert.equal(picks.at(-1).turn.id, "u1", "the first message can be gone back to too");
+  // a2 (minute 11) is the newest point; from the older path, b goes back to it.
+  const behind = open("a2b");
+  assert.match(plain(behind.render(120).join("\n")), /↩ You are back in time\. b returns to where you were: “Make it cheaper”/);
+  behind.handleInput("b"); assert.deepEqual(picks.at(-1), { action: "go", target: "a2" });
+  assert.equal(pathMap(tree, "a2").latest, undefined, "at the newest point there is nothing to go back to");
+});
+
+test("after going back without sending, the latest version is marked where it branches off", () => {
+  // Rewound to just before "Make it cheaper": the leaf is c1, and the newest point a2 sits on another version.
+  const map = pathMap(tree, "c1");
+  assert.deepEqual(map.latest, { leaf: "a2", text: "Make it cheaper", at: Date.parse(at(10)) });
+  const view = plain(new PathsPanel({ terminal: { rows: 40 }, requestRender() {} }, theme, map, () => {}).render(120).join("\n"));
+  assert.match(view, /b returns to where you were/);
+});
+
+test("settings and model changes written on the current path do not hide where you were", () => {
+  // Opening a session can append a model change to the current leaf; it is newer than any message.
+  const t2 = structuredClone(tree);
+  const longer = t2[0].children[0].children[1]; // u2b
+  longer.children[0].children.push(node("mc", { type: "model_change", timestamp: at(59) }));
+  const map = pathMap(t2, "mc");
+  assert.equal(map.latest?.leaf, "a2", "the newest message (a2) is elsewhere, so you are back in time");
+  assert.equal(map.latest?.text, "Make it cheaper");
+});
+
+test("the back-in-time line stays visible in a short panel", () => {
+  const panel = new PathsPanel({ terminal: { rows: 14 }, requestRender() {} }, theme, pathMap(tree, "a2b"), () => {});
+  assert.match(plain(panel.render(100)[1]), /↩ You are back in time/);
+});
+
+test("a message with no recorded time (0) is unknown, never shown as 1970", async () => {
+  const { recordedTime } = await jiti.import(join(source, "footer-state.ts"));
+  assert.equal(recordedTime(0), undefined); assert.equal(recordedTime(undefined), undefined); assert.equal(recordedTime(Number.NaN), undefined);
+  assert.equal(recordedTime(1_795_000_000_000), 1_795_000_000_000);
 });

@@ -59,6 +59,10 @@ export function footerPrefs(value: unknown): FooterPrefs {
   if (value && typeof value === "object" && Object.hasOwn(value, "transcript")) result.transcript = (value as FooterPrefs).transcript;
   return result;
 }
+/** A message's recorded time, or undefined when it has none (0 or missing means unknown, never 1970). */
+export function recordedTime(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+}
 export function clean(value: string): string {
   return stripVTControlCharacters(value).replace(/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, " ");
 }

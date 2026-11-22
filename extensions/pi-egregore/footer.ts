@@ -8,7 +8,7 @@ import { DOCK } from "pi-agent-contracts/dock";
 import { shouldAnimate, type EgregoreState } from "./state.ts";
 import { composerStatus } from "./composer-live.ts";
 import { composerInset, composerPadding, composerSurface } from "./composer-style.ts";
-import { ActivityClock, FOOTER_DEFAULTS, FOOTER_ENTRY, activityParts, clean, parseGit, type FooterPrefs, type GitState } from "./footer-state.ts";
+import { ActivityClock, FOOTER_DEFAULTS, FOOTER_ENTRY, activityParts, clean, parseGit, type FooterPrefs, type GitState, recordedTime } from "./footer-state.ts";
 import { loadEgregorePrefs, egregoreSnapshot, EGREGORE_SETTINGS, EGREGORE_VERSION } from "./settings-files.ts";
 import { footerRows, timingRows } from "./footer-view.ts";
 import { chooseFooter } from "./footer-settings.ts";
@@ -133,10 +133,11 @@ export function registerEgregoreAppearance(pi: ExtensionAPI, egregore: EgregoreS
     // Only recorded user messages drive the composer rail. The activity-clock
     // entry may include an input event without an associated transcript message.
     lastUserSentAt = undefined;
-    for (const entry of branch) if (entry.type === "message" && entry.message.role === "user"
-      && Number.isFinite(entry.message.timestamp) && entry.message.timestamp >= 0) {
-      lastUserSentAt = Math.max(lastUserSentAt ?? 0, entry.message.timestamp);
-      clock.data.sentAt = Math.max(clock.data.sentAt ?? 0, entry.message.timestamp);
+    for (const entry of branch) if (entry.type === "message" && entry.message.role === "user") {
+      const at = recordedTime(entry.message.timestamp);
+      if (at === undefined) continue;
+      lastUserSentAt = Math.max(lastUserSentAt ?? 0, at);
+      clock.data.sentAt = Math.max(clock.data.sentAt ?? 0, at);
     }
     const timestamp = context.sessionManager.getHeader()?.timestamp;
     const parsed = timestamp ? Date.parse(timestamp) : NaN;
@@ -228,8 +229,8 @@ export function registerEgregoreAppearance(pi: ExtensionAPI, egregore: EgregoreS
     if (context.mode !== "tui") return;
     ctx = context;
     if (event.message.role === "user") {
-      const timestamp = event.message.timestamp;
-      if (Number.isFinite(timestamp) && timestamp >= 0) lastUserSentAt = Math.max(lastUserSentAt ?? 0, timestamp);
+      const timestamp = recordedTime(event.message.timestamp);
+      if (timestamp !== undefined) lastUserSentAt = Math.max(lastUserSentAt ?? 0, timestamp);
       clock.data.sentAt = Math.max(clock.data.sentAt ?? 0, timestamp ?? Date.now()); refresh();
     }
   });

@@ -6,6 +6,13 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- `/paths` replaces `/tree` for going back in time:
+  - Enter on a message rewinds to just before it and puts it in the Composer to resend or edit, the first message included.
+  - `c` continues from after its reply.
+  - When you are behind your newest message, a pinned gold line says so, `b` takes you back, and `↩` marks the version that holds it.
+  - Settings and model changes don't count as newer work.
+- A message with no recorded time is treated as unknown instead of showing a 1970 date (or Dec 31 in some time zones).
+
 - In `/paths` the row you're on reads in gold (its number and text), on the highlighted background.
 
 - Egregore has its own prompts (`lib/dialogs.ts`: `askText`, `askChoice`, `askConfirm`), in a rounded frame in the composer's place like a note in `consult`. They replace Pi's built-in dialogs everywhere in Egregore and Tasks: plan and task editing, task status, archive and clear, `/paths` labels, Composer controls, recaps and dictation consent. Editing a task title, phase, note and so on now starts from the current text instead of an empty box. A test fails on any new direct use of the built-in dialogs.
