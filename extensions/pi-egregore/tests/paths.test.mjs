@@ -62,6 +62,10 @@ test("the panel is gold, lists messages without a repeated 'you', marks days, hi
   assert.ok(goldInk && raw[0].includes(goldInk), "the frame is gold");
   const selected = raw.find(line => plain(line).includes("what now?") && plain(line).includes("›"));
   assert.ok(selected && /\x1b\[48;/.test(selected), "the selected row has a background, so it is the most visible row");
+  const inkBefore = (line, text) => { const at = line.indexOf(text); return line.slice(Math.max(0, line.lastIndexOf("\x1b[38;", at)), at); };
+  assert.ok(inkBefore(selected, "From …/Notes.md").startsWith(goldInk), "the selected message reads in gold");
+  const other = raw.find(line => plain(line).includes("First question"));
+  assert.ok(!inkBefore(other, "First question").startsWith(goldInk), "other rows stay in the normal text color");
 });
 
 test("the reply preview keeps line breaks, so a markdown table renders as a table", () => {

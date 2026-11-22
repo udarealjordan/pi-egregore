@@ -142,17 +142,19 @@ export class PathsPanel implements Component {
       if (dayKey(turn.at) !== day) { day = dayKey(turn.at); lines.push({ text: theme.style(dayLabel(turn.at), { fg: gold, bold: true }) }); }
       const fork = alternatives.length ? theme.style(`⑂${alternatives.length}`, { fg: gold, bold: true }) : "";
       const right = [turn.label ? theme.style(`◆ ${turn.label}`, { fg: gold }) : "", fork, theme.fg("muted", clock(turn.at))].filter(Boolean).join("  ");
-      const left = (chosen ? theme.style("›", { fg: gold, bold: true }) : " ") + theme.fg("muted", String(i + 1).padStart(3)) + "  ";
+      const number = String(i + 1).padStart(3);
+      const left = (chosen ? theme.style("›", { fg: gold, bold: true }) + theme.style(number, { fg: gold, bold: true }) : " " + theme.fg("muted", number)) + "  ";
       const room = Math.max(4, inner - visibleWidth(left) - visibleWidth(right) - 2);
       const text = truncateToWidth(shortenPaths(turn.text), room, "…");
-      const row = left + (chosen ? theme.style(text, { fg: "text", bold: true }) : theme.fg("text", text))
+      // The row you are on reads in gold, so it is obvious at a glance.
+      const row = left + (chosen ? theme.style(text, { fg: gold, bold: true }) : theme.fg("text", text))
         + " ".repeat(Math.max(2, inner - visibleWidth(left) - visibleWidth(text) - visibleWidth(right))) + right;
       // The selected row is the brightest thing in the list, not the dimmest.
       lines.push({ text: chosen ? theme.bg("selectedBg", truncateToWidth(row, inner, "")) : row, turn: i });
       if (this.open === i) alternatives.forEach((alt, j) => {
         const on = j === this.sub, tail = theme.fg("muted", clock(alt.at));
         const body = truncateToWidth(`↳ ${shortenPaths(alt.text)}`, Math.max(4, inner - 8 - visibleWidth(tail)), "…");
-        const altRow = (on ? theme.style("›", { fg: gold, bold: true }) : " ") + "      " + (on ? theme.style(body, { fg: "text", bold: true }) : theme.fg("muted", body))
+        const altRow = (on ? theme.style("›", { fg: gold, bold: true }) : " ") + "      " + (on ? theme.style(body, { fg: gold, bold: true }) : theme.fg("muted", body))
           + " ".repeat(Math.max(1, inner - 7 - visibleWidth(body) - visibleWidth(tail))) + tail;
         lines.push({ text: on ? theme.bg("selectedBg", truncateToWidth(altRow, inner, "")) : altRow, turn: i });
       });
