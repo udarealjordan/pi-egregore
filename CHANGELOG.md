@@ -6,6 +6,9 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- `/btw` keys reworked so typing never triggers an action: Tab switches between asking and reading. Reading scrolls with arrows, PgUp/PgDn and the mouse wheel, and shows how much is above and below. `n` starts a new aside and `r` renames (it was `n`). Renaming saves on Enter, Tab or an arrow, and the "Named" note clears itself.
+- `/btw` answers can be stopped (Esc or `s`), each aside shows its own "answering" status, and copy, send and fork use the answer in view. Stopped and failed answers are kept on reload. Switching session or path stops an unfinished side answer instead of saving it onto the new branch.
+
 - Press Escape twice on an empty, idle Composer to open `/paths` (Pi's own double-Escape tree stays reachable with `/tree`).
 - Finished tasks in the dock are struck through. The `/tasks` panel uses the panel placement's bold rounded frame, and the `/egregore` Tasks preview shows the real checklist.
 - Works on Pi 1.6: border-free copying reads Pi 1.6's new container layout as well as 1.5's.
