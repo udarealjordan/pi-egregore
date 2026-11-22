@@ -59,6 +59,20 @@ Every frame is drawn with thin rounded lines, whatever its weight. `weight: "hea
 
 Frame describes placement. Your extension still owns mounting, focus, input, state and redraws.
 
+### Asking for text, a choice or a yes/no
+
+Don't call Pi's built-in dialogs (`ctx.ui.input`, `ctx.ui.select`, `ctx.ui.confirm`, `ctx.ui.editor`). They draw without Frame, so they look nothing like the rest of Egregore. In the Egregore checkout, use `lib/dialogs.ts`:
+
+```ts
+import { askText, askChoice, askConfirm } from "../../lib/dialogs.ts";
+
+const title = await askText(ctx, "Task title", task.title);          // starts filled in; undefined if cancelled
+const status = await askChoice(ctx, "Task status", ["pending", "done"]);
+if (await askConfirm(ctx, "Archive this plan?", "Unfinished tasks pause.")) { … }
+```
+
+Each prompt takes the composer's place (the `input` placement) with a rounded frame, the title in the corner and its keys in the footer, like adding a note to a question in `consult`. Pass `{ color }` to match your surface, for example gold for `/paths`. Outside the terminal UI they fall back to Pi's own prompts. A test fails if Egregore code calls the built-in dialogs directly.
+
 ## Design tips for a coherent terminal UI
 
 Treat color as a small **visual grammar**, not a rule to paint every word alike:

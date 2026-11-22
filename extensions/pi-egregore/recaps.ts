@@ -1,3 +1,4 @@
+import { askChoice, askConfirm } from "../../lib/dialogs.ts";
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
@@ -121,12 +122,12 @@ export function registerRecaps(pi: ExtensionAPI, enabled: () => boolean, deps: {
   return {
     idle: () => queue,
     async open(context: ExtensionContext) {
-      const choice = await context.ui.select(`Activity recaps · ${await allowed() ? "on" : "off (default)"} · saves separately`, ["Status and processing scope", "Turn off", "Turn on…"]);
+      const choice = await askChoice(context, `Activity recaps · ${await allowed() ? "on" : "off (default)"} · saves separately`, ["Status and processing scope", "Turn off", "Turn on…"]);
       if (choice === "Status and processing scope") {
         context.ui.notify("Recaps send bounded request, reply and tool evidence to an additional OpenAI Codex/OAuth model. Redaction is not a privacy guarantee. Uses subscription resources; no daily cap or automatic retries. pi-recaps.json saves immediately, outside /egregore Save.", "info");
         await control("status", context);
       } else if (choice === "Turn off") await control("off", context);
-      else if (choice === "Turn on…" && await context.ui.confirm("Enable additional activity inference?", "Sends bounded request/reply/tool evidence to OpenAI Codex/OAuth for recaps. Uses additional subscription resources; no daily cap. Redaction cannot guarantee privacy. Saves immediately to pi-recaps.json, separately from Egregore appearance.")) await control("on", context);
+      else if (choice === "Turn on…" && await askConfirm(context, "Enable additional activity inference?", "Sends bounded request/reply/tool evidence to OpenAI Codex/OAuth for recaps. Uses additional subscription resources; no daily cap. Redaction cannot guarantee privacy. Saves immediately to pi-recaps.json, separately from Egregore appearance.")) await control("on", context);
     },
   };
 }

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { jiti, source, plain, visibleWidth } from './host.mjs';
 import { egregore } from './egregore-harness.mjs';
+import { routeDialogs } from "../../../lib/dialogs-test-stub.mjs";
 const { registerRecaps } = await jiti.import(join(source, 'recaps.ts'));
 
 async function recapsFixture(config, generate) {
@@ -14,6 +15,7 @@ async function recapsFixture(config, generate) {
   const branch = [{ id: 'root', type: 'message', message: { role: 'user', content: 'Synthetic request', timestamp: 1000 } }];
   const ctx = { mode: 'tui', sessionManager: { getSessionId: () => 'fixture', getLeafId: () => 'root', getBranch: () => branch },
     ui: { notify() {}, select: async () => 'Turn on…', confirm: async () => false } };
+  ctx.ui.custom = routeDialogs(ctx.ui);
   const api = { on: (name, fn) => hooks.set(name, fn), registerCommand: (name, command) => commands.set(name, command), registerEntryRenderer() {}, appendEntry: (type, data) => entries.push({ type, data }) };
   const recaps = registerRecaps(api, () => true, { directory, lock: async (_path, _signal, fn) => fn(), generate: async (...args) => { calls++; return generate ? generate(...args) : { text: 'Synthetic recap', input: 1, output: 1 }; } });
   hooks.get('session_start')({}, ctx);

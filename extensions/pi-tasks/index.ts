@@ -1,3 +1,4 @@
+import { askChoice, askConfirm, askText } from "../../lib/dialogs.ts";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -268,13 +269,13 @@ export default function tasks(pi: ExtensionAPI) {
     if (revision !== book.revision) throw new Error("The plan changed while the panel was open; review it again.");
     if (result.op === "new") {
       if (fault) throw new Error("Unreadable history is preserved; /tasks clear can explicitly reset it.");
-      const title = suppliedTitle ?? await context.ui.input("Name the new plan", "");
+      const title = suppliedTitle ?? await askText(context, "Name the new plan", "");
       if (title?.trim()) commit(mutateBook(book, revision, { op: "create", title }, "user"));
       return;
     }
     if (result.op === "clear") {
       const confirm = fault ? "Reset the unreadable plan library?" : "Clear this plan's tasks?";
-      if (await context.ui.confirm(confirm, "Older session entries remain. The agent cannot recreate cleared work until you use /tasks new or /tasks add.")) {
+      if (await askConfirm(context, confirm, "Older session entries remain. The agent cannot recreate cleared work until you use /tasks new or /tasks add.")) {
         if (book.revision !== revision) throw new Error("The plan changed; review it again before clearing.");
         if (fault) { const next = emptyBook(); next.userCleared = true; commit(next); }
         else commit(mutateBook(book, revision, { op: "task", planId: result.planId, mutation: { op: "clear" } }, "user"));
@@ -288,36 +289,36 @@ export default function tasks(pi: ExtensionAPI) {
       commit(mutateBook(book, revision, { op: result.op, planId: p.id }, "user")); return;
     }
     if (result.op === "archive") {
-      if (!isPlanClosed(p) && !(await context.ui.confirm(`Archive ${p.title}?`, "Unfinished tasks will be paused in history. Nothing is deleted or executed; you can restore it later."))) return;
+      if (!isPlanClosed(p) && !(await askConfirm(context, `Archive ${p.title}?`, "Unfinished tasks will be paused in history. Nothing is deleted or executed; you can restore it later."))) return;
       commit(mutateBook(book, revision, { op: "archive", planId: p.id }, "user")); return;
     }
     if (result.op === "rename") {
-      const title = suppliedTitle ?? await context.ui.input("Plan name", p.title);
+      const title = suppliedTitle ?? await askText(context, "Plan name", p.title);
       if (title?.trim()) commit(mutateBook(book, revision, { op: "rename", planId: p.id, title }, "user")); return;
     }
     if (result.op === "add") {
-      const title = suppliedTitle ?? await context.ui.input("Add a task");
+      const title = suppliedTitle ?? await askText(context, "Add a task");
       if (title?.trim()) commit(mutateBook(book, revision, { op: "task", planId: p.id, mutation: { op: "add", items: [{ title }] } }, "user")); return;
     }
     const task = p.state.tasks.find((t) => t.id === result.id);
     if (!task) return;
     const options = ["Change status", "Rename", "Set phase", "Set done-when criterion", "Set dependencies", "Record outcome / evidence"];
-    const action = await context.ui.select(`${task.id} · ${task.title}`, options);
+    const action = await askChoice(context, `${task.id} · ${task.title}`, options);
     let changes: Change | undefined;
     if (action === options[0]) {
-      const status = await context.ui.select("Task status", [...STATUSES]); if (!status) return;
+      const status = await askChoice(context, "Task status", [...STATUSES]); if (!status) return;
       changes = { status: status as Change["status"] };
-      if (status === "blocked") { const reason = await context.ui.input("What is it waiting for?", task.reason); if (!reason) return; changes.reason = reason; }
-      if (status === "done") { const note = await context.ui.input("What was completed or accepted?", task.note); if (!note) return; changes.note = note; }
-    } else if (action === options[1]) { const title = await context.ui.input("Task title", task.title); if (title !== undefined) changes = { title }; }
-    else if (action === options[2]) { const phase = await context.ui.input("Phase (blank removes it)", task.phase); if (phase !== undefined) changes = { phase }; }
-    else if (action === options[3]) { const doneWhen = await context.ui.input("Done when…", task.doneWhen); if (doneWhen !== undefined) changes = { doneWhen }; }
+      if (status === "blocked") { const reason = await askText(context, "What is it waiting for?", task.reason); if (!reason) return; changes.reason = reason; }
+      if (status === "done") { const note = await askText(context, "What was completed or accepted?", task.note); if (!note) return; changes.note = note; }
+    } else if (action === options[1]) { const title = await askText(context, "Task title", task.title); if (title !== undefined) changes = { title }; }
+    else if (action === options[2]) { const phase = await askText(context, "Phase (blank removes it)", task.phase); if (phase !== undefined) changes = { phase }; }
+    else if (action === options[3]) { const doneWhen = await askText(context, "Done when…", task.doneWhen); if (doneWhen !== undefined) changes = { doneWhen }; }
     else if (action === options[4]) {
-      const value = await context.ui.input("Dependency IDs, comma separated (blank clears)", task.dependsOn.join(", "));
+      const value = await askText(context, "Dependency IDs, comma separated (blank clears)", task.dependsOn.join(", "));
       if (value !== undefined) changes = { dependsOn: value.split(/[\s,]+/).filter(Boolean) };
     } else if (action === options[5]) {
-      const note = await context.ui.input("Outcome note (your report, not an automatic verification)", task.note); if (note === undefined) return;
-      const evidence = await context.ui.input("Evidence reference: test result, artifact, or acceptance", task.evidence);
+      const note = await askText(context, "Outcome note (your report, not an automatic verification)", task.note); if (note === undefined) return;
+      const evidence = await askText(context, "Evidence reference: test result, artifact, or acceptance", task.evidence);
       if (evidence !== undefined) changes = { note, evidence };
     }
     if (changes) commit(mutateBook(book, revision, { op: "task", planId: p.id, mutation: { op: "update", id: task.id, changes } }, "user"));
@@ -349,12 +350,16 @@ export default function tasks(pi: ExtensionAPI) {
           if (!context.hasUI && command === "new") { context.ui.notify("Specify a name: /tasks new <name>", "info"); return; }
           await userChange(context, { op: "new", revision: book.revision }, command.slice(4).trim() || undefined); return;
         }
-        if (command.startsWith("add ")) {
+        if (command === "add" || command.startsWith("add ")) {
           if (fault) throw new Error("Task history couldn't be restored. /tasks clear can explicitly reset it.");
+          // Bare "/tasks add" asks for the task, like "/tasks new" asks for a name.
+          if (!context.hasUI && command === "add") { context.ui.notify("Specify a task: /tasks add <task>", "info"); return; }
+          const title = command.slice(4).trim() || (await askText(context, "Add a task"))?.trim();
+          if (!title) return;
           if (!selectedPlan(book)) {
             // Manual add explicitly unlocks a fresh plan without destroying earlier plans.
-            commit(mutateBook(book, book.revision, { op: "create", title: "Session plan", items: [{ title: command.slice(4) }] }, "user"));
-          } else await userChange(context, { op: "add", planId: book.selectedId!, revision: book.revision }, command.slice(4));
+            commit(mutateBook(book, book.revision, { op: "create", title: "Session plan", items: [{ title }] }, "user"));
+          } else await userChange(context, { op: "add", planId: book.selectedId!, revision: book.revision }, title);
           return;
         }
         if (command.startsWith("use ") || command.startsWith("restore ") || command.startsWith("archive ") || command === "archive") {

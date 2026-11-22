@@ -21,6 +21,7 @@ const { emptyPlan, mutate, restorePlan, progressText, taskOverview, contextSumma
 const { dockRows, waitingText, questionAttention, questionAttentionSummary } = await jiti.import(join(source, "typography.ts"));
 const { BOOK_ENTRY, COMPLETION_MS, emptyBook, mutateBook, migratePlan, restoreBook, selectedPlan, resultPlan, bookContext, planInfo } = await jiti.import(join(source, "book.ts"));
 const factory = await jiti.import(join(source, "index.ts"), { default: true });
+const { routeDialogs } = await import(pathToFileURL(join(source, "../../lib/dialogs-test-stub.mjs")));
 // Load Ask exactly as Pi would, through the entry its own manifest declares.
 const askPackage = join(source, "../../packages/pi-ask");
 const askEntry = JSON.parse(readFileSync(join(askPackage, "package.json"), "utf8")).pi.extensions[0];
@@ -177,9 +178,10 @@ async function harness({ egregore = false, ask = false, order = "egregore-first"
       getEditorText: () => editor?.getExpandedText() ?? "", setEditorText: (text) => editor?.setText(text),
       setWorkingVisible() {}, setHeader() {}, setFooter(f) { footer?.dispose(); footer = f?.(tui, theme, data); },
       setWidget(key, f) { if (!f) widgets.delete(key); else widgets.set(key, typeof f === "function" ? f(tui, theme) : { render: () => f }); },
-      notify: (text, tone) => notices.push({ text, tone }), confirm: async () => true, input: async () => undefined,
-      custom: async (factory) => { let result; const panel = factory(tui, theme, kb, (value) => result = value); panel.render(100); panel.handleInput("\x1b"); return result; },
+      notify: (text, tone) => notices.push({ text, tone }), confirm: async () => true, input: async () => undefined, select: async () => undefined,
     } };
+  // Framed dialogs answer from the input/select/confirm stubs above (tests may replace them).
+  context.ui.custom = routeDialogs(context.ui, async (_factory, _options, panel, result) => { panel.render(100); panel.handleInput("\x1b"); return result(); });
   const api = { events,
     on(name, fn) { if (!handlers.has(name)) handlers.set(name, []); handlers.get(name).push(fn); return () => {}; },
     registerCommand: (name, command) => commands.set(name, command),
@@ -1257,4 +1259,19 @@ test("layoutDock keeps each row's kind so hosts can style finished tasks and que
     { text: "◉ Write it down", tone: "accent", kind: "task" },
   ] };
   assert.deepEqual(layoutDock(snapshot, 60, 7).map(line => line.kind), ["question", "task", "task"]);
+});
+
+test("bare /tasks add asks for the task in the framed prompt; cancelling adds nothing", async () => {
+  const h = await harness();
+  try {
+    await h.emit("session_start");
+    const asked = [];
+    h.context.ui.input = async title => { asked.push(title); return "Write the docs"; };
+    await h.command("tasks", "add");
+    assert.deepEqual(asked, ["Add a task"]);
+    assert.deepEqual((await h.call({ op: "list" })).details.plan.tasks.map(t => t.title), ["Write the docs"]);
+    h.context.ui.input = async () => undefined;
+    await h.command("tasks", "add");
+    assert.equal((await h.call({ op: "list" })).details.plan.tasks.length, 1);
+  } finally { await h.close(); }
 });

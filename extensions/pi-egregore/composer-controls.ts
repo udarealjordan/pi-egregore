@@ -1,3 +1,4 @@
+import { askChoice } from "../../lib/dialogs.ts";
 import type { ExtensionAPI, ExtensionContext, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { EgregoreState, Preferences } from "./state.ts";
 
@@ -16,19 +17,19 @@ export function registerComposerControls(pi: ExtensionAPI, controls: {
   async function choose(ctx: ExtensionCommandContext): Promise<string | undefined> {
     const options = ["Work motion…", "Egregore header icons…", "Matching palette…", "Activity recaps…",
       controls.state.prefs.enabled ? "Turn appearance off" : "Turn appearance on"];
-    const result = await ctx.ui.select("Composer controls · choices save immediately", options);
+    const result = await askChoice(ctx, "Composer controls · choices save immediately", options);
     if (!result) return;
     const index = options.indexOf(result);
     if (index === 0) {
-      const motion = await ctx.ui.select("Work motion · readouts stay live", ["work", "off"]);
+      const motion = await askChoice(ctx, "Work motion · readouts stay live", ["work", "off"]);
       return motion ? `motion ${motion}` : undefined;
     }
     if (index === 1) {
-      const icons = await ctx.ui.select("Egregore header icons · frame metadata uses /egregore", ["Nerd Font", "Plain text"]);
+      const icons = await askChoice(ctx, "Egregore header icons · frame metadata uses /egregore", ["Nerd Font", "Plain text"]);
       return icons ? `icons ${icons === "Nerd Font" ? "nerd" : "plain"}` : undefined;
     }
     if (index === 2) {
-      const theme = await ctx.ui.select("Matching palette · off restores your preceding colors", ["on", "off"]);
+      const theme = await askChoice(ctx, "Matching palette · off restores your preceding colors", ["on", "off"]);
       return theme ? `theme ${theme}` : undefined;
     }
     if (index === 3) { await controls.openRecaps(ctx); return; }

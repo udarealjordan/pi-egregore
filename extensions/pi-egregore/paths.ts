@@ -1,3 +1,4 @@
+import { askText } from "../../lib/dialogs.ts";
 import { stripVTControlCharacters } from "node:util";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry, SessionTreeNode, Theme } from "@earendil-works/pi-coding-agent";
 import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
@@ -177,7 +178,11 @@ export class PathsPanel implements Component {
     }
     if (this.searching || this.search.getValue()) { this.search.focused = this.searching; rows.push(theme.style("/ ", { fg: gold, bold: true }) + (this.search.render(inner - 2)[0] ?? "")); }
     const where = this.map.path ? ` path ${this.map.path.index} of ${this.map.path.total} · ` : " ";
-    const hint = this.open >= 0 ? " ↵ go to this path · e edit & branch · ← back · esc " : ` ↵ go · e edit & branch · → other paths · l label · / search · esc `;
+    // The footer lists exactly the keys that work on this row.
+    const others = fork?.alternatives.length ?? 0;
+    const hint = this.open >= 0
+      ? " ↑↓ choose · ↵ switch to it · e edit & resend · ← back "
+      : ` ↑↓ move · ↵ go here · e edit & resend${others ? ` · → ${others} other version${others > 1 ? "s" : ""}` : ""} · l label · / search · esc `;
     return frameRows({ theme, width, rows, inset: 1, color: gold, weight: PLACEMENT.weight,
       corners: { topLeft: theme.style(" Paths ", { fg: gold, bold: true }), topRight: theme.fg("muted", `${where}message ${this.selected + 1} of ${this.map.turns.length} `), bottomLeft: theme.fg("muted", hint) } });
   }
@@ -204,7 +209,7 @@ export function registerPaths(pi: ExtensionAPI, state: EgregoreState) {
       if (!pick) return;
       try {
         if (pick.action === "label") {
-          const next = await ctx.ui.input("Label this message", pick.turn.label ?? "");
+          const next = await askText(ctx, "Label this message", pick.turn.label ?? "", { color: pathsColor(ctx.ui.theme), placeholder: "a short name; empty removes it" });
           if (next !== undefined) pi.setLabel(pick.turn.id, next.trim() || undefined);
         } else if (pick.action === "edit") {
           // Rewind to just before the message and put it back in the editor to edit and resend.

@@ -1,3 +1,4 @@
+import { askConfirm } from "../../lib/dialogs.ts";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isViewportTUI, type EditorComponent, type TUI } from "@earendil-works/pi-tui";
 import { DictationController, createLocalDictation } from "./dictation.ts";
@@ -226,7 +227,7 @@ export default function egregore(pi: ExtensionAPI) {
     dictation ??= new DictationController({
       ...createLocalDictation({ platform: process.platform, env: process.env }),
       platform: process.platform,
-      confirm: (title, message) => ctx.ui.confirm(title, message),
+      confirm: (title, message) => askConfirm(ctx, title, message),
       notify: (message, type) => context?.ui.notify(message, type),
       refresh: () => wake(),
       editor: () => activeEditor(),

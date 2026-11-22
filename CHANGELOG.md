@@ -6,6 +6,9 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Egregore has its own prompts (`lib/dialogs.ts`: `askText`, `askChoice`, `askConfirm`), in a rounded frame in the composer's place like a note in `consult`. They replace Pi's built-in dialogs everywhere in Egregore and Tasks: plan and task editing, task status, archive and clear, `/paths` labels, Composer controls, recaps and dictation consent. Editing a task title, phase, note and so on now starts from the current text instead of an empty box. A test fails on any new direct use of the built-in dialogs.
+- The `/paths` footer lists exactly the keys that work on the selected row, including ↑↓, and offers `→` only where a message has other versions.
+
 - `/paths` opens at the bottom in the composer's place (the `input` placement), like `/btw` and questions, instead of floating over the chat. Its reply preview keeps line breaks, so tables and lists render, and it uses the room the list leaves.
 
 - `/paths` is easier to read:

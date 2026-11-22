@@ -72,3 +72,13 @@ test("the reply preview keeps line breaks, so a markdown table renders as a tabl
   assert.match(view, /Version\s+│?\s*Size|Version.*Size/);
   assert.doesNotMatch(view, /Start small\. \| Version/, "paragraphs are not run together");
 });
+
+test("the footer lists the keys that work on the selected row, including → only where there are other versions", () => {
+  const panel = new PathsPanel({ terminal: { rows: 40 }, requestRender() {} }, theme, pathMap(tree, "a2"), () => {});
+  const foot = () => plain(panel.render(100).at(-1));
+  assert.match(foot(), /↑↓ move · ↵ go here · e edit & resend · → 2 other versions · l label/);
+  panel.handleInput("\x1b[A");
+  assert.doesNotMatch(foot(), /→/, "the first message has no other versions, so → is not offered");
+  panel.handleInput("\x1b[B"); panel.handleInput("\x1b[C");
+  assert.match(foot(), /↑↓ choose · ↵ switch to it · e edit & resend · ← back/);
+});
