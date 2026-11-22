@@ -6,6 +6,13 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- `/paths` is easier to read:
+  - It is gold and full width, so the transcript no longer shows through at the sides.
+  - Each message row drops the repeated "you" and shortens long file paths to their last part.
+  - A day line ("Today", "Yesterday", a date) separates days.
+  - The selected row is highlighted rather than dimmed.
+  - The reply preview is rendered, not raw markdown.
+
 - Every frame is thin and rounded again. Bold edges never matched the thin rounded corners (Unicode has no bold rounded corners), and terminals such as Rex draw both weights alike. `weight: "heavy"` still marks attention; it is shown with color and bold labels. Tool rows use a thin rail.
 
 - `/btw` keys reworked so typing never triggers an action: Tab switches between asking and reading. Reading scrolls with arrows, PgUp/PgDn and the mouse wheel, and shows how much is above and below. `n` starts a new aside and `r` renames (it was `n`). Renaming saves on Enter, Tab or an arrow, and the "Named" note clears itself.

@@ -1,10 +1,10 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry, SessionTreeNode, Theme } from "@earendil-works/pi-coding-agent";
-import { Input, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
+import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
+import { Input, Key, Markdown, matchesKey, parseColor, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
 import { framePlacement, frameRows } from "../../lib/frame.ts";
 
 /** Paths is something you browse, so it opens as a centered panel. */
 const PLACEMENT = framePlacement("panel");
-import { userFrameColor } from "./composer-style.ts";
 import { clean } from "./footer-state.ts";
 import type { EgregoreState } from "./state.ts";
 
@@ -65,9 +65,21 @@ export function pathMap(tree: SessionTreeNode[], leafId: string | null): PathMap
 }
 
 const clock = (at: number) => at ? new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+const dayKey = (at: number) => at ? new Date(at).toDateString() : "";
+/** "Today", "Yesterday", or "Thu 19 Nov" — so times across days are not ambiguous. */
+export function dayLabel(at: number, now = Date.now()): string {
+  if (!at) return "Earlier";
+  const day = new Date(at), today = new Date(now);
+  const diff = Math.round((new Date(today.toDateString()).getTime() - new Date(day.toDateString()).getTime()) / 86_400_000);
+  return diff === 0 ? "Today" : diff === 1 ? "Yesterday" : day.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+}
+/** Long file paths in a message keep only their last part, which is the part you recognize. */
+export const shortenPaths = (text: string) => text.replace(/(?:~\/|\/)(?:[^\s/]+\/)+([^\s/]+)/g, "…/$1");
+/** Gold marks /paths, so it never reads as chat or as the composer. */
+export function pathsColor(theme: Theme) { return parseColor(theme.appearance === "light" ? "#8a6400" : "#e2b55a"); }
 type Pick = { action: "go"; target: string } | { action: "edit"; turn: Turn } | { action: "label"; turn: Turn };
 
-class PathsPanel implements Component {
+export class PathsPanel implements Component {
   private selected: number;
   private open = -1;
   private sub = 0;
@@ -111,40 +123,51 @@ class PathsPanel implements Component {
     return next ? next.turn.parentId ?? next.turn.id : this.map.leafId ?? this.map.turns[i].turn.id;
   }
   render(width: number): string[] {
-    const theme = this.theme, color = theme.colors.accent, inner = Math.max(20, width - 4), red = userFrameColor(theme);
-    const rows: string[] = [], list = this.visible();
-    // Most of the panel is the list; the preview takes up to four rows.
-    const listRoom = Math.max(3, PLACEMENT.rows(this.tui.terminal.rows) - 6); // the preview takes up to six rows
-    const at = Math.max(0, list.indexOf(this.selected));
-    const start = Math.max(0, Math.min(at - Math.floor(listRoom / 2), list.length - listRoom));
-    for (const i of list.slice(start, start + listRoom)) {
+    const theme = this.theme, gold = pathsColor(theme), inner = Math.max(20, width - 4);
+    const list = this.visible();
+    // The list: a day line whenever the day changes, then one row per message (all of them are yours).
+    type Line = { text: string; turn?: number };
+    const lines: Line[] = [];
+    let day = "";
+    for (const i of list) {
       const { turn, alternatives } = this.map.turns[i], chosen = i === this.selected && this.open < 0;
-      const right = [turn.label ? theme.fg("accent", `◆ ${turn.label}`) : "", alternatives.length ? theme.fg("warning", `⑂${alternatives.length}`) : "", theme.fg("dim", clock(turn.at))].filter(Boolean).join(" ");
-      const left = (chosen ? theme.style("›", { fg: color, bold: true }) : " ") + theme.fg("dim", String(i + 1).padStart(3)) + " " + theme.style("you", { fg: red }) + "  ";
-      const room = Math.max(4, inner - visibleWidth(left) - visibleWidth(right) - 1);
-      const text = truncateToWidth(turn.text, room, "…");
-      rows.push(left + (chosen ? theme.bold(text) : theme.fg("text", text)) + " ".repeat(Math.max(1, inner - visibleWidth(left) - visibleWidth(text) - visibleWidth(right))) + right);
+      if (dayKey(turn.at) !== day) { day = dayKey(turn.at); lines.push({ text: theme.style(dayLabel(turn.at), { fg: gold, bold: true }) }); }
+      const fork = alternatives.length ? theme.style(`⑂${alternatives.length}`, { fg: gold, bold: true }) : "";
+      const right = [turn.label ? theme.style(`◆ ${turn.label}`, { fg: gold }) : "", fork, theme.fg("muted", clock(turn.at))].filter(Boolean).join("  ");
+      const left = (chosen ? theme.style("›", { fg: gold, bold: true }) : " ") + theme.fg("muted", String(i + 1).padStart(3)) + "  ";
+      const room = Math.max(4, inner - visibleWidth(left) - visibleWidth(right) - 2);
+      const text = truncateToWidth(shortenPaths(turn.text), room, "…");
+      const row = left + (chosen ? theme.style(text, { fg: "text", bold: true }) : theme.fg("text", text))
+        + " ".repeat(Math.max(2, inner - visibleWidth(left) - visibleWidth(text) - visibleWidth(right))) + right;
+      // The selected row is the brightest thing in the list, not the dimmest.
+      lines.push({ text: chosen ? theme.bg("selectedBg", truncateToWidth(row, inner, "")) : row, turn: i });
       if (this.open === i) alternatives.forEach((alt, j) => {
-        const mark = j === this.sub ? theme.style("›", { fg: color, bold: true }) : " ";
-        const tail = theme.fg("dim", clock(alt.at));
-        const body = truncateToWidth(`↳ ${alt.text}`, Math.max(4, inner - 8 - visibleWidth(tail)), "…");
-        rows.push(mark + "      " + (j === this.sub ? theme.bold(body) : theme.fg("muted", body)) + " ".repeat(Math.max(1, inner - 7 - visibleWidth(body) - visibleWidth(tail))) + tail);
+        const on = j === this.sub, tail = theme.fg("muted", clock(alt.at));
+        const body = truncateToWidth(`↳ ${shortenPaths(alt.text)}`, Math.max(4, inner - 8 - visibleWidth(tail)), "…");
+        const altRow = (on ? theme.style("›", { fg: gold, bold: true }) : " ") + "      " + (on ? theme.style(body, { fg: "text", bold: true }) : theme.fg("muted", body))
+          + " ".repeat(Math.max(1, inner - 7 - visibleWidth(body) - visibleWidth(tail))) + tail;
+        lines.push({ text: on ? theme.bg("selectedBg", truncateToWidth(altRow, inner, "")) : altRow, turn: i });
       });
     }
-    if (!list.length) rows.push(theme.fg("dim", this.map.turns.length ? "Nothing matches." : "No messages yet."));
-    // Preview: the chosen message in full, then the start of its reply.
+    // Keep the selection in view, centered when the list is long.
+    const listRoom = Math.max(3, PLACEMENT.rows(this.tui.terminal.rows) - 7); // preview and its rule take up to seven rows
+    const at = Math.max(0, lines.findIndex(l => l.turn === this.selected));
+    const start = Math.max(0, Math.min(at - Math.floor(listRoom / 2), lines.length - listRoom));
+    const rows = lines.slice(start, start + listRoom).map(l => l.text);
+    if (!list.length) rows.push(theme.fg("muted", this.map.turns.length ? "Nothing matches." : "No messages yet."));
+    // Preview: the chosen message, then the start of its reply, rendered rather than raw markdown.
     const fork = this.map.turns[this.selected];
     const shown = this.open >= 0 && fork ? fork.alternatives[this.sub] : fork?.turn;
     rows.push(theme.fg("dim", "─".repeat(inner)));
     if (shown) {
-      const preview = [...wrapTextWithAnsi(theme.fg("text", shown.text), inner).slice(0, 2), ...(shown.reply ? wrapTextWithAnsi(theme.fg("muted", shown.reply), inner).slice(0, 2) : [])];
-      rows.push(...preview);
+      rows.push(...wrapTextWithAnsi(theme.style(shown.text, { fg: "text", bold: true }), inner).slice(0, 2));
+      if (shown.reply) rows.push(...new Markdown(shown.reply, 0, 0, getMarkdownTheme()).render(inner).filter(l => l.trim()).slice(0, 4));
     }
-    if (this.searching || this.search.getValue()) { this.search.focused = this.searching; rows.push(theme.fg("accent", "/ ") + (this.search.render(inner - 2)[0] ?? "")); }
+    if (this.searching || this.search.getValue()) { this.search.focused = this.searching; rows.push(theme.style("/ ", { fg: gold, bold: true }) + (this.search.render(inner - 2)[0] ?? "")); }
     const where = this.map.path ? ` path ${this.map.path.index} of ${this.map.path.total} · ` : " ";
     const hint = this.open >= 0 ? " ↵ go to this path · e edit & branch · ← back · esc " : ` ↵ go · e edit & branch · → other paths · l label · / search · esc `;
-    return frameRows({ theme, width, rows, inset: 1, color, weight: PLACEMENT.weight,
-      corners: { topLeft: theme.style(" Paths ", { fg: color, bold: true }), topRight: theme.fg("muted", `${where}turn ${this.selected + 1} of ${this.map.turns.length} `), bottomLeft: theme.fg("dim", hint) } });
+    return frameRows({ theme, width, rows, inset: 1, color: gold, weight: PLACEMENT.weight,
+      corners: { topLeft: theme.style(" Paths ", { fg: gold, bold: true }), topRight: theme.fg("muted", `${where}message ${this.selected + 1} of ${this.map.turns.length} `), bottomLeft: theme.fg("muted", hint) } });
   }
 }
 

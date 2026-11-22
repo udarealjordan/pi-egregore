@@ -161,7 +161,7 @@ export function toolRows({ theme, width, marker = "", markerColor, rail = THIN.v
  * mounting, focus and input. */
 export const FRAME_PLACEMENTS = Object.freeze({
   input: Object.freeze({ weight: "heavy", share: .55, custom: Object.freeze({}) }),
-  panel: Object.freeze({ weight: "heavy", share: .8, custom: Object.freeze({ overlay: true, overlayOptions: Object.freeze({ anchor: "center", width: "92%", maxHeight: "80%" }) }) }),
+  panel: Object.freeze({ weight: "heavy", share: .8, custom: Object.freeze({ overlay: true, overlayOptions: Object.freeze({ anchor: "center", width: "100%", maxHeight: "80%" }) }) }),
   dock: Object.freeze({ weight: "heavy", share: .25, custom: Object.freeze({}) }),
   transcript: Object.freeze({ weight: "light", share: 1, custom: Object.freeze({}) }),
 });
