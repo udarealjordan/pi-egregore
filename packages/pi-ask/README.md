@@ -113,10 +113,6 @@ In print, JSON or RPC mode, `consult` returns `unavailable` instead of prompting
 
 Questions, answers and notes become part of the session and are sent to your model provider like any message. Ask makes no network requests of its own.
 
-## Integrations
-
-While a question is open, Ask emits `herdr:blocked` on Pi's event bus (`{ active: true, label: "Waiting for your answer" }`, then `{ active: false }`) for tools that show when an agent is waiting.
-
 ## Installation
 
 ### As part of this suite

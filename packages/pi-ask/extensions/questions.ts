@@ -37,14 +37,6 @@ function withUILock<T>(fn: () => Promise<T>): Promise<T> {
 	return prev.then(fn).finally(() => release!());
 }
 
-/** Tell external agent-state integrations that Pi is waiting on a person.
- * `finally` clears the event even when the dialog is cancelled or fails. */
-async function withHerdrBlocked<T>(pi: ExtensionAPI, label: string, fn: () => Promise<T>): Promise<T> {
-	pi.events.emit("herdr:blocked", { active: true, label });
-	try { return await fn(); }
-	finally { pi.events.emit("herdr:blocked", { active: false }); }
-}
-
 type RawQuestion = { question: string; label?: string; details?: string; options?: Parameters<typeof normalizeOptions>[0]; multiSelect?: boolean };
 
 function questionDefs(raw: RawQuestion[]): QuestionDef[] {
@@ -59,47 +51,43 @@ function questionDefs(raw: RawQuestion[]): QuestionDef[] {
 }
 
 /** One question: the focused standalone form. Its result keeps the single-question shape. */
-async function askOne(pi: ExtensionAPI, q: QuestionDef, signal: AbortSignal | undefined, ctx: ExtensionContext) {
+async function askOne(q: QuestionDef, signal: AbortSignal | undefined, ctx: ExtensionContext) {
 	const { question, details: context, mode, options } = q;
 	if (signal?.aborted) return cancelledResult(question, mode, context);
 	if (!ctx.hasUI || ctx.mode !== "tui") return unavailableResult(question, mode, `${CONSULT} requires interactive TUI mode`, context);
 	return withUILock(async () => {
 		if (signal?.aborted) return cancelledResult(question, mode, context);
-		return withHerdrBlocked(pi, "Waiting for your answer", async () => {
-			const result = mode === "text" ? await askText(ctx, question, context, signal)
-				: mode === "single-select" ? await askSingleChoice(ctx, question, context, options, signal)
-				: await askMultiChoice(ctx, question, context, options, signal);
-			if (!result) return cancelledResult(question, mode, context);
-			if ("action" in result) return result.action === "skip" ? skippedResult(question, mode, context)
-				: result.action === "regenerate"
-					? buildRegenerateResult([{ question, details: context, mode, options }], [{ questionIndex: 0, answer: null, note: result.note }])
-					: buildClarificationResult(question, context, mode, options, result.clarification);
-			if (mode === "text") {
-				const answer: TextAnswer = { type: "text", label: result.answer as string, value: result.answer as string };
-				return buildResult(question, context, mode, [answer], result.note);
-			}
-			const answers = (Array.isArray(result.answer) ? result.answer : [result.answer]) as Parameters<typeof buildResult>[3];
-			return buildResult(question, context, mode, answers, result.note);
-		});
+		const result = mode === "text" ? await askText(ctx, question, context, signal)
+			: mode === "single-select" ? await askSingleChoice(ctx, question, context, options, signal)
+			: await askMultiChoice(ctx, question, context, options, signal);
+		if (!result) return cancelledResult(question, mode, context);
+		if ("action" in result) return result.action === "skip" ? skippedResult(question, mode, context)
+			: result.action === "regenerate"
+				? buildRegenerateResult([{ question, details: context, mode, options }], [{ questionIndex: 0, answer: null, note: result.note }])
+				: buildClarificationResult(question, context, mode, options, result.clarification);
+		if (mode === "text") {
+			const answer: TextAnswer = { type: "text", label: result.answer as string, value: result.answer as string };
+			return buildResult(question, context, mode, [answer], result.note);
+		}
+		const answers = (Array.isArray(result.answer) ? result.answer : [result.answer]) as Parameters<typeof buildResult>[3];
+		return buildResult(question, context, mode, answers, result.note);
 	});
 }
 
 /** Several related questions: one sequential form with Review. */
-async function askMany(pi: ExtensionAPI, questions: QuestionDef[], signal: AbortSignal | undefined, ctx: ExtensionContext) {
+async function askMany(questions: QuestionDef[], signal: AbortSignal | undefined, ctx: ExtensionContext) {
 	if (signal?.aborted) return batchCancelledResult(questions);
 	if (!ctx.hasUI || ctx.mode !== "tui") return batchUnavailableResult(questions);
 	return withUILock(async () => {
 		if (signal?.aborted) return batchCancelledResult(questions);
-		return withHerdrBlocked(pi, "Waiting for your answers", async () => {
-			const result: BatchUIResult = await customWithAbort<any>(ctx, signal,
-				(tui: any, theme: any, kb: any, done: (r: any) => void) => new TabbedQuestions(questions, tui, theme, kb, done, ctx.cwd));
-			if (!result) return batchCancelledResult(questions);
-			if (!Array.isArray(result)) {
-				if (result.action === "clarification") return buildBatchClarificationResult(questions, result.answers, result.activeQuestionIndex, result.clarification);
-				return buildRegenerateResult(questions, result.answers);
-			}
-			return buildBatchResult(questions, result);
-		});
+		const result: BatchUIResult = await customWithAbort<any>(ctx, signal,
+			(tui: any, theme: any, kb: any, done: (r: any) => void) => new TabbedQuestions(questions, tui, theme, kb, done, ctx.cwd));
+		if (!result) return batchCancelledResult(questions);
+		if (!Array.isArray(result)) {
+			if (result.action === "clarification") return buildBatchClarificationResult(questions, result.answers, result.activeQuestionIndex, result.clarification);
+			return buildRegenerateResult(questions, result.answers);
+		}
+		return buildBatchResult(questions, result);
 	});
 }
 
@@ -111,7 +99,7 @@ export default function consult(pi: ExtensionAPI) {
 		parameters: ConsultParams,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const questions = questionDefs(params.questions as RawQuestion[]);
-			return questions.length === 1 ? askOne(pi, questions[0], signal, ctx) : askMany(pi, questions, signal, ctx);
+			return questions.length === 1 ? askOne(questions[0], signal, ctx) : askMany(questions, signal, ctx);
 		},
 		renderCall: questionCall,
 		renderResult: questionResult,
@@ -123,7 +111,7 @@ export default function consult(pi: ExtensionAPI) {
 			name, label: "Question", renderShell: "self", exposure: "hidden", description: `Replaced by ${CONSULT}.`, parameters,
 			async execute(_toolCallId, params: any, signal, _onUpdate, ctx) {
 				const questions = questionDefs(params.questions ?? [params]);
-				return questions.length === 1 && !params.questions ? askOne(pi, questions[0], signal, ctx) : askMany(pi, questions, signal, ctx);
+				return questions.length === 1 && !params.questions ? askOne(questions[0], signal, ctx) : askMany(questions, signal, ctx);
 			},
 			renderCall: questionCall,
 			renderResult: questionResult,

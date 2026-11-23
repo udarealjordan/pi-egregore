@@ -303,8 +303,7 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) {
 
 test("registered ask_questions returns explicit all-skipped metadata and labels", async () => {
 	const tools = new Map<string, any>();
-	const events: any[] = [];
-	registerQuestions({ on() {}, registerTool(tool: any) { tools.set(tool.name, tool); }, events: { emit(name: string, data: any) { events.push([name, data]); } } } as any);
+	registerQuestions({ on() {}, registerTool(tool: any) { tools.set(tool.name, tool); } } as any);
 	let open!: (component: TabbedQuestions) => void;
 	const opened = new Promise<TabbedQuestions>((resolve) => { open = resolve; });
 	const ctx: any = { hasUI: true, mode: "tui", ui: { custom(factory: any) {
@@ -328,5 +327,4 @@ test("registered ask_questions returns explicit all-skipped metadata and labels"
 	const history = tool.renderResult(result, {}, theme).render(100).join("\n");
 	assert.match(history, /First\?[\s\S]*Skipped[\s\S]*Second\?[\s\S]*Skipped/);
 	assert.doesNotMatch(history, /Status/);
-	assert.equal(events.at(-1)[1].active, false, "the UI-blocked state is released after submission");
 });
