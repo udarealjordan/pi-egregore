@@ -9,7 +9,7 @@ import { taskFrameColor } from "../../lib/task-frame.ts";
 import { activeTranscript, assistantIdentity } from "./transcript-presentation.ts";
 import { nativeMessageFacts, type NativeMessageNode as MessageComponent } from "./native-message-adapter.ts";
 import { messageBodyRows } from "./message-spacing.ts";
-import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
+import { forgetCopyProjection, projectFrameCopy, rememberCopyProjection } from "./native/copy-projection.ts";
 
 /** Remove background paint without consuming foreground payloads, OSC links or zones. */
 export function terminalBackground(text: string): string {
@@ -68,7 +68,7 @@ export class SentMessageFrames {
       if (this.mounted.has(node) || !nativeMessageFacts(node)) continue;
       const original = node.render, hadOwn = Object.hasOwn(node, "render");
       const originalMouse = node.handleMouse, hadMouse = Object.hasOwn(node, "handleMouse");
-      let active = true, framedWidth = -1, removedTop = 0, removedBottom = 0, padding = 0;
+      let active = true, framedWidth = -1, removedTop = 0, removedBottom = 0, padding = 0, copyRevision = 0;
       const mouse: typeof node.handleMouse = event => {
         if (!active || framedWidth !== event.width) return originalMouse.call(node, event);
         if (event.x <= 0 || event.x >= event.width - 1 || event.y <= padding || event.y >= event.height - 1 - padding) return undefined;
@@ -76,7 +76,7 @@ export class SentMessageFrames {
           width: event.width - 2, height: event.height - 2 - 2 * padding + removedTop + removedBottom });
       };
       const render = (width: number) => {
-        forgetCopyFrame(node);
+        forgetCopyProjection(node);
         framedWidth = -1;
         removedTop = 0; removedBottom = 0; padding = 0;
         const facts = nativeMessageFacts(node);
@@ -126,11 +126,12 @@ export class SentMessageFrames {
         // marker at column 0 where the host can strip and find it.
         if (zoneStart.length) framed[0] = zoneStart.join("") + framed[0];
         if (zoneEnd.length) framed[framed.length - 1] = zoneEnd.join("") + framed[framed.length - 1];
-        return rememberCopyFrame(node, width, framed, 0, padding);
+        return rememberCopyProjection(node, width, framed,
+          projectFrameCopy("pi-egregore:chat", width, framed, ++copyRevision, { padding }));
       };
       node.render = render; node.handleMouse = mouse; node.invalidate();
       this.mounted.set(node, () => {
-        active = false; forgetCopyFrame(node);
+        active = false; forgetCopyProjection(node);
         if (node.render === render) {
           if (hadOwn) node.render = original;
           else delete (node as unknown as { render?: unknown }).render;

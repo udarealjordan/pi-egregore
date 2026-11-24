@@ -6,6 +6,8 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- Added the Calm Core redesign specifications and isolated `redesign/calm-core` worktree: centralized native compatibility, semantic clean copy, Calm/Study/Expressive presets, core/auxiliary boundaries, complete dictation removal, optional Tasks Work Record, and phased verification.
+- Implemented the first Calm Core slice: NativeHost now owns reversible Pi-native adapter lifecycle and capability reporting, and versioned semantic copy projections clean supported Composer, chat, tool, Ask and Tasks selections without frame scaffolding. Unknown, stale, clipped or unsupported rows retain native fallback; literal pipes, box glyphs, indentation, Unicode and blank content survive. General → Native integration reports Full/Limited/Native status read-only. Regular terminal selection remains terminal-owned. Native editor/Vim/draft/undo/cursor/IME, clipboard, Ask/Tasks state and live settings are unchanged.
 - Fresh terminal sessions ask for a name through Egregore's centered rounded panel instead of Pi's default input dialog. Existing, resumed, forked, reloaded and already-named sessions keep the previous skip behavior; other Egregore text prompts still replace the Composer in place.
 - Assistant-message Sent times now use the same full Pi accent purple as Tasks text instead of a muted blend. User-message Sent times remain user red.
 

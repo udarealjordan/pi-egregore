@@ -301,7 +301,7 @@ export function registerEgregoreAppearance(pi: ExtensionAPI, egregore: EgregoreS
           select: (selected, state) => { if (gen === generation) { egregore.appearancePreview = { selected, state }; refresh(); } },
           temporary: !egregore.prefs.enabled,
           reducedMotion: egregore.prefs.motion === "off",
-        }, abort.signal);
+        }, abort.signal, egregore.nativeCapabilities);
         if (gen !== generation || !selected) return;
         // Persist first. A failed write cancels the preview rather than pretending it was saved.
         await saveFooter(path, selected, openedSnapshot);

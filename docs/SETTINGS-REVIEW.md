@@ -154,6 +154,7 @@ Removed duplicate controls remain compatible read fallbacks: density maps to Gen
 | --- | --- |
 | General: Your name | Sample user frame shows the edited name, without changing an account or sending a message |
 | General: Spacing | Hover representative compact/spaced sample messages; affects supported integrated whitespace, not Task row counts |
+| General: Native integration | Read-only Full/Limited/Native adapter report with reasons; no preference, Undo entry, telemetry or host mutation |
 | `/composer`: Work motion | Native selector retained; wording distinguishes animation from live timing |
 | `/composer`: Header icons | Explicitly distinguishes Egregore's header/fallback icons from footer metadata icons |
 | `/composer`: Matching palette | Reversible runtime lease; off restores preceding colors |

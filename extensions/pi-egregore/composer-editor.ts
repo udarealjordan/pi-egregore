@@ -4,7 +4,7 @@ import { isKeyRelease, sliceByColumn, truncateToWidth, visibleWidth, type Editor
 import { composerBottomRail, composerEdge, composerFrame, composerMessageRail, composerPadding, composerSurface } from "./composer-style.ts";
 import { appearanceBorder } from "./appearance-render.ts";
 import { dictationSpan } from "./dictation.ts";
-import { forgetCopyFrame, rememberCopyFrame } from "./copy-selection.ts";
+import { forgetCopyProjection, projectFrameCopy, rememberCopyProjection } from "./native/copy-projection.ts";
 import type { EgregoreState } from "./state.ts";
 
 export function isEditorComponent(value: unknown): value is EditorComponent & { focused?: boolean } {
@@ -22,13 +22,13 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
   const oldPadding = padded.getPaddingX?.();
   const canFrame = oldPadding !== undefined && typeof padded.setPaddingX === "function";
   let appliedPadding = oldPadding;
-  let active = true, framed = false, verticalPad = 0, nativeBottom = 0;
+  let active = true, framed = false, verticalPad = 0, nativeBottom = 0, copyRevision = 0;
   // Clicks are resolved against the rail row this wrapper actually painted.
   let bottomRail = "", bottomRailWidth = -1;
   const render = function(width: number): string[] {
     // A queued paint may retain this wrapper after cleanup. Use native rendering, not stale session state.
     if (!active) return original.render.call(editor, width);
-    forgetCopyFrame(editor);
+    forgetCopyProjection(editor);
     verticalPad = 0;
     bottomRailWidth = -1;
     framed = canFrame && (egregore.footerPickerOpen || egregore.prefs.enabled) && width >= 8;
@@ -78,9 +78,12 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
     bottomRailWidth = width;
     result.push(bottomRail);
     for (const line of lines.slice(bottom + 1)) result.push(composerSurface(theme, " " + line + " ", width, true));
-    return rememberCopyFrame(editor, width,
-      composerFrame(theme, result, width, egregore, now(), bottom + 2 * verticalPad),
-      appliedPadding ?? 0, verticalPad, bottom + 2 * verticalPad);
+    const rendered = composerFrame(theme, result, width, egregore, now(), bottom + 2 * verticalPad);
+    return rememberCopyProjection(editor, width, rendered,
+      projectFrameCopy("pi-egregore:composer", width, rendered, ++copyRevision, {
+        inset: appliedPadding ?? 0, padding: verticalPad, bottom: bottom + 2 * verticalPad,
+        height: bottom + 2 * verticalPad + 1,
+      }));
   };
   const handleInput = function(data: string) {
     if (active && !isKeyRelease(data)) egregore.lastInputAt = now();
@@ -120,7 +123,7 @@ export function dressComposerEditor(editor: EditorComponent, ctx: () => Extensio
   return () => {
     if (!active) return;
     active = false;
-    forgetCopyFrame(editor);
+    forgetCopyProjection(editor);
     if (canFrame && padded.getPaddingX?.() === appliedPadding) padded.setPaddingX!(oldPadding);
     if (editor.setText === setText) editor.setText = original.setText;
     if (editor.render === render) editor.render = original.render;

@@ -82,7 +82,14 @@ export function installPaintGuard(root: Component, before: () => void, enabled: 
     }
   };
   host.render = wrappedRender;
-  if (typeof paint === "function") host.doRender = wrappedPaint;
+  if (typeof paint === "function") {
+    try {
+      host.doRender = wrappedPaint;
+    } catch (error) {
+      if (host.render === wrappedRender) { if (ownRender) host.render = render; else delete (host as unknown as { render?: unknown }).render; }
+      throw error;
+    }
+  }
   return () => {
     active = false;
     if (host.render === wrappedRender) { if (ownRender) host.render = render; else delete (host as unknown as { render?: unknown }).render; }

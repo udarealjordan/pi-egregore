@@ -17,6 +17,7 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import { suggestionLabel, type AskAnswer, type AskOption } from "./domain.ts";
+import { CopyLines, appendCopyLines, isCopyLines } from "./copy.ts";
 
 // Pi 1.2 defers reverse video to the renderer. Keep the wire markers local so
 // this adapter also loads on older hosts without the new named exports.
@@ -65,8 +66,17 @@ export function renderOptionalNote(
 	const labelPrefix = " ".repeat(Math.max(0, safeIndent - 2));
 	const note = sanitizeDisplayText(noteEditor.getExpandedText());
 	if (!noteFocused) {
+		const marker = noteActionFocused ? "› " : "";
 		const action = note ? `+ Note: ${note.replace(/\n/g, " / ")}` : "+ Note";
-		lines.push(truncateToWidth(`${labelPrefix}${theme.fg(noteActionFocused ? "accent" : "muted", `${noteActionFocused ? "› " : ""}${action}`)}${noteActionFocused ? theme.fg("dim", " · Enter/+ to edit") : ""}`, width));
+		const rendered = truncateToWidth(`${labelPrefix}${theme.fg(noteActionFocused ? "accent" : "muted", `${marker}${action}`)}${noteActionFocused ? theme.fg("dim", " · Enter/+ to edit") : ""}`, width);
+		lines.push(rendered);
+		if (isCopyLines(lines)) {
+			if (!note) lines.mark(lines.length - 1, lines.length, "decoration");
+			else {
+				const start = visibleWidth(labelPrefix) + visibleWidth(marker) + visibleWidth("+ Note: ");
+				lines.mark(lines.length - 1, lines.length, "content", { start, end: Math.min(width, start + visibleWidth(note.replace(/\n/g, " / "))) });
+			}
+		}
 		return;
 	}
 
@@ -74,17 +84,18 @@ export function renderOptionalNote(
 	// SafeEditor as an answer or clarification. At narrow widths give the box
 	// priority over indentation, without replacing the note's editor instance.
 	lines.push(truncateToWidth(`${labelPrefix}${theme.fg("accent", theme.bold("+ Note"))}`, width));
+	if (isCopyLines(lines)) lines.mark(lines.length - 1, lines.length, "decoration");
 	const editorPrefix = width - visibleWidth(labelPrefix) >= 7 ? labelPrefix : "";
 	const editorWidth = Math.max(1, width - visibleWidth(editorPrefix));
-	for (const editorLine of noteEditor.render(editorWidth)) {
+	appendCopyLines(lines, noteEditor.render(editorWidth), editorLine => {
 		const safe = sanitizeEditorDisplay(editorLine);
 		// Sanitization removes the editor's trusted SGR too. Restyle only its
 		// perimeter after sanitizing, leaving input, cursor and interior neutral.
 		const framed = editorWidth >= 7 && /^[╭╰].*[╮╯]$/.test(safe) ? theme.fg("accent", safe)
 			: editorWidth >= 7 && /^│.*│$/.test(safe) ? safe.replace(/^│/, (edge: string) => theme.fg("accent", edge))
 				.replace(/│$/, (edge: string) => theme.fg("accent", edge)) : safe;
-		lines.push(truncateToWidth(`${editorPrefix}${framed}`, width));
-	}
+		return truncateToWidth(`${editorPrefix}${framed}`, width);
+	}, visibleWidth(editorPrefix));
 }
 
 function scrubCursorMarkers(text: string): string {
@@ -125,16 +136,25 @@ export class SafeEditor extends Editor {
 		const lines = super.render(Math.max(3, renderWidth));
 		if (this.framed) {
 			const bottom = lines.lastIndexOf(this.bottomRail);
-			if (bottom < 1) return lines; // Unknown editor shape: do not discard input.
+			if (bottom < 1) {
+				const unknown = new CopyLines(...lines);
+				unknown.copySafe = false;
+				return unknown;
+			}
 			const capped = this.capContent(lines.slice(1, bottom));
 			const framed = frameRows({ width, rows: capped.rows, inset: 1, color: "accent",
 				theme: { style: (text: string) => this.borderColor(text) },
 				corners: { topLeft: capped.top, bottomLeft: capped.bottom } });
 			// Suggestions follow the bottom rail and remain outside the input box.
-			return [...framed, ...lines.slice(bottom + 1).map(line => `  ${line}  `)];
+			const out = new CopyLines(...framed, ...lines.slice(bottom + 1).map(line => `  ${line}  `));
+			out.mark(0, 1, "decoration");
+			out.mark(framed.length - 1, framed.length, "decoration");
+			out.mark(1, framed.length - 1, "content", { start: 2, end: width - 2 });
+			if (out.length > framed.length) out.mark(framed.length, out.length, "content", { start: 2, end: width - 2 });
+			return out;
 		}
-		if (renderWidth >= 3) return lines;
-		return lines.map((line) => {
+		if (renderWidth >= 3) return new CopyLines(...lines);
+		return new CopyLines(...lines.map((line) => {
 			const markerIndex = line.indexOf(CURSOR_MARKER);
 			if (markerIndex < 0) return truncateToWidth(line, renderWidth, "");
 			const after = line.slice(markerIndex + CURSOR_MARKER.length);
@@ -142,7 +162,7 @@ export class SafeEditor extends Editor {
 			const cursor = modern ?? legacyCursor.exec(after);
 			const cell = cursor && visibleWidth(cursor[1]) <= renderWidth ? cursor[1] : " ";
 			return modern ? `${CURSOR_MARKER}${FAKE_CURSOR_START}${cell}${FAKE_CURSOR_END}` : `${CURSOR_MARKER}\x1b[7m${cell}\x1b[0m`;
-		});
+		}));
 	}
 
 	/** A bounded inline editor keeps the cursor's row and reports every hidden row. */
@@ -255,6 +275,7 @@ function hintStyle(theme: HintTheme, tone: HintTone = "default"): (text: string)
 
 /** Pack complete action tokens instead of silently clipping footer controls. */
 export function addActionHints(lines: string[], width: number, theme: any, tokens: HintToken[]): void {
+	const copyStart = lines.length;
 	const budget = Math.max(1, width);
 	const separator = hintStyle(theme, "default")(" · ");
 	const separatorCells = visibleWidth(" · ");
@@ -279,6 +300,7 @@ export function addActionHints(lines: string[], width: number, theme: any, token
 		cells += tokenCells;
 	}
 	flush();
+	if (isCopyLines(lines)) lines.mark(copyStart, lines.length, "decoration");
 }
 
 /** Say what is about to be lost, in counts, instead of a generic "unsaved work". */
@@ -553,24 +575,27 @@ export class WrappedChoiceList {
 
 	/** The custom answer's editor is pinned chrome, not a row inside the choice window. */
 	private renderInlineEditor(editor: Editor, width: number, showCheckboxes: boolean, showRadio: boolean, selectedAnswers: ReadonlyMap<string, AskAnswer> | undefined): string[] {
-		const lines: string[] = [];
+		const lines = new CopyLines();
 		const other = this.items[this.items.length - 1];
 		const prefix = this.prefixFor(other, other === this.selectedItem, true, showCheckboxes, showRadio);
 		// Keep the whole input frame, including its closed top/bottom edges.
 		// At extreme widths, reduce the indent rather than hiding input.
 		const editorIndent = " ".repeat(Math.min(visibleWidth(prefix), Math.max(0, width - 4)));
 		const editorWidth = Math.max(1, width - visibleWidth(editorIndent));
-		for (const editorLine of editor.render(editorWidth)) {
+		appendCopyLines(lines, editor.render(editorWidth), editorLine => {
 			const safe = sanitizeEditorDisplay(editorLine);
 			// Sanitization removes the editor palette. Restore only trusted frame
 			// glyphs, keeping answer text and native cursor markers untouched.
 			const framed = editorWidth >= 7 && /^[╭╰].*[╮╯]$/.test(safe) ? this.theme.fg("accent", safe)
 				: editorWidth >= 7 && /^│.*│$/.test(safe) ? safe.replace(/^│|│$/g, (edge: string) => this.theme.fg("accent", edge))
 				: safe;
-			lines.push(truncateToWidth(`${editorIndent}${framed}`, width));
-		}
+			return truncateToWidth(`${editorIndent}${framed}`, width);
+		}, visibleWidth(editorIndent));
 		// The answer's own label sits directly above the pinned editor.
-		return [...this.renderItem(this.items.length - 1, width, selectedAnswers, showCheckboxes, showRadio, true), ...lines];
+		const out = new CopyLines();
+		appendCopyLines(out, this.renderItem(this.items.length - 1, width, selectedAnswers, showCheckboxes, showRadio, true));
+		appendCopyLines(out, lines);
+		return out;
 	}
 
 	/**
@@ -616,15 +641,27 @@ export class WrappedChoiceList {
 			const budget = Math.max(0, maxRenderedLines - tail.length);
 			const choices = this.items.slice(0, -1);
 			const full = choices.flatMap((_item, index) => this.renderItem(index, width, selectedAnswers, showCheckboxes, showRadio, false, "full"));
+			const out = new CopyLines();
 			// Roomy: the options keep their descriptions and rationale above the editor.
-			if (full.length <= budget) return [...full, ...tail];
+			if (full.length <= budget) {
+				appendCopyLines(out, full);
+				appendCopyLines(out, tail);
+				return out;
+			}
 			const optionLines = choices.flatMap((_item, index) => this.renderItem(index, width, selectedAnswers, showCheckboxes, showRadio, false, "label"));
 			const window = fitLineWindow(optionLines.length, budget, this.optionScroll);
 			this.optionScroll = window.start;
-			const rows = optionLines.slice(window.start, window.start + window.count);
-			if (window.above) rows.unshift(truncateToWidth(this.theme.fg("dim", `  ↑ ${window.start} more · Alt+↑`), width));
-			if (window.below) rows.push(truncateToWidth(this.theme.fg("dim", `  ↓ ${optionLines.length - window.start - window.count} more · Alt+↓`), width));
-			return [...rows, ...tail];
+			appendCopyLines(out, optionLines.slice(window.start, window.start + window.count));
+			if (window.above) {
+				out.push(truncateToWidth(this.theme.fg("dim", `  ↑ ${window.start} more · Alt+↑`), width));
+				out.mark(out.length - 1, out.length, "decoration");
+			}
+			if (window.below) {
+				out.push(truncateToWidth(this.theme.fg("dim", `  ↓ ${optionLines.length - window.start - window.count} more · Alt+↓`), width));
+				out.mark(out.length - 1, out.length, "decoration");
+			}
+			appendCopyLines(out, tail);
+			return out;
 		}
 
 		if (maxRenderedLines !== Number.POSITIVE_INFINITY) {
@@ -636,11 +673,15 @@ export class WrappedChoiceList {
 			const rows = compressed <= maxRenderedLines
 				? this.promoteToFull(full, label, maxRenderedLines)
 				: this.windowBlocks(full, label, width, maxRenderedLines);
-			while (rows.length < maxRenderedLines) rows.push("");
-			return rows;
+			const out = new CopyLines(...rows);
+			while (out.length < maxRenderedLines) {
+				out.push("");
+				out.mark(out.length - 1, out.length, "padding");
+			}
+			return out;
 		}
 
-		const lines: string[] = [];
+		const lines = new CopyLines();
 		const startIndex = Math.max(
 			0,
 			Math.min(
@@ -656,6 +697,7 @@ export class WrappedChoiceList {
 
 		if (startIndex > 0 || endIndex < this.items.length) {
 			addWrappedWithPrefix(lines, "  ", this.theme.fg("dim", `(${this.selectedIndex + 1}/${this.items.length})`), width);
+			lines.mark(lines.length - 1, lines.length, "decoration");
 		}
 
 		return lines;
@@ -681,7 +723,10 @@ export class WrappedChoiceList {
 
 	/** Keep the focused block whole; count every hidden item with a marker on its own side. */
 	private windowBlocks(full: string[][], label: string[][], width: number, budget: number): string[] {
-		const marker = (text: string) => truncateToWidth(this.theme.fg("dim", text), width);
+		const marker = (text: string, rows: CopyLines) => {
+			rows.push(truncateToWidth(this.theme.fg("dim", text), width));
+			rows.mark(rows.length - 1, rows.length, "decoration");
+		};
 		for (let markers = 0; markers <= 2; markers++) {
 			const visible = budget - markers;
 			if (visible <= 0) break;
@@ -697,12 +742,12 @@ export class WrappedChoiceList {
 			while (start > 0 && used + label[start - 1].length <= visible) { used += label[start - 1].length; start--; }
 			const above = start > 0, below = end < this.items.length;
 			if ((above ? 1 : 0) + (below ? 1 : 0) !== markers) continue;
-			const rows: string[] = [];
-			if (above) rows.push(marker(`  ↑ ${start} more`));
+			const rows = new CopyLines();
+			if (above) marker(`  ↑ ${start} more`, rows);
 			for (let index = start; index < fullStart; index++) rows.push(...label[index]);
 			for (let index = fullStart; index < fullEnd; index++) rows.push(...full[index]);
 			for (let index = fullEnd; index < end; index++) rows.push(...label[index]);
-			if (below) rows.push(marker(`  ↓ ${this.items.length - end} more`));
+			if (below) marker(`  ↓ ${this.items.length - end} more`, rows);
 			return rows;
 		}
 		// One block taller than the region: head the region with the focused block so the
@@ -712,9 +757,9 @@ export class WrappedChoiceList {
 			...this.items.flatMap((_item, index) => (index === this.selectedIndex ? [] : label[index])),
 		];
 		const window = fitLineWindow(ordered.length, budget, 0);
-		const rows = ordered.slice(window.start, window.start + window.count);
-		if (window.above) rows.unshift(marker(`  ↑ ${window.start} more lines`));
-		if (window.below) rows.push(marker(`  ↓ ${ordered.length - window.start - window.count} more lines`));
+		const rows = new CopyLines(...ordered.slice(window.start, window.start + window.count));
+		if (window.above) marker(`  ↑ ${window.start} more lines`, rows);
+		if (window.below) marker(`  ↓ ${ordered.length - window.start - window.count} more lines`, rows);
 		return rows;
 	}
 }
@@ -761,6 +806,8 @@ export function fitLineWindow(total: number, rows: number, requested: number): L
 
 export function constrainFrameHeight(lines: string[], terminalRows: number | undefined, tailLines = 2): void {
 	if (terminalRows === undefined || lines.length <= terminalRows) return;
+	const semantic = isCopyLines(lines) ? lines : undefined;
+	const oldLength = lines.length;
 	const keepTail = Math.min(Math.max(0, tailLines), terminalRows);
 	const cursorLine = lines.findIndex((line) => line.includes(CURSOR_MARKER));
 	const bodyEnd = lines.length - keepTail;
@@ -768,12 +815,19 @@ export function constrainFrameHeight(lines: string[], terminalRows: number | und
 	if (cursorLine >= 0 && cursorLine < bodyEnd) {
 		const bodyBudget = terminalRows - keepTail;
 		const start = Math.max(0, Math.min(cursorLine - bodyBudget + 1, bodyEnd - bodyBudget));
+		const kept = [...Array.from({ length: bodyBudget }, (_, index) => start + index),
+			...Array.from({ length: oldLength - bodyEnd }, (_, index) => bodyEnd + index)];
 		lines.splice(0, lines.length, ...lines.slice(start, start + bodyBudget), ...lines.slice(bodyEnd));
+		semantic?.remap(kept);
 		return;
 	}
 
 	const removeAt = Math.max(0, terminalRows - keepTail);
-	lines.splice(removeAt, lines.length - terminalRows);
+	const removeCount = lines.length - terminalRows;
+	const kept = [...Array.from({ length: removeAt }, (_, index) => index),
+		...Array.from({ length: oldLength - removeAt - removeCount }, (_, index) => removeAt + removeCount + index)];
+	lines.splice(removeAt, removeCount);
+	semantic?.remap(kept);
 }
 
 export function addWrapped(lines: string[], text: string, width: number, indent = ""): void {

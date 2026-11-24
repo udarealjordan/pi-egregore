@@ -3,9 +3,7 @@ import { askConfirm } from "../../lib/dialogs.ts";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isViewportTUI, type EditorComponent, type TUI } from "@earendil-works/pi-tui";
 import { DictationController, createLocalDictation } from "./dictation.ts";
-import { installPaintGuard } from "./paint-guard.ts";
-import { installCopyFlashFrame } from "./copy-flash.ts";
-import { installFrameAwareCopy } from "./copy-selection.ts";
+import { NativeHost } from "./native/host.ts";
 import { ActivityBlocks } from "./activity-blocks.ts";
 import { SentMessageFrames } from "./sent-messages.ts";
 import { calendarDay } from "./sent-metadata.ts";
@@ -33,9 +31,11 @@ type EditorFactory = Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0]
 const IDENTITY_WIDGET = "pi-egregore:dock";
 
 export default function egregore(pi: ExtensionAPI) {
+  const nativeHost = new NativeHost();
   const state: EgregoreState = {
     prefs: { ...DEFAULTS }, clock: new RunClock(), phase: "working", tools: new Map(),
     promptDepth: 0, blockingPromptDepth: 0, compacting: false, lastInputAt: 0, thinkingLevel: () => pi.getThinkingLevel(),
+    nativeCapabilities: () => nativeHost.report(),
   };
   let context: ExtensionContext | undefined;
   const sounds = new EgregoreSounds();
@@ -60,7 +60,6 @@ export default function egregore(pi: ExtensionAPI) {
   let editor: ComposerEditor | undefined;
   let dictation: DictationController | undefined;
   let dressedEditor: (EditorComponent & { focused?: boolean }) | undefined;
-  let undressEditor: (() => void) | undefined;
   const activeEditor = () => dressedEditor ?? editor;
   const previews = new Set<() => void>();
   state.editorRows = width => activeEditor()?.render(width).length ?? 4;
@@ -68,12 +67,14 @@ export default function egregore(pi: ExtensionAPI) {
     const focused = (ui as TUI & { getFocusedComponent?: () => unknown }).getFocusedComponent?.();
     const native = isEditorComponent(focused) ? focused : installed ? activeEditor() : undefined;
     if (!native) return { render: () => [], dispose() {} };
+    const previewHost = new NativeHost();
     const undress = native instanceof ComposerEditor || native === dressedEditor ? undefined
       : dressComposerEditor(native, current, state, Date.now, () => ui.terminal.rows);
+    if (undress) previewHost.own("editor-decoration", undress);
     let disposed = false;
     const dispose = () => {
       if (disposed) return;
-      disposed = true; undress?.(); previews.delete(dispose);
+      disposed = true; previewHost.dispose(); previews.delete(dispose);
     };
     previews.add(dispose);
     return { render: width => {
@@ -86,14 +87,14 @@ export default function egregore(pi: ExtensionAPI) {
   function syncEditor() {
     if (!installed || !context || state.promptDepth > 0) return;
     if (context.ui.getEditorComponent() === ourFactory) {
-      undressEditor?.(); undressEditor = undefined; dressedEditor = undefined;
+      nativeHost.release("editor-decoration"); dressedEditor = undefined;
       return;
     }
     const focused = (tui as (TUI & { getFocusedComponent?: () => unknown }) | undefined)?.getFocusedComponent?.();
     if (!isEditorComponent(focused) || focused === editor || focused === dressedEditor) return;
-    undressEditor?.();
+    nativeHost.release("editor-decoration");
     dressedEditor = focused;
-    undressEditor = dressComposerEditor(focused, current, state, Date.now, () => tui?.terminal.rows ?? 24);
+    nativeHost.own("editor-decoration", dressComposerEditor(focused, current, state, Date.now, () => tui?.terminal.rows ?? 24));
     refresh();
   }
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -117,12 +118,9 @@ export default function egregore(pi: ExtensionAPI) {
     () => state.layout?.toolLabels ?? "semantic",
     () => readTranscript(state.layout?.transcript, state.layout) ?? transcriptDefaults(),
     () => state.layout?.density ?? "spaced");
-  let paintCleanup: (() => void) | undefined;
-  let copyFlashCleanup: (() => void) | undefined;
-  let copySelectionCleanup: (() => void) | undefined;
   let lastMessageScan = 0;
   function syncSentFrames(now = Date.now(), beforePaint = false) {
-    if (!installed) { sentFrames.dispose(); activityBlocks.dispose(); return; }
+    if (!installed) return;
     if (!tui || !context || (!beforePaint && now - lastMessageScan < 250)) return;
     lastMessageScan = now;
     const blocksChanged = activityBlocks.sync(tui);
@@ -241,13 +239,15 @@ export default function egregore(pi: ExtensionAPI) {
     syncTheme(ctx);
     const scope = surfaces = new SurfaceScope();
     previousEditor = ctx.ui.getEditorComponent();
+    nativeHost.own("message-decoration", () => sentFrames.dispose());
+    nativeHost.own("tool-decoration", () => activityBlocks.dispose());
     ctx.ui.setHeader((ui) => {
-      paintCleanup?.(); tui = ui;
-      copyFlashCleanup?.();
-      copyFlashCleanup = installCopyFlashFrame(ui, () => current().ui.theme);
-      copySelectionCleanup?.();
-      copySelectionCleanup = installFrameAwareCopy(ui);
-      paintCleanup = installPaintGuard(ui, () => { syncEditor(); syncSentFrames(Date.now(), true); }, () => installed);
+      tui = ui;
+      nativeHost.mount(ui, {
+        beforePaint: () => { syncEditor(); syncSentFrames(Date.now(), true); },
+        enabled: () => installed,
+        theme: () => current().ui.theme,
+      });
       return scope.guard(createHeader(current, state));
     });
     state.editorFocused = () => activeEditor()?.focused ?? false;
@@ -279,18 +279,14 @@ export default function egregore(pi: ExtensionAPI) {
   function uninstall(ctx: ExtensionContext, shutdown = false) {
     // Inert first: detachment and theme restoration can themselves queue a paint.
     surfaces?.dispose(); surfaces = undefined;
-    copyFlashCleanup?.(); copyFlashCleanup = undefined;
-    copySelectionCleanup?.(); copySelectionCleanup = undefined;
     state.taskPanel?.reset();
     stopTimer();
     // A live capture must not outlive the surface that can stop it.
     dictation?.dispose(); dictation = undefined; state.dictation = undefined;
+    nativeHost.dispose();
+    lastMessageScan = 0; dressedEditor = undefined;
     if (!installed) { themeLease.restore(ctx); return; }
     installed = false;
-    paintCleanup?.(); paintCleanup = undefined;
-    activityBlocks.dispose();
-    sentFrames.dispose(); lastMessageScan = 0;
-    undressEditor?.(); undressEditor = undefined; dressedEditor = undefined;
     themeLease.restore(ctx);
     docks.clear();
     announce();
@@ -351,7 +347,7 @@ export default function egregore(pi: ExtensionAPI) {
     for (const dispose of [...previews]) dispose();
     dictation?.dispose(); dictation = undefined; state.dictation = undefined;
     if (context) uninstall(context, true);
-    else { surfaces?.dispose(); surfaces = undefined; stopTimer(); }
+    else { surfaces?.dispose(); surfaces = undefined; nativeHost.dispose(); stopTimer(); }
     // Context is invalidated only after owned mounts and native adapters are detached.
     context = undefined;
     state.chronomancerDay = undefined;

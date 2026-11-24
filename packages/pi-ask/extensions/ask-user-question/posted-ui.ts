@@ -8,6 +8,7 @@ import { savedAskAppearance } from './appearance.ts';
 import { sanitizeDisplayText } from './tui-primitives.ts';
 import { questionStatus } from 'pi-agent-contracts/posted';
 import type { PostedQuestion } from './posted-state.ts';
+import { CopyLines, appendCopyLines, forgetCopyProjection, projectCopyRows, rememberCopyProjection } from './copy.ts';
 
 /** Ask's posted overlays and the frame's own budget read one height cap. */
 const OVERLAY_MAX_HEIGHT = 0.85;
@@ -35,7 +36,15 @@ export async function postedInboxUI(ctx: ExtensionContext, questions: () => Post
     };
     bindClose(()=>done(undefined));
     const component={
-      render(width:number) {return [truncateToWidth(palette.fg('muted','Choose a question to answer or inspect'),width),...refresh().render(width),truncateToWidth(palette.fg('muted','↑↓ choose · Enter open · Esc close'),width)];},
+      render(width:number) {
+        const lines = new CopyLines();
+        lines.push(truncateToWidth(palette.fg('muted','Choose a question to answer or inspect'),width));
+        lines.mark(0, 1, 'decoration');
+        appendCopyLines(lines, refresh().render(width));
+        lines.push(truncateToWidth(palette.fg('muted','↑↓ choose · Enter open · Esc close'),width));
+        lines.mark(lines.length - 1, lines.length, 'decoration');
+        return lines;
+      },
       handleInput(data:string) {refresh().handleInput(data);tui.requestRender();},
       handleMouse(event:any) {const result=refresh().handleMouse({...event,y:event.y-1});if(result)tui.requestRender();return result;},
       invalidate() {signature="";},getHeaderLabel(){return 'Question inbox';},getMoreActions(){return [{label:'Close inbox',run:()=>done(undefined)}];},
@@ -97,16 +106,20 @@ export async function postedOutcomeUI(ctx: ExtensionContext, q: PostedQuestion, 
       handleInput(data: string) { if (matchesKey(data, 'escape') || matchesKey(data, 'return') || matchesKey(data, 'ctrl+c')) return done();
         if (matchesKey(data, 'up') || matchesKey(data, 'down')) scroll = Math.max(0, scroll + (matchesKey(data, 'up') ? -1 : 1)); tui.requestRender(); },
       render(width: number) {
-        const lines = body.flatMap(s => s.split('\n').flatMap(line => wrapTextWithAnsi(palette.fg('text', sanitizeDisplayText(line)), Math.max(1, width))));
+        const lines = new CopyLines(...body.flatMap(s => s.split('\n').flatMap(line => wrapTextWithAnsi(palette.fg('text', sanitizeDisplayText(line)), Math.max(1, width)))));
         const room = Math.max(1, questionHeight(tui, overlayRows(tui)) - 4); scroll = Math.min(scroll, Math.max(0, lines.length - room));
-        return [...lines.slice(scroll, scroll + room), palette.fg('muted', '↑↓ scroll · Esc back')].map(line => truncateToWidth(line, Math.max(0, width), ''));
+        const visible = new CopyLines(...lines.slice(scroll, scroll + room).map(line => truncateToWidth(line, Math.max(0, width), '')));
+        visible.push(truncateToWidth(palette.fg('muted', '↑↓ scroll · Esc back'), Math.max(0, width), ''));
+        visible.mark(visible.length - 1, visible.length, 'decoration');
+        return visible;
       }, getHeaderLabel() { return questionStatus(q); }, invalidate() {},
     };
     return frameQuestion(component, palette, tui, { raised: true, maxRows: overlayRows(tui) });
   }, { overlay: true, overlayOptions: { width: '75%', maxHeight: overlayMaxHeight, anchor: 'center' } }).finally(() => bindClose(undefined));
 }
 export function questionEventCard(details: any, theme: any, expanded = false) {
-  return { invalidate() {}, render(width: number) {
+  let revision = 0;
+  const card = { invalidate() {}, render(width: number) {
     const q = details?.question as PostedQuestion | undefined;
     const rows = [details?.label ?? 'Question event', q?.definition.question ?? '', q ? questionStatus(q) : '',
       ...(q?.neededNow ? [q.neededNow] : []),
@@ -115,10 +128,16 @@ export function questionEventCard(details: any, theme: any, expanded = false) {
       ...(q?.response?.clarification ? ['Your clarification', q.response.clarification] : []),
       ...(q?.consequence ? [q.consequence] : []), ...(expanded && q ? [`Why: ${q.why}`, q.boundary, `Reference ${q.id} · revision ${q.revision}`, ...(q.taskIds.length ? [`Linked work: ${q.planId} / ${q.taskIds.join(', ')}`] : []),
         ...(q.definition.options.length ? ['Original choices', ...q.definition.options.flatMap(o => [o.label, o.description ?? '', ...(o.suggestion ? [`Assistant suggestion: ${o.suggestion.basis}`, o.suggestion.caveat ?? ''] : [])])] : [])] : [])];
-    if (width <= 0) return [];
+    if (width <= 0) { forgetCopyProjection(card); return []; }
     const framed = width >= 10;
     const content = new Text(rows.filter(Boolean).flatMap((r, i) => String(r).split('\n').map(line => theme.fg(i === 0 ? details?.error ? 'error' : 'accent' : 'text', sanitizeDisplayText(line)))).join('\n'), 0, 0)
       .render(Math.max(1, width - (framed ? 4 : 0))).map(line => truncateToWidth(line, Math.max(1, width - (framed ? 4 : 0)), ''));
-    return framed ? frameRows({ theme, width, rows: content, inset: 1, color: questionAccent(theme) }) : content;
+    if (!framed) { forgetCopyProjection(card); return content; }
+    const rendered = frameRows({ theme, width, rows: content, inset: 1, color: questionAccent(theme) });
+    const regions = [];
+    // The renderer label is chrome; the question, status, answers and notes are content.
+    for (let row = details?.label ? 2 : 1; row < rendered.length - 1; row++) regions.push({ row, start: 2, end: width - 2 });
+    return rememberCopyProjection(card, width, rendered, projectCopyRows("pi-ask:event-card", width, rendered, ++revision, regions));
   } };
+  return card;
 }

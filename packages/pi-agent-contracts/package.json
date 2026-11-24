@@ -2,7 +2,7 @@
   "name": "pi-agent-contracts",
   "version": "0.1.0",
   "private": true,
-  "description": "Data-only cross-component contracts for Pi agent extensions: dock and posted-question protocols",
+  "description": "Data-only cross-component contracts for Pi agent extensions: dock, posted-question and semantic copy protocols",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -25,6 +25,10 @@
     "./posted": {
       "types": "./src/posted.ts",
       "default": "./src/posted.ts"
+    },
+    "./copy": {
+      "types": "./src/copy.ts",
+      "default": "./src/copy.ts"
     }
   },
   "files": ["src", "README.md"],

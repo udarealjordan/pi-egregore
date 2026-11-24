@@ -15,6 +15,7 @@
   "workspaces": ["packages/pi-frame", "packages/pi-ask", "packages/pi-agent-contracts"],
   "files": [
     "extensions/pi-egregore/*.ts",
+    "extensions/pi-egregore/native/*.ts",
     "extensions/pi-egregore/assets/sounds/*",
     "extensions/pi-tasks/*.ts",
     "lib/*.ts",
@@ -38,6 +39,8 @@
     "docs/INSTALL.md",
     "docs/TRY-PREVIEW.md",
     "docs/decisions/0001-one-repo-separate-owners.md",
+    "docs/decisions/0002-calm-core-redesign.md",
+    "docs/redesign/*.md",
     "extensions/pi-tasks/README.md",
     "README.md",
     "CONTRIBUTING.md",
@@ -81,9 +84,10 @@
     "typescript": "7.0.2"
   },
   "scripts": {
-    "test": "npm run typecheck && npm run test:frame && npm run test:ask && npm run test:egregore && npm run test:tasks && npm run test:examples && npm run test:shapes && npm run test:harness && npm run test:suite",
+    "test": "npm run typecheck && npm run test:frame && npm run test:contracts && npm run test:ask && npm run test:egregore && npm run test:tasks && npm run test:examples && npm run test:shapes && npm run test:harness && npm run test:suite",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspace=pi-ask",
     "test:frame": "node --test packages/pi-frame/test/*.test.mjs",
+    "test:contracts": "node --test packages/pi-agent-contracts/test/*.test.mjs",
     "test:ask": "node --test packages/pi-ask/test/host.test.mjs",
     "test:egregore": "node --test extensions/pi-egregore/tests/*.test.mjs",
     "test:tasks": "node --test extensions/pi-tasks/tests/*.test.mjs",

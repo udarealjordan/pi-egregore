@@ -5,6 +5,15 @@ import { frameQuestion, questionViewport, questionTheme } from "./question-surfa
 import { savedAskAppearance } from "./appearance.ts";
 import { answerSelectionKey, getOtherLabel, sortAnswers } from "./domain.ts";
 import { handleFileCompletion, addActionHints, countSummary, renderDismissBanner, addWrapped, constrainFrameHeight, createNoteEditor, createQuestionEditor, isAskAgentKey, isSubmitEnter, normalizeFocusCycleKey, renderOptionalNote, sanitizeDisplayText, sanitizeEditorDisplay, WrappedChoiceList, type HintToken, type WrappedChoiceItem } from "./tui-primitives.ts";
+import { CopyLines, appendCopyLines } from "./copy.ts";
+
+function semanticForm(width: number) {
+	const lines = new CopyLines();
+	const add = (text: string) => lines.push(truncateToWidth(text, width));
+	const rule = (text: string) => { add(text); lines.mark(lines.length - 1, lines.length, "decoration"); };
+	const blank = () => { lines.push(""); lines.mark(lines.length - 1, lines.length, "padding"); };
+	return { lines, add, rule, blank };
+}
 
 export function customWithAbort<T>(ctx: ExtensionContext, signal: AbortSignal | undefined, factory: (tui: any, theme: any, keybindings: KeybindingsManager, done: (value: T) => void) => any): Promise<T> {
 	let removeAbort = () => {};
@@ -37,11 +46,12 @@ function createClarificationEditor(tui: any, theme: any, done: (result: Clarific
 		setFocused(focused: boolean) { editor.focused = focused && active; },
 		open() { active = true; feedback = ""; setUnderlyingFocus(false); editor.focused = true; tui.requestRender(); },
 		render(width: number) {
-			const lines: string[] = [];
+			const lines = new CopyLines();
 			addWrapped(lines, theme.fg("text", "What are you wondering about?"), width, " ");
-			for (const line of editor.render(Math.max(1, width - 2))) lines.push(truncateToWidth(` ${sanitizeEditorDisplay(line)}`, width));
+			appendCopyLines(lines, editor.render(Math.max(1, width - 2)), line => truncateToWidth(` ${sanitizeEditorDisplay(line)}`, width), 1);
 			if (feedback) lines.push(truncateToWidth(theme.fg("warning", ` ${feedback}`), width));
 			lines.push(truncateToWidth(theme.fg("dim", " Enter ask • Esc back"), width));
+			lines.mark(lines.length - 1, lines.length, "decoration");
 			return lines;
 		},
 		handle(data: string) {
@@ -140,24 +150,26 @@ export function askText(
 		return {
 			render(width: number): string[] {
 				// Completion results arrive asynchronously; render the live editor state.
-				const lines: string[] = [];
+				const lines = new CopyLines();
 				const add = (text: string) => lines.push(truncateToWidth(text, width));
-				add(theme.fg("accent", "─".repeat(width)));
+				const rule = (text: string) => { add(text); lines.mark(lines.length - 1, lines.length, "decoration"); };
+				const blank = () => { lines.push(""); lines.mark(lines.length - 1, lines.length, "padding"); };
+				rule(theme.fg("accent", "─".repeat(width)));
 				addWrapped(lines, theme.fg("text", theme.askAppearance?.questionText === "normal" ? sanitizeDisplayText(question) : theme.bold(sanitizeDisplayText(question))), width, " ");
 				if (context) {
-					lines.push("");
+					blank();
 					addWrapped(lines, theme.fg("muted", sanitizeDisplayText(context)), width, " ");
 				}
-				lines.push("");
+				blank();
 				const editorPadding = width > 2 ? 1 : 0;
 				const editorIndent = " ".repeat(editorPadding);
-				for (const line of answerEditor.render(Math.max(1, width - editorPadding * 2))) add(`${editorIndent}${sanitizeEditorDisplay(line)}`);
+				appendCopyLines(lines, answerEditor.render(Math.max(1, width - editorPadding * 2)), line => `${editorIndent}${sanitizeEditorDisplay(line)}`, editorPadding);
 				if (feedback) add(theme.fg("warning", ` ${feedback}`));
-				lines.push("");
+				blank();
 				renderOptionalNote(lines, width, theme, noteEditor, noteFocused, 2, noteActionFocused);
-				lines.push("");
+				blank();
 				if (clarification.active) {
-					lines.push(...clarification.render(width));
+					appendCopyLines(lines, clarification.render(width));
 				} else if (dismissConfirm) {
 					renderDismissBanner(lines, width, theme, countSummary([
 						{ count: answerEditor.getExpandedText().trim() ? 1 : 0, one: "answer", many: "answers" },
@@ -174,7 +186,7 @@ export function askText(
 								{ label: "Esc Close", tone: "error" }, "F2 More"];
 					addActionHints(lines, width, theme, tokens);
 				}
-				add(theme.fg("accent", "─".repeat(width)));
+				rule(theme.fg("accent", "─".repeat(width)));
 				constrainFrameHeight(lines, tui.terminal?.rows, 3);
 				cachedWidth = width;
 				cachedRows = tui.terminal?.rows;
@@ -376,17 +388,18 @@ export function askSingleChoice(
 		return {
 			render(width: number): string[] {
 				// Completion results arrive asynchronously; render the live editor state.
-				const lines: string[] = [];
-				const add = (text: string) => lines.push(truncateToWidth(text, width));
-				add(theme.fg("accent", "─".repeat(width)));
+				const { lines, add, rule, blank } = semanticForm(width);
+				rule(theme.fg("accent", "─".repeat(width)));
 				addWrapped(lines, theme.fg("text", theme.askAppearance?.questionText === "normal" ? sanitizeDisplayText(question) : theme.bold(sanitizeDisplayText(question))), width, " ");
-				if (context) { lines.push(""); addWrapped(lines, theme.fg("muted", sanitizeDisplayText(context)), width, " "); }
-				lines.push("");
-				const tail: string[] = feedback ? [theme.fg("warning", ` ${feedback}`), ""] : [""];
+				if (context) { blank(); addWrapped(lines, theme.fg("muted", sanitizeDisplayText(context)), width, " "); }
+				blank();
+				const tail = new CopyLines();
+				if (feedback) tail.push(theme.fg("warning", ` ${feedback}`));
+				tail.push(""); tail.mark(tail.length - 1, tail.length, "padding");
 				renderOptionalNote(tail, width, theme, noteEditor, noteFocused, 9, noteActionFocused);
-				tail.push("");
+				tail.push(""); tail.mark(tail.length - 1, tail.length, "padding");
 				if (clarification.active) {
-					tail.push(...clarification.render(width));
+					appendCopyLines(tail, clarification.render(width));
 				} else if (dismissConfirm) {
 					renderDismissBanner(tail, width, theme, dismissSummary());
 				} else {
@@ -401,8 +414,9 @@ export function askSingleChoice(
 					addActionHints(tail, width, theme, tokens);
 				}
 				tail.push(truncateToWidth(theme.fg("accent", "─".repeat(width)), width));
+				tail.mark(tail.length - 1, tail.length, "decoration");
 				const availableLines = Math.max(0, (tui.terminal?.rows ?? Number.POSITIVE_INFINITY) - lines.length - tail.length);
-				lines.push(...choiceList.render(width, {
+				appendCopyLines(lines, choiceList.render(width, {
 					selectedAnswers: stagedAnswer && answerSelectionKey(stagedAnswer)
 						? new Map([[answerSelectionKey(stagedAnswer)!, stagedAnswer]])
 						: new Map(),
@@ -410,7 +424,7 @@ export function askSingleChoice(
 					inlineOtherEditor: editMode ? editor : undefined,
 					availableLines,
 				}));
-				lines.push(...tail);
+				appendCopyLines(lines, tail);
 				constrainFrameHeight(lines, tui.terminal?.rows, 3);
 				cachedWidth = width;
 				cachedRows = tui.terminal?.rows;
@@ -659,19 +673,20 @@ export function askMultiChoice(
 		return {
 			render(width: number): string[] {
 				// Completion results arrive asynchronously; render the live editor state.
-				const lines: string[] = [];
-				const add = (text: string) => lines.push(truncateToWidth(text, width));
-				add(theme.fg("accent", "─".repeat(width)));
+				const { lines, add, rule, blank } = semanticForm(width);
+				rule(theme.fg("accent", "─".repeat(width)));
 				addWrapped(lines, theme.fg("text", theme.askAppearance?.questionText === "normal" ? sanitizeDisplayText(question) : theme.bold(sanitizeDisplayText(question))), width, " ");
-				if (context) { lines.push(""); addWrapped(lines, theme.fg("muted", sanitizeDisplayText(context)), width, " "); }
-				lines.push("");
+				if (context) { blank(); addWrapped(lines, theme.fg("muted", sanitizeDisplayText(context)), width, " "); }
+				blank();
 				add(selected.size > 0 ? theme.fg("success", ` ✓ ${selected.size} selected`) : theme.fg("dim", " ○ Select options below"));
-				lines.push("");
-				const tail: string[] = feedback ? [theme.fg("warning", ` ${feedback}`), ""] : [""];
+				blank();
+				const tail = new CopyLines();
+				if (feedback) tail.push(theme.fg("warning", ` ${feedback}`));
+				tail.push(""); tail.mark(tail.length - 1, tail.length, "padding");
 				renderOptionalNote(tail, width, theme, noteEditor, noteFocused, 9, noteActionFocused);
-				tail.push("");
+				tail.push(""); tail.mark(tail.length - 1, tail.length, "padding");
 				if (clarification.active) {
-					tail.push(...clarification.render(width));
+					appendCopyLines(tail, clarification.render(width));
 				} else if (dismissConfirm) {
 					renderDismissBanner(tail, width, theme, dismissSummary());
 				} else {
@@ -686,13 +701,14 @@ export function askMultiChoice(
 					addActionHints(tail, width, theme, tokens);
 				}
 				tail.push(truncateToWidth(theme.fg("accent", "─".repeat(width)), width));
+				tail.mark(tail.length - 1, tail.length, "decoration");
 				const availableLines = Math.max(0, (tui.terminal?.rows ?? Number.POSITIVE_INFINITY) - lines.length - tail.length);
-				lines.push(...choiceList.render(width, {
+				appendCopyLines(lines, choiceList.render(width, {
 					selectedAnswers: selected,
 					inlineOtherEditor: editMode ? otherEditor : undefined,
 					availableLines,
 				}));
-				lines.push(...tail);
+				appendCopyLines(lines, tail);
 				constrainFrameHeight(lines, tui.terminal?.rows, 3);
 				cachedWidth = width;
 				cachedRows = tui.terminal?.rows;

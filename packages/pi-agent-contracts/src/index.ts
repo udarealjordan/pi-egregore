@@ -3,3 +3,4 @@
 // extensions so a reader sees which protocol a file depends on.
 export * from "./dock.ts";
 export * from "./posted.ts";
+export * from "./copy.ts";

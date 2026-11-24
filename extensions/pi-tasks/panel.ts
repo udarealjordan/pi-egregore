@@ -9,6 +9,7 @@ const G = frameGlyphs(framePlacement('panel').weight);
 import { WORK_STATUS, planWord, workWord, waitingText, questionAttention } from './typography.ts';
 import { planInfo, selectedPlan, type PlanBook, type SavedPlan } from './book.ts';
 import { unresolved, type QuestionProjection } from 'pi-agent-contracts/posted';
+import { forgetCopyProjection, projectCopyRows, rememberCopyProjection } from '../../lib/copy.ts';
 
 export type PanelResult = { op: 'new'; revision: string } | { op: 'add' | 'clear' | 'rename' | 'archive' | 'restore' | 'select' | 'edit'; planId: string; revision: string; id?: string } | 'off' | undefined;
 export interface PanelNavigation {
@@ -45,6 +46,7 @@ export class TaskPanel implements Component {
   private listTop = 0;
   private libraryTop = 0;
   private mouseRows = new Map<number, number>();
+  private copyRevision = 0;
   constructor(private tui: TUI, private theme: Theme, private book: () => PlanBook,
     private colors: () => DockColors | undefined, private done: (value: PanelResult) => void,
     private nav: PanelNavigation = {}, private running: () => boolean = () => false,
@@ -210,7 +212,7 @@ export class TaskPanel implements Component {
     return rows;
   }
   render(width: number): string[] {
-    if (width <= 0) return [];
+    if (width <= 0) { forgetCopyProjection(this); return []; }
     const b = this.book(), p = this.viewed(), colors = this.colors(); this.renderedRevision = b.revision; this.mouseRows.clear();
     if (p) this.nav.viewId = p.id;
     const height = Math.max(4, Math.min(this.details ? 28 : 24, Math.floor(this.tui.terminal.rows * .85)));
@@ -236,7 +238,11 @@ export class TaskPanel implements Component {
     };
     const finish = (rows: string[], foot: string[]) => {
       const room = Math.max(0, height - 2 - foot.length), body = rows.slice(0, room);
-      return [border(true), ...body, ...foot, border(false)].slice(0, height);
+      const rendered = [border(true), ...body, ...foot, border(false)].slice(0, height);
+      if (width < 6) { forgetCopyProjection(this); return rendered; }
+      const regions = body.map((_, index) => ({ row: index + 1, start: 3, end: width - 1 }));
+      return rememberCopyProjection(this, width, rendered,
+        projectCopyRows("pi-tasks:panel", width, rendered, ++this.copyRevision, regions));
     };
     if (this.nav.help) {
       const rows = this.helpRows(width), room = Math.max(1, height - 3);

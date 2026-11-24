@@ -3,6 +3,7 @@ import type { AskAnswer, OtherAnswer, OptionAnswer, QuestionDef, TabAnswer, TabS
 import { getOtherLabel } from "./domain.ts";
 import type { MoreAction } from "./question-surface.ts";
 import { addActionHints, countSummary, renderDismissBanner, handleFileCompletion, addWrapped, addWrappedWithPrefix, constrainFrameHeight, createNoteEditor, createQuestionEditor, fitLineWindow, isAskAgentKey, isSubmitEnter, normalizeFocusCycleKey, renderOptionalNote, sanitizeDisplayText, sanitizeEditorDisplay, WrappedChoiceList, type HintToken, type WrappedChoiceItem } from "./tui-primitives.ts";
+import { CopyLines, appendCopyLines, isCopyLines } from "./copy.ts";
 
 export type BatchUIResult = TabAnswer[] | { action: "regenerate"; answers: TabAnswer[] } | { action: "clarification"; clarification: string; answers: TabAnswer[]; activeQuestionIndex: number } | null;
 
@@ -1008,7 +1009,7 @@ export class TabbedQuestions {
 	}
 
 	private renderActionBar(width: number): string[] {
-		const lines: string[] = [];
+		const lines = new CopyLines();
 		// The confirmation replaces the hint row: one banner, one obvious pair of answers.
 		if (this.dismissConfirm) {
 			renderDismissBanner(lines, width, this.theme, this.dismissSummary(), this.preserveDraftOnDismiss);
@@ -1053,26 +1054,28 @@ export class TabbedQuestions {
 	render(width: number): string[] {
 		// Completion results arrive asynchronously; render the live editor state.
 
-		const lines: string[] = [];
+		const lines = new CopyLines();
 		const th = this.theme;
 		const compactHeight = (this.tui.terminal?.rows ?? 40) < 20;
 		const add = (text: string) => lines.push(truncateToWidth(text, width));
+		const rule = (text: string) => { add(text); lines.mark(lines.length - 1, lines.length, "decoration"); };
+		const blank = () => { lines.push(""); lines.mark(lines.length - 1, lines.length, "padding"); };
 
-		add(th.fg("borderMuted", "─".repeat(width)));
+		rule(th.fg("borderMuted", "─".repeat(width)));
 
 		// The frame shows the current position; Review carries the full overview.
 		if (width < 10) add(th.fg("muted", `${this.reviewing ? "Review" : `${this.activeTab + 1} of ${this.tabs.length}`}`));
 
 		if (this.reviewing) {
-			if (!compactHeight) lines.push("");
+			if (!compactHeight) blank();
 			const answeredCount = this.tabs.filter((candidate) => this.isAnswered(candidate)).length;
 			const skippedCount = this.tabs.filter((tab) => tab.skipped).length;
 			const pendingCount = this.tabs.length - answeredCount - skippedCount;
 			const reviewTitle = `Review ${answeredCount} ${answeredCount === 1 ? "answer" : "answers"} · ${skippedCount} skipped${pendingCount ? ` · ${pendingCount} unanswered` : ""}`;
 			add(th.fg("text", th.bold(reviewTitle)));
 			if (this.feedback) add(th.fg("warning", ` ${this.feedback}`));
-			lines.push("");
-			const summaryLines: string[] = [];
+			blank();
+			const summaryLines = new CopyLines();
 			this.questions.forEach((question, index) => {
 				const tab = this.tabs[index];
 				const answers = Array.isArray(tab.answer) ? tab.answer : tab.answer ? [tab.answer] : [];
@@ -1090,17 +1093,18 @@ export class TabbedQuestions {
 				addWrappedWithPrefix(summaryLines, "   ", th.fg("accent", sanitizeDisplayText(summary)), width, "   ");
 				if (tab.note.trim()) addWrappedWithPrefix(summaryLines, "   ", th.fg("dim", `Note${tab.skipped ? " (not sent)" : !this.isAnswered(tab) ? " (not sent if skipped)" : ""}: ${sanitizeDisplayText(tab.note.trim())}`), width, "   ");
 				summaryLines.push("");
+				summaryLines.mark(summaryLines.length - 1, summaryLines.length, "padding");
 			});
 			const actionLines = this.renderActionBar(width);
 			const budget = Math.max(0, (this.tui.terminal?.rows ?? 40) - lines.length - actionLines.length - 2);
 			const window = fitLineWindow(summaryLines.length, budget, this.reviewScroll);
 			this.reviewScroll = window.start;
-			if (window.above) add(th.fg("dim", ` ↑ ${window.start} more`));
-			lines.push(...summaryLines.slice(window.start, window.start + window.count));
-			if (window.below) add(th.fg("dim", ` ↓ ${summaryLines.length - window.start - window.count} more`));
-			add(th.fg("borderMuted", "─".repeat(width)));
-			lines.push(...actionLines);
-			add(th.fg("accent", "─".repeat(width)));
+			if (window.above) { add(th.fg("dim", ` ↑ ${window.start} more`)); lines.mark(lines.length - 1, lines.length, "decoration"); }
+			appendCopyLines(lines, summaryLines.slice(window.start, window.start + window.count));
+			if (window.below) { add(th.fg("dim", ` ↓ ${summaryLines.length - window.start - window.count} more`)); lines.mark(lines.length - 1, lines.length, "decoration"); }
+			rule(th.fg("borderMuted", "─".repeat(width)));
+			appendCopyLines(lines, actionLines);
+			rule(th.fg("accent", "─".repeat(width)));
 			constrainFrameHeight(lines, this.tui.terminal?.rows, actionLines.length + 2);
 			this.cachedWidth = width;
 			this.cachedRows = this.tui.terminal?.rows;
@@ -1112,15 +1116,15 @@ export class TabbedQuestions {
 		const q = this.questions[this.activeTab];
 
 		if (this.clarificationMode) {
-			if (!compactHeight) lines.push("");
+			if (!compactHeight) blank();
 			addWrapped(lines, th.fg("text", th.bold("What are you wondering about?")), width);
-			lines.push("");
-			for (const line of this.clarificationEditor.render(Math.max(1, width - 2))) add(` ${sanitizeEditorDisplay(line)}`);
+			blank();
+			appendCopyLines(lines, this.clarificationEditor.render(Math.max(1, width - 2)), line => ` ${sanitizeEditorDisplay(line)}`, 1);
 			if (this.feedback) add(th.fg("warning", ` ${this.feedback}`));
 			const actionLines = this.renderActionBar(width);
-			add(th.fg("borderMuted", "─".repeat(width)));
-			lines.push(...actionLines);
-			add(th.fg("accent", "─".repeat(width)));
+			rule(th.fg("borderMuted", "─".repeat(width)));
+			appendCopyLines(lines, actionLines);
+			rule(th.fg("accent", "─".repeat(width)));
 			constrainFrameHeight(lines, this.tui.terminal?.rows, actionLines.length + 2);
 			this.cachedWidth = width; this.cachedRows = this.tui.terminal?.rows; this.cachedLines = lines;
 			return lines;
@@ -1132,13 +1136,13 @@ export class TabbedQuestions {
 		addWrapped(promptLines, th.fg("text", th.askAppearance?.questionText === "normal" ? sanitizeDisplayText(q.question) : th.bold(sanitizeDisplayText(q.question))), width);
 		if (q.details) addWrapped(promptLines, th.fg("muted", ` ${sanitizeDisplayText(q.details)}`), width);
 
-		const statusLines: string[] = [];
-		if (tab.skipped) addWrapped(statusLines, th.fg("warning", "Skipped · answer and note not sent. Ctrl+S restores."), width);
-		else if (tab.mode === "text" && tab.textBuffer.trim() && !tab.committed) addWrapped(statusLines, th.fg("muted", "Draft · press Enter to use this answer."), width);
+		const statusLines = new CopyLines();
+		if (tab.skipped) { addWrapped(statusLines, th.fg("warning", "Skipped · answer and note not sent. Ctrl+S restores."), width); statusLines.mark(statusLines.length - 1, statusLines.length, "decoration"); }
+		else if (tab.mode === "text" && tab.textBuffer.trim() && !tab.committed) { addWrapped(statusLines, th.fg("muted", "Draft · press Enter to use this answer."), width); statusLines.mark(statusLines.length - 1, statusLines.length, "decoration"); }
 		if (this.feedback) statusLines.push(truncateToWidth(th.fg("warning", ` ${this.feedback}`), width));
 
 		// A native one-line note action, not a second bordered editor panel.
-		const noteLines: string[] = [];
+		const noteLines = new CopyLines();
 		renderOptionalNote(noteLines, width, th, this.noteEditor, this.noteFocused, tab.mode === "multi-select" ? 9 : tab.mode === "single-select" ? 10 : 2, this.noteActionFocused);
 		const actionLines = this.renderActionBar(width);
 
@@ -1184,18 +1188,18 @@ export class TabbedQuestions {
 
 		// Blank A belongs to the spaced layout only: tight chrome keeps just the
 		// separator between the question and its choices, and the budget knows it.
-		if (spaced && !compactHeight) lines.push("");
+		if (spaced && !compactHeight) blank();
 
 		const promptWindow = fitLineWindow(promptLines.length, promptRows, this.promptScroll);
 		this.promptScroll = promptWindow.start;
 		// No row to scroll into means no scroll: the keys stay inert rather than move
 		// an offset nothing can show.
 		this.promptMaxScroll = promptWindow.count === 0 ? 0 : Math.max(0, promptLines.length - promptWindow.count);
-		if (promptWindow.above) add(th.fg("dim", `↑ ${promptWindow.start} more lines · Alt+↑`));
-		lines.push(...promptLines.slice(promptWindow.start, promptWindow.start + promptWindow.count));
-		if (promptWindow.below) add(th.fg("dim", `↓ ${promptLines.length - promptWindow.start - promptWindow.count} more lines · Alt+↓`));
+		if (promptWindow.above) { add(th.fg("dim", `↑ ${promptWindow.start} more lines · Alt+↑`)); lines.mark(lines.length - 1, lines.length, "decoration"); }
+		appendCopyLines(lines, promptLines.slice(promptWindow.start, promptWindow.start + promptWindow.count));
+		if (promptWindow.below) { add(th.fg("dim", `↓ ${promptLines.length - promptWindow.start - promptWindow.count} more lines · Alt+↓`)); lines.mark(lines.length - 1, lines.length, "decoration"); }
 
-		if (!compactHeight) lines.push("");
+		if (!compactHeight) blank();
 
 		if (tab.mode === "text") {
 			this.renderTextTab(width, lines, add, th);
@@ -1205,15 +1209,15 @@ export class TabbedQuestions {
 			this.renderMultiSelectTab(width, lines, add, th, q, optionRows);
 		}
 
-		lines.push(...statusLines);
-		if (spaced && !compactHeight) lines.push("");
+		appendCopyLines(lines, statusLines);
+		if (spaced && !compactHeight) blank();
 
-		lines.push(...noteLines);
-		if (spaced && !compactHeight) lines.push("");
+		appendCopyLines(lines, noteLines);
+		if (spaced && !compactHeight) blank();
 
-		add(th.fg("borderMuted", "─".repeat(width)));
-		lines.push(...actionLines);
-		add(th.fg("accent", "─".repeat(width)));
+		rule(th.fg("borderMuted", "─".repeat(width)));
+		appendCopyLines(lines, actionLines);
+		rule(th.fg("accent", "─".repeat(width)));
 		constrainFrameHeight(lines, this.tui.terminal?.rows, actionLines.length + 2);
 
 		this.cachedWidth = width;
@@ -1224,11 +1228,10 @@ export class TabbedQuestions {
 
 	private renderTextTab(width: number, lines: string[], add: (text: string) => void, th: any): void {
 		add(th.fg("accent", "─".repeat(width)));
+		if (isCopyLines(lines)) lines.mark(lines.length - 1, lines.length, "decoration");
 		const editorPadding = width > 2 ? 1 : 0;
 		const editorIndent = " ".repeat(editorPadding);
-		for (const line of this.editor.render(Math.max(1, width - editorPadding * 2))) {
-			add(`${editorIndent}${sanitizeEditorDisplay(line)}`);
-		}
+		appendCopyLines(lines, this.editor.render(Math.max(1, width - editorPadding * 2)), line => `${editorIndent}${sanitizeEditorDisplay(line)}`, editorPadding);
 	}
 
 	private getOrCreateChoiceList(question: QuestionDef): WrappedChoiceList {
@@ -1252,16 +1255,12 @@ export class TabbedQuestions {
 
 	private renderSingleSelectTab(width: number, lines: string[], add: (text: string) => void, _th: any, tab: TabState, q: QuestionDef, availableLines: number): void {
 		const choiceList = this.getOrCreateChoiceList(q);
-		for (const line of choiceList.render(Math.max(1, width - 1), {
+		appendCopyLines(lines, choiceList.render(Math.max(1, width - 1), {
 			selectedAnswers: tab.selected,
 			inlineOtherEditor: this.editMode ? this.otherEditor : undefined,
 			showRadio: true,
 			availableLines,
-		})) {
-			// WrappedChoiceList sanitizes model text and the inline editor at
-			// their source. Keep its trusted theme styles (and cursor) intact.
-			add(` ${line}`);
-		}
+		}), line => ` ${line}`, 1);
 	}
 
 	private renderMultiSelectTab(width: number, lines: string[], add: (text: string) => void, th: any, q: QuestionDef, availableLines: number): void {
@@ -1274,7 +1273,8 @@ export class TabbedQuestions {
 			add(th.fg("dim", " ○ Select options below"));
 		}
 		lines.push("");
-		lines.push(...choiceList.render(width, {
+		if (isCopyLines(lines)) lines.mark(lines.length - 1, lines.length, "padding");
+		appendCopyLines(lines, choiceList.render(width, {
 			selectedAnswers: this.selected,
 			inlineOtherEditor: this.editMode ? this.otherEditor : undefined,
 			availableLines: choiceBudget,

@@ -1,7 +1,7 @@
 import { ToolExecutionComponent, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, createGrepToolDefinition, createFindToolDefinition, createLsToolDefinition, getLanguageFromPath, renderDiff, type Theme } from "@earendil-works/pi-coding-agent";
 import { Text, parseColor, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { frameGlyphs, statusPreset, toolRows, type FrameStatus } from "../../lib/frame.ts";
-import { forgetCopyFrame, rememberCopyFrame, rememberRailRows } from "./copy-selection.ts";
+import { forgetCopyProjection, projectFrameCopy, projectRailCopy, rememberCopyProjection } from "./native/copy-projection.ts";
 import { homedir } from "node:os";
 import { composerRail, composerSurface, quietFrameLabel } from "./composer-style.ts";
 import { clean } from "./footer-state.ts";
@@ -183,10 +183,10 @@ export class ActivityBlocks {
   private adopt(node: ToolExecutionComponent): void {
     const original = { render: node.render, handleMouse: node.handleMouse, invalidate: node.invalidate };
     const own = { render: Object.hasOwn(node, "render"), handleMouse: Object.hasOwn(node, "handleMouse"), invalidate: Object.hasOwn(node, "invalidate") };
-    let active = true, framedWidth = -1, expandable = false, raw = this.rawMode, rawRow = -1, rawLabelWidth = 0, webRows = 0;
+    let active = true, framedWidth = -1, expandable = false, raw = this.rawMode, rawRow = -1, rawLabelWidth = 0, webRows = 0, copyRevision = 0;
     let cache: { args: unknown; result: unknown; expanded: boolean; width: number; theme: Theme; version: number; state: string; labels: string; rows: string[]; expandable: boolean; rawRow: number } | undefined;
     const render = (width: number): string[] => {
-      forgetCopyFrame(node);
+      forgetCopyProjection(node);
       framedWidth = -1; rawRow = -1; webRows = 0;
       const meta = info(node), definition = meta?.toolDefinition;
       const fallback = () => original.render.call(node, width);
@@ -206,12 +206,12 @@ export class ActivityBlocks {
           notes: error ? [theme.fg("error", sourceText(error))] : [] });
         const spaced = this.spaced(node, rows, width);
         framedWidth = width; expandable = !!meta.result; webRows = spaced.length;
-        return rememberRailRows(node, width, spaced);
+        return rememberCopyProjection(node, width, spaced, projectRailCopy("pi-egregore:tool", width, spaced, ++copyRevision));
       }
       if (active && meta && !customBuiltIn && isWebTool(meta.toolName)) {
         const native = fallback();
         const web = renderWebToolFrame(meta, this.theme(), width, native, this.labels(), this.presentation());
-        if (web) { framedWidth = width; expandable = !!meta.result; webRows = web.length; return rememberCopyFrame(node, width, web, 1); }
+        if (web) { framedWidth = width; expandable = !!meta.result; webRows = web.length; return rememberCopyProjection(node, width, web, projectFrameCopy("pi-egregore:tool", width, web, ++copyRevision, { inset: 1 })); }
         return native;
       }
       if (active && meta && SUITE_ROWS.has(meta.toolName) && definition?.renderShell === "self" && !meta.expanded) {
@@ -219,7 +219,7 @@ export class ActivityBlocks {
         if (native[0] !== "" || native.length < 2 || !native.slice(1).every(row => plainText(row).startsWith(frameGlyphs().vertical))) return native;
         const spaced = this.spaced(node, native.slice(1), width);
         framedWidth = width; expandable = !!meta.result; webRows = spaced.length;
-        return rememberRailRows(node, width, spaced);
+        return rememberCopyProjection(node, width, spaced, projectRailCopy("pi-egregore:tool", width, spaced, ++copyRevision));
       }
       if (!active || !meta || customBuiltIn || width < 24 || meta.hideComponent || (definition?.renderShell === "self" && !builtInRenderer) ||
         SUITE_ROWS.has(meta.toolName) ||
@@ -237,7 +237,8 @@ export class ActivityBlocks {
       const styleKey = `${appearance?.tools.identity ?? "quiet"}:${labels}:${this.density()}:${edges?.first}:${edges?.last}:${clock}`;
       if (cache && cache.args === meta.args && cache.result === meta.result && cache.expanded === expanded && cache.width === width && cache.theme === theme && cache.version === version && cache.state === state && cache.labels === styleKey) {
         framedWidth = width; expandable = cache.expandable; rawRow = cache.rawRow;
-        return expanded ? rememberCopyFrame(node, width, cache.rows, 1) : rememberRailRows(node, width, cache.rows);
+        return expanded ? rememberCopyProjection(node, width, cache.rows, projectFrameCopy("pi-egregore:tool", width, cache.rows, ++copyRevision, { inset: 1 }))
+          : rememberCopyProjection(node, width, cache.rows, projectRailCopy("pi-egregore:tool", width, cache.rows, ++copyRevision));
       }
       const a = record(meta.args), details = record(meta.result?.details), inner = width - 4;
       const error = state === "failed" || state === "cancelled";
@@ -348,7 +349,7 @@ export class ActivityBlocks {
         cache = { args: meta.args, result: meta.result, expanded, width, theme, version, state, labels: styleKey, rows, expandable, rawRow: -1 };
         const spaced = this.spaced(node, rows, width);
         cache = { ...cache!, rows: spaced };
-        return rememberRailRows(node, width, spaced);
+        return rememberCopyProjection(node, width, spaced, projectRailCopy("pi-egregore:tool", width, spaced, ++copyRevision));
       }
       if (expanded && raw) {
         section("Raw output", textRows(outputText(meta.result) || "(no text output)"));
@@ -466,7 +467,7 @@ export class ActivityBlocks {
       rows.push(composerRail(theme, width, "", "", false, rail));
       framedWidth = width;
       cache = { args: meta.args, result: meta.result, expanded, width, theme, version, state, labels: styleKey, rows, expandable, rawRow };
-      return rememberCopyFrame(node, width, rows, 1);
+      return rememberCopyProjection(node, width, rows, projectFrameCopy("pi-egregore:tool", width, rows, ++copyRevision, { inset: 1 }));
     };
     const handleMouse: ToolExecutionComponent["handleMouse"] = event => {
       if (!active || framedWidth !== event.width) return original.handleMouse.call(node, event);
@@ -486,7 +487,7 @@ export class ActivityBlocks {
     const invalidate = () => { cache = undefined; original.invalidate.call(node); };
     node.render = render; node.handleMouse = handleMouse; node.invalidate = invalidate;
     this.entries.set(node, { setRaw: value => { raw = value; cache = undefined; node.invalidate(); }, dispose: () => {
-      active = false; cache = undefined; forgetCopyFrame(node);
+      active = false; cache = undefined; forgetCopyProjection(node);
       const installed = { render, handleMouse, invalidate };
       const target = node as unknown as Record<string, unknown>;
       for (const key of ["render", "handleMouse", "invalidate"] as const) if (target[key] === installed[key]) {

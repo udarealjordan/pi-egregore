@@ -2,6 +2,7 @@ import { stripVTControlCharacters } from "node:util";
 import { savedEgregoreVisuals, type AskAppearance } from "./appearance.ts";
 import { frameRows } from "./frame.ts";
 import { backgroundAnsi, foregroundAnsi, Key, matchesKey, mixColors, parseColor, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { CopyLines, cloneAskCopyLines, forgetCopyProjection, projectAskCopyLines, rememberCopyProjection } from "./copy.ts";
 
 export const questionAccent = (theme: any) => theme.colors?.accent ?? parseColor(theme.appearance === "light" ? "#6546aa" : "#bbadff");
 
@@ -99,6 +100,7 @@ export function frameQuestion(component: any, theme: any, tui: any, options: Que
   const raised = options.raised ?? false;
   const preview = options.appearance !== undefined;
   let disposed = false, framed = false, removedHeader = false;
+  let copyRevision = 0;
   let menu: MoreAction[] | undefined, selected = 0, focused = false;
   // A preview always shows the full panel and never reads or writes the live pin.
   let pinned = preview ? true : panelPinned;
@@ -185,7 +187,7 @@ export function frameQuestion(component: any, theme: any, tui: any, options: Que
   // Wire collapse-on-advance once: the pin decides whether the next question reopens.
   component.setAdvanceListener?.(() => { if (!pinned) setExpanded(false); });
 
-  return {
+  const shell: any = {
     get focused() { return focused; },
     set focused(value: boolean) { focused = value; component.focused = value && !menu && expanded; },
     invalidate() { component.invalidate?.(); },
@@ -237,21 +239,34 @@ export function frameQuestion(component: any, theme: any, tui: any, options: Que
       if (!component.handleMouse) return undefined;
       return component.handleMouse(framed ? { ...event, x: event.x - 2, y: event.y - 1 + Number(removedHeader), width: Math.max(1, event.width - 4), height: Math.max(1, event.height - 2) } : event);
     },
-    dispose() { if (!disposed) { disposed = true; component.dispose?.(); } },
+    dispose() { if (!disposed) { disposed = true; forgetCopyProjection(shell); component.dispose?.(); } },
     render(width: number): string[] {
-      if (width <= 0) return [];
-      if (!expanded) { pinHit = undefined; return compactBar(width); }
+      if (width <= 0) { forgetCopyProjection(shell); return []; }
+      if (!expanded) {
+        pinHit = undefined;
+        const rows = new CopyLines(...compactBar(width));
+        rows.mark(0, rows.length, "decoration");
+        return rememberCopyProjection(shell, width, rows, projectAskCopyLines("pi-ask:question", width, rows, rows, ++copyRevision));
+      }
       framed = width >= 10 && questionHeight(tui, options.maxRows) >= 5;
-      if (!framed) { pinHit = undefined; return menu ? menuLines(width).slice(0, questionHeight(tui, options.maxRows)) : component.render(width); }
+      if (!framed) {
+        pinHit = undefined;
+        forgetCopyProjection(shell);
+        return menu ? menuLines(width).slice(0, questionHeight(tui, options.maxRows)) : component.render(width);
+      }
       const inner = width - 4;
-      const lines: string[] = menu ? menuLines(inner) : [...component.render(inner)];
+      const lines = menu ? new CopyLines(...menuLines(inner)) : cloneAskCopyLines(component.render(inner));
+      if (menu) lines.mark(0, lines.length, "decoration");
       const rule = (line: string | undefined) => !!line && /^\s*[─━]+\s*$/.test(stripVTControlCharacters(line));
       removedHeader = rule(lines[0]);
       if (removedHeader) lines.shift();
       if (rule(lines.at(-1))) lines.pop();
       const limit = Math.max(0, questionHeight(tui, options.maxRows) - 2);
       // A small stable body avoids jumps between short tabs. Pad after content, never move the cursor.
-      if (density === "spaced") while (lines.length < Math.min(12, limit)) lines.push("");
+      if (density === "spaced") while (lines.length < Math.min(12, limit)) {
+        lines.push("");
+        lines.mark(lines.length - 1, lines.length, "padding");
+      }
       const title = truncateToWidth(menu ? " More actions " : ` ${appearance.title} `, Math.max(0, width - 2), "");
       const header = component.getHeaderLabel?.() ?? "";
       // A count only helps when there is more than one question.
@@ -275,7 +290,10 @@ export function frameQuestion(component: any, theme: any, tui: any, options: Que
         const at = top.lastIndexOf(pinLabel.trim());
         if (at >= 0) pinHit = { x: visibleWidth(top.slice(0, at)), width: visibleWidth(pinLabel.trim()) };
       }
-      return rendered;
+      if (!lines.copySafe) { forgetCopyProjection(shell); return rendered; }
+      return rememberCopyProjection(shell, width, rendered,
+        projectAskCopyLines("pi-ask:question", width, rendered, lines, ++copyRevision, { row: 1, column: 2 }));
     },
   };
+  return shell;
 }

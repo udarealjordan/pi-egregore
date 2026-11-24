@@ -34,6 +34,8 @@ Choose the path that matches what you need now. These guides cover the suite: Eg
 - [Frame feature guide](../packages/pi-frame/FEATURE-GUIDE.md): describe a meaningful integration and its safety/lifecycle facts.
 - [Project terminology](POSITIONING.md): what the suite is and is not.
 - [Ownership decision record](decisions/0001-one-repo-separate-owners.md): historical decision with later outcome links.
+- [Calm Core decision record](decisions/0002-calm-core-redesign.md): accepted direction; NativeHost and semantic clean copy are implemented, later phases require separate authorization.
+- [Calm Core redesign](redesign/README.md): delivered native compatibility/clean-copy slice plus proposed presets, core/auxiliary split, dictation removal, Work Record and later delivery phases.
 
 ## Check evidence and history
 

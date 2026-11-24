@@ -90,7 +90,7 @@ When the host was already upgraded before this command ran, the baseline failure
 ## 4. Map this repository onto the changed surface
 
 - Find every host import: `grep -rn "@earendil-works/" extensions packages lib tests eval --include=*.ts --include=*.mjs`.
-- Revalidate the guarded native internals that no public API covers: `native-message-adapter.ts`, `paint-guard.ts`, `grouped-tools.ts`, `activity-blocks.ts`, `sent-messages.ts`, `copy-selection.ts`, `recaps.ts`, `packages/pi-ask/extensions/ask-user-question/{appearance,posted,tui-primitives}.ts`, and the alias targets in `extensions/pi-egregore/tests/host.mjs`. Keep these behind their existing single documented boundary; do not add a second private-field cast path.
+- Revalidate the guarded native internals that no public API covers: `native-message-adapter.ts`, `native/{host,capabilities,selection,shapes}.ts`, `paint-guard.ts`, `grouped-tools.ts`, `activity-blocks.ts`, `sent-messages.ts`, `recaps.ts`, `packages/pi-ask/extensions/ask-user-question/{appearance,posted,tui-primitives}.ts`, and the alias targets in `extensions/pi-egregore/tests/host.mjs`. Keep these behind their existing single documented boundary; do not add a second private-field cast path.
 - Check the contracts the suite versions itself: `pi-egregore.json` settings keys and validation, the `pi-footer.json`/`pi-home.json` fallbacks, `pi-tasks.json`, extension event names, slash-command registration, footer and editor slots, theme JSON shape, and keybindings.
 - Check Ask's renderer-owned fake-cursor protocol and hardware-cursor suppression if the TUI diff touches cursors.
 - If a public API changed, migrate every callsite. Do not leave a shim that keeps the old shape alive.

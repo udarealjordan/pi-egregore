@@ -14,6 +14,7 @@ import { SelectionPulse, selectionHighlight, selectionRow } from "./footer-selec
 import { connectPreview } from "./preview-selection.ts";
 import { settingValue, partName, settingHeading, settingRow } from "./settings-layout.ts";
 import { generalPreview } from "./settings-general-preview.ts";
+import type { NativeCapability, NativeCapabilityReport } from "./native/capabilities.ts";
 
 export interface FooterPreview {
   render(width: number, shimmer?: number): { editor: string[]; footer: string[]; above?: string[]; hits: AppearanceHit[] };
@@ -31,10 +32,26 @@ const SECTIONS = ["elements", "tasks", "ask", "transcript", "other", "general"] 
 type Section = typeof SECTIONS[number];
 const sectionOf = (pane: Section | "properties"): Section => pane === "properties" ? "elements" : pane;
 const friendlyValue = (value: string) => ({ matched: "Match frame color", quiet: "Quieter color", semantic: "Status color", hierarchy: "Quieter progress", topLeft: "Top left", topCenter: "Top center", bottomLeft: "Bottom left", bottomCenter: "Bottom center", bottomRight: "Bottom right", topRight: "Top right", rail: "Along the border", adaptive: "Automatic", work: "While working", changes: "When progress changes", on: "On", off: "Off", clockwise: "Clockwise", counterclockwise: "Counterclockwise" } as Record<string, string>)[value] ?? value;
+const NATIVE_LABELS: Record<NativeCapability, string> = {
+  "editor-decoration": "Editor", "message-decoration": "Messages", "tool-decoration": "Tools",
+  "selection-cleaning": "Clean copy", "paint-synchronization": "Paint", "copy-flash-decoration": "Copy notice",
+};
+const NATIVE_STATUS = { full: "Full", limited: "Limited", native: "Native" } as const;
+function nativeIntegrationControls(reports: readonly NativeCapabilityReport[]): Control[] {
+  if (!reports.length) return [];
+  const count = (status: NativeCapabilityReport["status"]) => reports.filter(report => report.status === status).length;
+  const summary = [count("full") ? `${count("full")} full` : "", count("limited") ? `${count("limited")} limited` : "", count("native") ? `${count("native")} native` : ""].filter(Boolean).join(" · ");
+  return [
+    { label: "Native integration", value: summary, readonly: true, activate() {},
+      help: "Read-only diagnostics for this Pi session. Full means the supported adapter is active; Limited keeps native fallback for missing shapes; Native retains Pi behavior. No telemetry or settings changes." },
+    ...reports.map(report => ({ label: `Native · ${NATIVE_LABELS[report.capability]}`, value: NATIVE_STATUS[report.status], readonly: true, activate() {},
+      help: `${NATIVE_STATUS[report.status]}: ${report.reason ?? "Supported native adapter is active."}` })),
+  ];
+}
 
 /** One transaction, one native-editor instance, one full-width preview. No model requests. */
 export async function chooseFooter(ctx: ExtensionCommandContext, initial: FooterPrefs, preview: (p: FooterPrefs) => void,
-  surface?: FooterPreview, signal?: AbortSignal): Promise<FooterPrefs | undefined> {
+  surface?: FooterPreview, signal?: AbortSignal, nativeCapabilities: () => readonly NativeCapabilityReport[] = () => []): Promise<FooterPrefs | undefined> {
   let draft = clonePrefs(initial);
   draft.appearance ??= appearanceDefaults(draft);
   draft.tasks ??= taskPanelDefaults();
@@ -156,7 +173,8 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
       if (next < 0 || next >= peers.length) { message = "Already at the end of this group."; return; }
       changed(() => { [peers[at], peers[next]] = [peers[next], peers[at]]; peers.forEach((k, i) => { design().elements[k].order = i; }); });
     }
-    const generalControls = () => preferenceControls(roomEditor, "general", otherAdvanced, value => { otherAdvanced = value; otherIndex = 0; });
+    const generalControls = () => [...preferenceControls(roomEditor, "general", otherAdvanced, value => { otherAdvanced = value; otherIndex = 0; }),
+      ...nativeIntegrationControls(nativeCapabilities())];
     const otherControls = () => preferenceControls(roomEditor, "other", otherAdvanced, value => { otherAdvanced = value; otherIndex = 0; },
       preferenceGroup, value => { preferenceGroup = value; otherIndex = 0; });
     const close = (save: boolean) => {
@@ -204,7 +222,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           suspended: !focused || !!edit || !!choices || discardConfirm, reducedMotion: displayPrefs.motion === "off" || surface?.reducedMotion, visible: width >= 16 && height >= 12 }, displayPrefs.tasks!.presentation) : undefined;
         const inspected: Inspection | undefined = hovered ?? (pane === "tasks" ? { room: "tasks", id: taskSelected }
           : pane === "ask" ? { room: "ask", id: askSelected } : pane === "transcript" ? { room: "transcript", id: transcriptSelected }
-          : pane === "general" ? { room: "general", id: generalIndex === 0 ? "identity" : "spacing" }
+          : pane === "general" ? generalIndex < 2 ? { room: "general", id: generalIndex === 0 ? "identity" : "spacing" } : undefined
           : pane === "other" ? otherControls()[otherIndex]?.inspect : pane === "elements" || pane === "properties" ? inputInspection() : undefined);
         const targetPhase = !hovered && pulse.kind === "element" ? phase : undefined;
         const taskTarget = inspected?.room === "tasks" ? inspected.id : taskSelected;
@@ -240,7 +258,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
         const contentRows = choices ? choices.items.length + 1 : pane === "tasks" ? Math.max(TASK_ELEMENTS.length, taskProperties().length)
           : pane === "ask" ? Math.max(askElements.length, askControls().length)
           : pane === "transcript" ? Math.max(transcriptElements.length, transcriptControls().length)
-          : pane === "general" ? generalControls().length : pane === "other" ? otherControls().length
+          : pane === "general" ? Math.min(6, generalControls().length) : pane === "other" ? otherControls().length
           : Math.max(elements().length, propertyControls().length);
         const desiredHeight = Math.max(5, Math.min(choices ? 26 : wide ? 20 : 18, height - previewHeight - 1, Math.max(8, contentRows + 9)));
         const controlsHeight = choices?.geometry?.size === size ? choices.geometry.height : desiredHeight;
@@ -343,7 +361,8 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
         } else if (pane === "general") {
           rows.push(settingHeading(theme, Math.min(inner, 90)));
           const controls = generalControls(); generalIndex = Math.min(generalIndex, controls.length - 1);
-          for (const [index, control] of controls.entries()) rows.push(addControl(control, rows.length + 1, 1, inner, index === generalIndex));
+          const start = Math.max(0, Math.min(controls.length - capacity, generalIndex - Math.floor(capacity / 2)));
+          for (let index = start; index < Math.min(controls.length, start + capacity); index++) rows.push(addControl(controls[index], rows.length + 1, 1, inner, index === generalIndex));
           helpLines.push(controls[generalIndex].help);
         } else if (pane === "other") {
           rows.push(settingHeading(theme, Math.min(inner, 90)));
@@ -512,7 +531,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
           else if (pane === "ask") { const control = askControls()[askIndex]; if (control?.readonly) message = control.help; else control?.activate(); }
           else if (pane === "tasks" && taskFocus === "elements") selectTask(taskSelected);
           else if (pane === "tasks") taskProperties()[taskIndex]?.activate();
-          else if (pane === "general") generalControls()[generalIndex]?.activate();
+          else if (pane === "general") { const control = generalControls()[generalIndex]; if (control?.readonly) message = control.help; else control?.activate(); }
           else otherControls()[otherIndex]?.activate();
         }
         afterInteraction(before, previous, previousTask, previousAsk, previousTranscript);

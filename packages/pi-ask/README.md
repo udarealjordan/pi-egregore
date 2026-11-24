@@ -39,6 +39,8 @@ Ask lets the agent bring you into a decision: a focused question when it can't c
 
 Suggestions show why an option is suggested (`Assistant's take · possible fit`, with the reason), not just a badge. They are the agent's judgment.
 
+In Pi's fullscreen TUI, Ask declares semantic copy metadata through the shared contracts package, so supported question shells copy prompts, choices, notes and written answers without frame rails or action hints. Unknown or stale rows retain native copy. Regular terminal selection remains terminal-owned.
+
 ### Best usage: ask when inquiry is worth the interruption
 
 Good questions decide something only you can decide: the goal or scope when it is unclear, a choice between reasonable approaches, taste and naming, or anything hard to undo. The agent should look up what it can find itself, recommend an option, and say what it would do without an answer. A plan for substantial work is a good moment to ask whether to adjust it.

@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { jiti, source, root, theme, plain, kb } from "./host.mjs";
-const { installFrameAwareCopy, rememberCopyFrame, forgetCopyFrame } = await jiti.import(join(source, "copy-selection.ts"));
+const { installSemanticSelection } = await jiti.import(join(source, "native/selection.ts"));
+const { projectFrameCopy, rememberCopyProjection, forgetCopyProjection } = await jiti.import(join(source, "native/copy-projection.ts"));
 const { SentMessageFrames } = await jiti.import(join(source, "sent-messages.ts"));
 const { ActivityBlocks } = await jiti.import(join(source, "activity-blocks.ts"));
 const { frameRows } = await jiti.import(join(source, "../../lib/frame.ts"));
@@ -24,7 +25,7 @@ function fixture() {
   const scroll = new ScrollView(document, { primary: true, scrollbar: "hidden", follow: "end" });
   tui.setLayoutRoot(scroll);
   const original = tui.getActiveSelectionText;
-  const cleanup = installFrameAwareCopy(createInteractiveTuiReference(() => tui));
+  const cleanup = installSemanticSelection(createInteractiveTuiReference(() => tui));
   tui.start();
   return { tui, chat, copied, scroll, original, cleanup,
     paint() { tui.renderNow(true); },
@@ -61,7 +62,11 @@ test("real native chat selection omits owned rails/padding, retains pipes, Unico
 test("unowned lookalikes and literal pipes stay intact across components, scroll and resize", () => {
   const f = fixture();
   let content = ["first | │", "", "  code | x", "╰────────╯"];
-  const owner = { render(width) { return rememberCopyFrame(this, width, frameRows({ theme, width, rows: content })); } };
+  let revision = 0;
+  const owner = { render(width) {
+    const rows = frameRows({ theme, width, rows: content });
+    return rememberCopyProjection(this, width, rows, projectFrameCopy("test:frame", width, rows, ++revision));
+  } };
   const literal = new Text("╭────────╮\n│ literal│\n╰────────╯", 0, 0);
   try {
     f.chat.addChild(owner); f.chat.addChild(literal);
@@ -73,7 +78,7 @@ test("unowned lookalikes and literal pipes stay intact across components, scroll
     content = Array.from({ length: 30 }, (_, i) => `line ${i} | │`); f.paint();
     assert.ok(f.scroll.scrollTop > 0);
     assert.equal(f.select(20, 0, 24, 90), content.slice(19, 24).join("\n"));
-    forgetCopyFrame(owner);
+    forgetCopyProjection(owner);
     assert.equal(f.tui.getActiveSelectionText(), f.original.call(f.tui));
   } finally { f.stop(); }
 });
@@ -101,14 +106,19 @@ test("real tool frame records cached and expanded render provenance", () => {
   } finally { blocks.dispose(); f.stop(); }
 });
 test("unsupported modes, stale render provenance, extraction drift and later owners fall back safely", () => {
-  assert.doesNotThrow(() => installFrameAwareCopy({})());
-  assert.doesNotThrow(() => installFrameAwareCopy(undefined)());
+  assert.doesNotThrow(() => installSemanticSelection({})());
+  assert.doesNotThrow(() => installSemanticSelection(undefined)());
   assert.equal(typeof TuiMainScreen.prototype.getActiveSelectionText, "undefined");
   const f = fixture();
-  const owner = { render(width) { return rememberCopyFrame(this, width, frameRows({ theme, width, rows: ["a | b"] })); } };
+  let revision = 0;
+  const owner = { render(width) {
+    const rows = frameRows({ theme, width, rows: ["a | b"] });
+    return rememberCopyProjection(this, width, rows, projectFrameCopy("test:frame", width, rows, ++revision));
+  } };
   try {
     f.chat.addChild(owner); f.paint(); f.select(0, 0, 2, 60);
-    rememberCopyFrame(owner, 40, ["stale"]);
+    const stale = ["stale"];
+    rememberCopyProjection(owner, 40, stale, projectFrameCopy("test:frame", 40, stale, 99));
     assert.equal(f.tui.getActiveSelectionText(), f.original.call(f.tui));
     const later = () => "other owner";
     f.tui.getActiveSelectionText = later; f.cleanup(); assert.equal(f.tui.getActiveSelectionText, later);

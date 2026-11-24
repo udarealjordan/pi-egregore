@@ -191,8 +191,9 @@ result; copy nothing from the patch path.
 | --- | --- | --- |
 | `ToolExecutionComponent.prototype.render/handleMouse/invalidate` | `activity-blocks.ts` | native tool card |
 | `ToolExecutionComponent` own `args`, `result`, `expanded`, `isPartial`, `cwd` | `activity-blocks.ts` | native tool card |
-| `Container.prototype.render` (records `mouseLayout` per render) | `copy-selection.ts` | native selection text |
-| `TuiAltScreen.prototype.getSelectionBounds/getSelectionColumns/getActiveSelectionText` | `copy-selection.ts` | native selection text |
+| `Container.prototype.render` and Pi 1.6 `childLines` layout | `native/selection.ts`, `native/shapes.ts` | native selection text |
+| `TuiAltScreen.prototype.getSelectionBounds/getSelectionColumns/getActiveSelectionText` | `native/selection.ts` | native selection text |
+| Pi 1.6 rendered overlay layout records | `native/selection.ts` | native selection text |
 | `TuiAltScreen.prototype.render/doRender`, `TuiMainScreen.prototype.doRender`, instance `terminal.write/hideCursor/showCursor` | `paint-guard.ts` | unclipped repaint |
 | `UserMessageComponent` / `AssistantMessageComponent` prototype `render` | `native-message-adapter.ts`, `sent-messages.ts` | native message layout |
 | `create*ToolDefinition("")` factories, compared by identity | `activity-blocks.ts` | every card stays native |

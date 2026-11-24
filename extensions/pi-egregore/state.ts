@@ -120,9 +120,13 @@ export class RunClock {
   }
 }
 
+import type { NativeCapabilityReport } from "./native/capabilities.ts";
+
 export interface EgregoreState {
   taskPanel?: TaskPanel;
   dictation?: DictationController;
+  /** Read-only NativeHost capability/fallback report for General settings. */
+  nativeCapabilities?: () => readonly NativeCapabilityReport[];
   /** True only where the host dispatches pointer clicks (viewport TUI). */
   mouseReporting?: () => boolean;
   footerManaged?: boolean;

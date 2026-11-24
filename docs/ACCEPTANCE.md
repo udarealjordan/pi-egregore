@@ -1,5 +1,15 @@
 # Isolated workspace acceptance (Pi 1.0.0)
 
+## NativeHost and semantic clean copy (2026-11-24)
+
+Implemented in the isolated `/Users/jordan/code/pi-egregore-redesign` worktree on `redesign/calm-core`, based on `7987863`. Existing worktrees, live Pi settings, sessions and deployment were not changed.
+
+- **Automated:** `npm test` passes **596 tests** — 590 passed and 3 platform-specific skips — on Pi **1.6.0**, Node **26.7.0** and npm **12.1.0**. This includes whole-repository typecheck, Frame 16, contracts 7, Ask 158, Egregore 328 (322 passed, 3 skipped), Tasks 56, examples 10, host-shape canaries 13, harness 7 and the isolated packed-suite cold load 1.
+- **Native selection:** real `TuiAltScreen` regressions cover native/Vim/fallback Composer, chat, ordinary/grouped/web tools, framed and posted Ask, Ask event cards, Tasks panel and composite dock. They exercise partial/reverse/multi-row selections, mixed native/projected rows, Pi 1.6 overlay column offsets and clipping, resize, stale/drifted rows, literal pipes/box glyphs/indentation/blank content, CJK/emoji/combining cells, and the native clipboard success path.
+- **Compatibility lifecycle:** NativeHost tests cover Full/Limited/Native classification, throwing and non-writable host shapes, independent adapter failure, forwarding references, repeated mounts without wrapper stacking, dynamic adapter replacement, immutable reports, inert retained wrappers and later-owner preservation. Existing Vim-adoption and temporary-preview shutdown regressions also pass; full-suite verification caught and corrected an installer-versus-cleanup ownership error before acceptance.
+- **Packaging:** `npm run pack:check` passes for Frame, Ask and the root suite. The root tarball includes `native/*.ts`, `lib/copy.ts`, the shared copy contract and Ask's reload-safe copy adapter; the retired geometry-only `copy-selection.ts` is absent. `git diff --check` passes.
+- **Boundaries:** regular terminal selection remains terminal-owned. Automated selection injection does not prove physical drag selection, terminal-specific clipboard behavior, IME candidate windows, font/glyph legibility, screen-reader accessibility, motion perception or authenticated provider/tool flows. No live installation, publication, push or deployment was performed.
+
 ## Cross-platform notification sounds (2026-10-25)
 
 Implemented in the `drawde-nadroj/cross-platform-sounds` worktree, based on `3b0046c` plus the isolated sound changes. The original checkout and its unrelated work were left untouched; no live Pi settings were changed.

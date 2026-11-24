@@ -124,6 +124,36 @@ test("General demonstrates the real name preference and spacing, without submitt
   } finally { await h.discard(); }
 });
 
+test("General reports native compatibility as read-only diagnostics without changing settings or draft", async () => {
+  for (const width of [60, 120]) {
+    const h = egregore(quiet, width, 32), facts = snapshot(h), before = JSON.stringify(h.latest);
+    const reports = [
+      { capability: "editor-decoration", status: "full" },
+      { capability: "message-decoration", status: "full" },
+      { capability: "tool-decoration", status: "full" },
+      { capability: "selection-cleaning", status: "limited", reason: "Pi overlay layout unavailable" },
+      { capability: "paint-synchronization", status: "full" },
+      { capability: "copy-flash-decoration", status: "native", reason: "Native copy notice unavailable" },
+    ];
+    h.egregore.nativeCapabilities = () => reports;
+    try {
+      h.click("[General]");
+      assert.match(h.rows().join("\n"), /Native integration\s+4 full · 1 limited · 1 nati/);
+      h.click("Native integration");
+      assert.match(h.rows().join("\n"), /Read-only diagnostics/);
+      for (let index = 0; index < 6; index++) h.panel.handleInput("\x1b[B");
+      assert.match(h.rows().join("\n"), /Native · Clean[^\n]*Limited · fixed/);
+      h.panel.handleInput("\r");
+      assert.match(h.rows().join("\n"), /Pi overlay layout unavailable/);
+      assert.equal(JSON.stringify(h.latest), before);
+      assert.doesNotMatch(h.rows().join("\n"), /Unsaved changes/);
+      h.panel.handleInput("\x1a");
+      assert.match(h.rows().join("\n"), /No changes to undo/);
+      assert.equal(snapshot(h), facts);
+    } finally { await h.discard(); }
+  }
+});
+
 test("audition that changes preview height leaves every menu row and Save at the same coordinates", async () => {
   const h = egregore(quiet, 62, 24);
   try {

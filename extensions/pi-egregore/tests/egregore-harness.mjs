@@ -29,7 +29,7 @@ export function egregore(prefs = FOOTER_DEFAULTS, width = 120, height = 40, sign
     const footer = [appearanceRow(theme, width, egregore, "footer1", 3000), appearanceRow(theme, width, egregore, "footer2", 3000)].filter(Boolean);
     return { editor: native, footer, hits: egregore.appearanceHits };
   } };
-  const pending = chooseFooter(ctx, prefs, p => { egregore.layout = p; latest = p; }, surface, signal);
+  const pending = chooseFooter(ctx, prefs, p => { egregore.layout = p; latest = p; }, surface, signal, () => egregore.nativeCapabilities?.() ?? []);
   const rows = () => panel.render(tui.terminal.columns).map(plain);
   const clickAt = (x, y) => panel.handleMouse({ type: "click", button: "left", x, y, screenX: x, screenY: y, width: tui.terminal.columns, height: tui.terminal.rows, shift: false, alt: false, ctrl: false });
   const click = (label, last = false) => {
