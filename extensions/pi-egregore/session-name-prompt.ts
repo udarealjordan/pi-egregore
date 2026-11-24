@@ -27,6 +27,7 @@ export default function sessionNamePrompt(pi: ExtensionAPI) {
 
     const name = (await askText(ctx, "Name this session", "", {
       placeholder: "e.g. Fix login bug",
+      placement: "panel",
     }))?.trim();
 
     if (!name) return;

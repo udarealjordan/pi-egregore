@@ -6,7 +6,7 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
-- Fresh terminal sessions ask for a name through Egregore's rounded framed text prompt instead of Pi's default input dialog. Existing, resumed, forked, reloaded and already-named sessions keep the previous skip behavior.
+- Fresh terminal sessions ask for a name through Egregore's centered rounded panel instead of Pi's default input dialog. Existing, resumed, forked, reloaded and already-named sessions keep the previous skip behavior; other Egregore text prompts still replace the Composer in place.
 - Assistant-message Sent times now use the same full Pi accent purple as Tasks text instead of a muted blend. User-message Sent times remain user red.
 
 - `/paths` replaces `/tree` for going back in time:

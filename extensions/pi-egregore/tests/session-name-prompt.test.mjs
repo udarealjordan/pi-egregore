@@ -63,7 +63,10 @@ test("a fresh startup uses Egregore's framed text prompt, trims the answer, and 
   assert.match(view[0], /^╭ Name this session ─+╮$/);
   assert.match(view.join("\n"), /e\.g\. Fix login bug/);
   assert.match(view.at(-1), /^╰ ↵ save · esc cancel ─+╯$/);
-  assert.equal(customOptions.overlay, undefined, "the prompt takes the composer's input placement");
+  assert.deepEqual(customOptions, {
+    overlay: true,
+    overlayOptions: { anchor: "center", width: "100%", maxHeight: "80%" },
+  }, "the fresh-session prompt uses Frame's centered panel placement");
   assert.deepEqual(h.named, ["Fix login bug"]);
   assert.deepEqual(h.notifications, [["Session named: Fix login bug", "info"]]);
 });

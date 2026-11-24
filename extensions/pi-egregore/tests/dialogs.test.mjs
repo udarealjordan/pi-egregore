@@ -51,11 +51,13 @@ test("a confirmation says yes on Enter or y and no on Esc or n", () => {
   assert.match(plain(new ConfirmDialog(theme, "Archive?", "Unfinished tasks pause.", {}, () => {}).render(60).join("\n")), /Unfinished tasks pause\.[\s\S]*↵ or y yes · esc or n no/);
 });
 
-test("in the terminal the prompts take the composer's place; elsewhere they use Pi's own prompts", async () => {
+test("terminal prompts default to the composer and text can opt into a centered panel; elsewhere Pi asks", async () => {
   const seen = [];
   const tuiCtx = { mode: "tui", ui: { custom: async (_factory, options) => { seen.push(options); return "x"; } } };
   assert.equal(await askText(tuiCtx, "T"), "x");
   assert.equal(seen[0].overlay, undefined, "input placement: in place, not floating");
+  assert.equal(await askText(tuiCtx, "T", "", { placement: "panel" }), "x");
+  assert.deepEqual(seen[1], { overlay: true, overlayOptions: { anchor: "center", width: "100%", maxHeight: "80%" } });
   const rpc = { mode: "rpc", ui: { input: async () => "typed", select: async (_t, c) => c[1], confirm: async () => true } };
   assert.equal(await askText(rpc, "T"), "typed"); assert.equal(await askChoice(rpc, "T", ["a", "b"]), "b"); assert.equal(await askConfirm(rpc, "T"), true);
   assert.equal(await askChoice(tuiCtx, "T", []), undefined, "an empty list asks nothing");
