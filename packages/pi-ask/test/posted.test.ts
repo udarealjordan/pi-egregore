@@ -248,11 +248,13 @@ test('chat preserves exact answers/notes, sanitizes terminal controls, and fits 
   assert.match(card.render(80).join('\n'), /Line 1.*\n.*Line 2/); assert.doesNotMatch(card.render(80).join('\n'), /\x1b\[31m/);
 });
 
-test('answer cards render the chosen answer in the accent role', () => {
+test('answered cards show the Answer label in accent and the chosen answer as text', () => {
   let b = postQuestion(emptyPostedBook(), input);
   b = changeQuestion(b, b.questions[0].id, b.questions[0].revision, { op: 'submit', response: { status: 'answered', answers: [{ questionIndex: 0, answer: 'Keep it local' }] as any } });
-  const roles: string[] = [];
-  const theme = { fg: (role: string, text: string) => { if (text.includes('Keep it local')) roles.push(role); return text; }, style: (t: string) => t };
+  const painted: [string, string][] = [];
+  const theme = { fg: (role: string, text: string) => { painted.push([role, text]); return text; }, style: (t: string) => t };
   questionEventCard({ label: 'You submitted a response', question: b.questions[0] }, theme).render(80);
-  assert.deepEqual([...new Set(roles)], ['accent']);
+  assert.deepEqual(painted.find(([, text]) => text === 'Answer'), ['accent', 'Answer']);
+  assert.ok(painted.some(([role, text]) => role === 'text' && text.startsWith(' · ')), 'the stage after the label stays text');
+  assert.deepEqual(painted.find(([, text]) => text === 'Keep it local'), ['text', 'Keep it local']);
 });
