@@ -122,7 +122,12 @@ test("NativeHost owns dynamic adapters independently, replaces one slot and retu
 
     host.mount(undefined, options());
     assert.equal(host.active, false);
+    assert.equal(byCapability(host.report())["editor-decoration"].status, "native", "an unmounted host cannot claim dynamic adapters are active");
+    assert.match(byCapability(host.report())["editor-decoration"].reason, /renderer/);
+    const remounted = renderer();
+    host.mount(remounted, options());
     assert.equal(byCapability(host.report())["editor-decoration"].status, "full", "host remount does not discard dynamic surface adapters");
+    host.mount(undefined, options()); remounted.stop();
     assert.equal(byCapability(host.report())["selection-cleaning"].status, "native");
     host.release("message-decoration");
     assert.deepEqual(calls, ["editor-old", "message"]);

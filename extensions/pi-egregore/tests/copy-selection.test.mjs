@@ -173,3 +173,22 @@ for (const kind of ["native", "vim", "fallback"]) test(`fixed ${kind} Composer c
     if (kind !== "fallback") assert.equal(f.tui.getActiveSelectionText(), f.original.call(f.tui));
   } finally { undress(); f.stop(); }
 });
+test("clipped overlay containers still clean their visible projected children", () => {
+  const f = fixture();
+  const owner = (label, lines) => ({ revision: 0, render(width) {
+    const rows = frameRows({ theme, width, rows: lines });
+    return rememberCopyProjection(this, width, rows, projectFrameCopy(`test:${label}`, width, rows, ++this.revision));
+  } });
+  const stack = new Container();
+  stack.addChild(owner("first", ["alpha | one"])); stack.addChild(owner("second", ["beta │ two", "hidden"]));
+  try {
+    f.paint();
+    f.tui.showOverlay(stack, { anchor: "top-left", row: 0, col: 4, width: 30, maxHeight: 5 });
+    f.paint();
+    const layout = f.tui.renderedOverlayLayouts.find(entry => entry.entry.component === stack);
+    assert.ok(layout && layout.height === 5, "overlay is clipped below its content height");
+    const a = { row: layout.row, col: layout.col }, b = { row: layout.row + layout.height - 1, col: layout.col + layout.width, boundary: true };
+    f.tui.selectionAnchor = a; f.tui.selectionFocus = b;
+    assert.equal(f.tui.getActiveSelectionText(), "alpha | one\nbeta │ two");
+  } finally { f.stop(); }
+});

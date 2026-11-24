@@ -45,7 +45,7 @@ function nativeIntegrationControls(reports: readonly NativeCapabilityReport[]): 
     { label: "Native integration", value: summary, readonly: true, activate() {},
       help: "Read-only diagnostics for this Pi session. Full means the supported adapter is active; Limited keeps native fallback for missing shapes; Native retains Pi behavior. No telemetry or settings changes." },
     ...reports.map(report => ({ label: `Native · ${NATIVE_LABELS[report.capability]}`, value: NATIVE_STATUS[report.status], readonly: true, activate() {},
-      help: `${NATIVE_STATUS[report.status]}: ${report.reason ?? "Supported native adapter is active."}` })),
+      help: `${NATIVE_STATUS[report.status]}: ${report.reason ?? (report.status === "full" ? "Supported native adapter is active." : "Pi's native behavior is retained.")}` })),
   ];
 }
 

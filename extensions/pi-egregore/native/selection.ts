@@ -15,6 +15,8 @@ type Host = {
 type Span = { row: number; column: number; projection: NonNullable<ReturnType<typeof copyProjectionOf>> };
 type OwnedRange = { start: number; end: number; span: Span; row: NonNullable<Span["projection"]["rows"][number]> };
 
+const fitsHeight = (content: number, visible: number, allowClip: boolean) => allowClip ? content >= visible : content === visible;
+
 /** Follow only native vertical Containers' recorded layout. A component-owned
  * projection is authoritative for its rendered prefix; unknown layout stays native. */
 function collect(component: Component, width: number, row: number, height: number, spans: Span[], depth = 0, column = 0, allowClip = false): void {
@@ -29,8 +31,14 @@ function collect(component: Component, width: number, row: number, height: numbe
   if (!layout || layout.width !== width || !Array.isArray(layout.children) ||
     layout.children.length !== component.children.length ||
     layout.children.some((child, i) => child.component !== component.children[i] || !Number.isInteger(child.height) || child.height < 0) ||
-    layout.children.reduce((sum, child) => sum + child.height, 0) !== height) return;
-  for (const child of layout.children) { collect(child.component, width, row, child.height, spans, depth + 1, column); row += child.height; }
+    !fitsHeight(layout.children.reduce((sum, child) => sum + child.height, 0), height, allowClip)) return;
+  // A clipped overlay hides a suffix; children keep their own provenance checks per row.
+  const bottom = row + height;
+  for (const child of layout.children) {
+    if (row >= bottom) break;
+    collect(child.component, width, row, child.height, spans, depth + 1, column, allowClip);
+    row += child.height;
+  }
 }
 
 /** Only full-width, unclipped native layout leaves are eligible in screen space. */

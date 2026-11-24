@@ -70,16 +70,24 @@ export class NativeHost {
     this.reports.set(capability, { capability, status: "full" });
   }
 
-  release(capability: NativeCapability): void {
+  release(capability: NativeCapability, reason?: string): void {
     const index = this.owned.findIndex(entry => entry.capability === capability);
-    if (index < 0) return;
-    const [entry] = this.owned.splice(index, 1);
-    try { entry.cleanup(); } catch { /* cleanup remains best-effort and idempotent */ }
-    this.reports.set(capability, { capability, status: "native" });
+    if (index >= 0) {
+      const [entry] = this.owned.splice(index, 1);
+      try { entry.cleanup(); } catch { /* cleanup remains best-effort and idempotent */ }
+    }
+    this.reports.set(capability, { capability, status: "native", ...(reason ? { reason } : {}) });
   }
 
+  /** Dynamic adapters only take effect through the mounted renderer's paint
+   * hook, so an owned adapter without a mounted host is reported as native. */
   report(): NativeCapabilityReport[] {
-    return CAPABILITIES.map(capability => ({ ...(this.reports.get(capability) ?? { capability, status: "native" }) }));
+    return CAPABILITIES.map(capability => {
+      const report = this.reports.get(capability) ?? { capability, status: "native" as const };
+      if (report.status !== "native" && !this.mounted && this.owned.some(entry => entry.capability === capability))
+        return { capability, status: "native" as const, reason: "Waiting for Pi's native renderer" };
+      return { ...report };
+    });
   }
 
   private unmountHost(): void {

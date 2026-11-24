@@ -164,7 +164,8 @@ export function registerPostedQuestions(pi: ExtensionAPI, lock: <T>(fn: () => Pr
       if (message.role !== 'custom' || message.customType !== ANSWER_MESSAGE) continue;
       const d = message.details as any, q = book.questions.find(q => q.id === d?.id);
       if (q?.state === 'submitted' && q.submissionRevision === d.submissionRevision) {
-        commit(changeQuestion(book, q.id, q.revision, { op: 'deliver' })); recordEvent('Response delivered to model context', book.questions.find(x => x.id === q.id)!);
+        // Delivery is a state transition only: the visible "You submitted a response" card already marks the answer.
+        commit(changeQuestion(book, q.id, q.revision, { op: 'deliver' }));
       }
     }
     const messages = event.messages.filter(m => !(m.role === 'custom' && m.customType === MEMORY));

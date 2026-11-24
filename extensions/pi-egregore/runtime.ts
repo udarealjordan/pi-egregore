@@ -87,7 +87,7 @@ export default function egregore(pi: ExtensionAPI) {
   function syncEditor() {
     if (!installed || !context || state.promptDepth > 0) return;
     if (context.ui.getEditorComponent() === ourFactory) {
-      nativeHost.release("editor-decoration"); dressedEditor = undefined;
+      nativeHost.release("editor-decoration", "Composer is the editor; no native editor adapter is needed"); dressedEditor = undefined;
       return;
     }
     const focused = (tui as (TUI & { getFocusedComponent?: () => unknown }) | undefined)?.getFocusedComponent?.();

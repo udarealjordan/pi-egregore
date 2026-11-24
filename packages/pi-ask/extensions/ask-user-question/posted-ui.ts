@@ -117,6 +117,9 @@ export async function postedOutcomeUI(ctx: ExtensionContext, q: PostedQuestion, 
     return frameQuestion(component, palette, tui, { raised: true, maxRows: overlayRows(tui) });
   }, { overlay: true, overlayOptions: { width: '75%', maxHeight: overlayMaxHeight, anchor: 'center' } }).finally(() => bindClose(undefined));
 }
+type AnswerRow = { answer: string };
+const answerRow = (answer: string): AnswerRow => ({ answer });
+
 export function questionEventCard(details: any, theme: any, expanded = false) {
   let revision = 0;
   const card = { invalidate() {}, render(width: number) {
@@ -124,13 +127,17 @@ export function questionEventCard(details: any, theme: any, expanded = false) {
     const rows = [details?.label ?? 'Question event', q?.definition.question ?? '', q ? questionStatus(q) : '',
       ...(q?.neededNow ? [q.neededNow] : []),
       ...(q?.state === 'awaiting' ? [q.urgency === 'blocking' ? q.taskIds.length ? 'Blocks linked work' : 'Blocks stated boundary' : 'Can wait', q.boundary] : []),
-      ...(q?.response?.answers ?? []).flatMap(a => [...(Array.isArray(a.answer) ? a.answer : a.answer == null ? [] : [a.answer]).map(v => typeof v === 'string' ? v : v.label), ...(a.note ? ['Your note', a.note] : [])]),
+      // The user's chosen answers read in the accent purple so they stand apart from status prose.
+      ...(q?.response?.answers ?? []).flatMap(a => [...(Array.isArray(a.answer) ? a.answer : a.answer == null ? [] : [a.answer]).map(v => answerRow(typeof v === 'string' ? v : v.label)), ...(a.note ? ['Your note', a.note] : [])]),
       ...(q?.response?.clarification ? ['Your clarification', q.response.clarification] : []),
       ...(q?.consequence ? [q.consequence] : []), ...(expanded && q ? [`Why: ${q.why}`, q.boundary, `Reference ${q.id} · revision ${q.revision}`, ...(q.taskIds.length ? [`Linked work: ${q.planId} / ${q.taskIds.join(', ')}`] : []),
         ...(q.definition.options.length ? ['Original choices', ...q.definition.options.flatMap(o => [o.label, o.description ?? '', ...(o.suggestion ? [`Assistant suggestion: ${o.suggestion.basis}`, o.suggestion.caveat ?? ''] : [])])] : [])] : [])];
     if (width <= 0) { forgetCopyProjection(card); return []; }
     const framed = width >= 10;
-    const content = new Text(rows.filter(Boolean).flatMap((r, i) => String(r).split('\n').map(line => theme.fg(i === 0 ? details?.error ? 'error' : 'accent' : 'text', sanitizeDisplayText(line)))).join('\n'), 0, 0)
+    const content = new Text(rows.filter(r => typeof r === 'string' ? r : r.answer).flatMap((r, i) => {
+      const answer = typeof r !== 'string', role = i === 0 ? details?.error ? 'error' : 'accent' : answer ? 'accent' : 'text';
+      return String(answer ? r.answer : r).split('\n').map((line: string) => theme.fg(role, sanitizeDisplayText(line)));
+    }).join('\n'), 0, 0)
       .render(Math.max(1, width - (framed ? 4 : 0))).map(line => truncateToWidth(line, Math.max(1, width - (framed ? 4 : 0)), ''));
     if (!framed) { forgetCopyProjection(card); return content; }
     const rendered = frameRows({ theme, width, rows: content, inset: 1, color: questionAccent(theme) });

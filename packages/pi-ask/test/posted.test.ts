@@ -205,6 +205,8 @@ test('native standalone posting returns immediately; overlay back keeps draft; e
   const submitted = structuredClone(h.messages[0]);
   const context = await h.emit('context', { messages: h.messages });
   assert.equal(h.entries.filter(e => e.customType === POSTED_ENTRY).at(-1).data.questions[0].state, 'delivered');
+  assert.equal(h.entries.filter(e => e.customType === QUESTION_EVENT).length, 0,
+    'delivery is a state change; the visible submitted-response card is the only transcript record');
   assert.match(submitted.content, /Keep it local/, 'the answer reaches the agent as one message');
   assert.doesNotMatch(context.messages.at(-1).content, /Keep it local/, 'and is not repeated in every turn');
   const outcome = h.commands.get('questions').handler('q1', h.ctx); await tick();
@@ -214,7 +216,7 @@ test('native standalone posting returns immediately; overlay back keeps draft; e
   await h.call({ op: 'apply', id: 'q1', revision: listed.questions[0].revision, reason: 'Keep the release local.' });
   assert.equal(JSON.parse((await h.call({ op: 'list' })).content[0].text).questions[0].state, 'applied');
   assert.deepEqual(h.messages[0], submitted, 'historical submission must not rewrite to applied');
-  assert.equal(h.entries.filter(e => e.customType === QUESTION_EVENT).length, 1, 'only delivery needs an extra visible event; tool results own their events');
+  assert.equal(h.entries.filter(e => e.customType === QUESTION_EVENT).length, 0, 'the submitted card marks the answer; tool results own their events');
 });
 test('branch/reload closes old input and rejects stale responses; submitted responses are never automatically resent', async () => {
   const h = harness(); await h.emit('session_start'); await h.call({ op: 'post', question: input });
@@ -244,4 +246,13 @@ test('chat preserves exact answers/notes, sanitizes terminal controls, and fits 
   const card = questionEventCard({ label: 'You submitted a response', question: b.questions[0] }, plainTheme);
   for (const width of [1, 8, 24, 80]) assert.ok(card.render(width).every((s: string) => visibleWidth(s) <= width));
   assert.match(card.render(80).join('\n'), /Line 1.*\n.*Line 2/); assert.doesNotMatch(card.render(80).join('\n'), /\x1b\[31m/);
+});
+
+test('answer cards render the chosen answer in the accent role', () => {
+  let b = postQuestion(emptyPostedBook(), input);
+  b = changeQuestion(b, b.questions[0].id, b.questions[0].revision, { op: 'submit', response: { status: 'answered', answers: [{ questionIndex: 0, answer: 'Keep it local' }] as any } });
+  const roles: string[] = [];
+  const theme = { fg: (role: string, text: string) => { if (text.includes('Keep it local')) roles.push(role); return text; }, style: (t: string) => t };
+  questionEventCard({ label: 'You submitted a response', question: b.questions[0] }, theme).render(80);
+  assert.deepEqual([...new Set(roles)], ['accent']);
 });
