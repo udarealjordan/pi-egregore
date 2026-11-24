@@ -8,7 +8,9 @@ const short = (value: string, max = 120) => { const chars = Array.from(cleanText
 export function attentionDockRows(plan: Plan, running: boolean, questions: QuestionProjection[], planId: string, cap = 6): { rows: DockRow[]; more: number; hint: string } {
   const waiting = questions.filter(q => q.state === "awaiting")
     .sort((a, b) => Number(b.urgency === "blocking") - Number(a.urgency === "blocking") || Number(b.planId === planId) - Number(a.planId === planId));
-  const asked: DockRow[] = waiting.slice(0, 2).map(q => ({ text: `? ${short(q.question)} · /questions ${q.id}`, tone: q.urgency === "blocking" ? "warning" : "muted", kind: "question" }));
+  // Rows carry the question id so the host can open the sheet on click; Alt+A opens it from the keyboard.
+  const asked: DockRow[] = waiting.slice(0, 2).map(q => ({ text: `? ${short(q.question)}`, tone: q.urgency === "blocking" ? "warning" : "muted", kind: "question", ref: q.id }));
   const list = dockRows(plan, running, Math.max(1, cap - asked.length));
-  return { rows: [...asked, ...list.rows], more: list.more + Math.max(0, waiting.length - asked.length), hint: "" };
+  return { rows: [...asked, ...list.rows], more: list.more + Math.max(0, waiting.length - asked.length),
+    hint: waiting.length ? `Alt+A answer${waiting.length > 1 ? ` ${waiting.length}` : ""}` : "" };
 }

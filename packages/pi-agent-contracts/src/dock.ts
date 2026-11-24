@@ -11,7 +11,8 @@ export const DOCK = {
 export type Tone = "text" | "muted" | "accent" | "success" | "warning" | "error";
 /** `kind` lets a host keep what matters when space is short: a question or the active
  * task survives; a phase header or finished work goes first. Optional and additive. */
-export interface DockRow { text: string; tone?: Tone; kind?: "question" | "task" | "header" }
+/** `ref` names the provider's own item (a question id) so a host can open it on click. */
+export interface DockRow { text: string; tone?: Tone; kind?: "question" | "task" | "header"; ref?: string }
 export type DockColors = Record<Tone | "base" | "panel", string>;
 export interface DockHost { version: 1; sessionId: string; available: boolean; colors?: DockColors }
 export interface DockSnapshot {
@@ -45,7 +46,8 @@ export function isSnapshot(value: unknown): value is DockSnapshot {
     (v.more === undefined || Number.isSafeInteger(v.more) && v.more >= 0 && v.more <= 10000) &&
     Array.isArray(v.rows) && v.rows.length <= 12 && v.rows.every((r) => r && typeof r.text === "string" && r.text.length <= 600 &&
       (r.tone === undefined || ["text", "muted", "accent", "success", "warning", "error"].includes(r.tone)) &&
-      (r.kind === undefined || ["question", "task", "header"].includes(r.kind)));
+      (r.kind === undefined || ["question", "task", "header"].includes(r.kind)) &&
+      (r.ref === undefined || typeof r.ref === "string" && /^[\w:-]{1,80}$/.test(r.ref)));
 }
 const RANK: Record<string, number> = { accent: 1, warning: 2, error: 2, text: 3, success: 4, muted: 4 };
 /** Keep the `count` most important rows in their original order: questions, then the active
@@ -85,7 +87,7 @@ export function layoutDock(snapshot: DockSnapshot, width: number, maxRows: numbe
   const order = groups.map((_, i) => i).sort((a, b) => Number(source[b].tone === "accent") - Number(source[a].tone === "accent"));
   for (const i of order) { const extra = Math.min(spare, groups[i].length - 1); budgets[i] += extra; spare -= extra; }
   const rows = groups.flatMap((lines, i) => lines.slice(0, budgets[i]).map((text, j) => ({
-    tone: source[i].tone, kind: source[i].kind,
+    tone: source[i].tone, kind: source[i].kind, ...(source[i].ref ? { ref: source[i].ref } : {}),
     text: j === budgets[i] - 1 && lines.length > budgets[i]
       ? truncateToWidth((j ? "  " : "") + text, Math.max(0, width - 2), "") + " …"
       : (j ? "  " : "") + text,

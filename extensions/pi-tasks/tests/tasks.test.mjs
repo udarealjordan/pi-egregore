@@ -254,7 +254,8 @@ test("the dock leads with the plan, counts open work and keeps its facts when hi
       const shown = [...h.widgets.values()].flatMap(w => w.render(80)).map(plain).join("\n");
       assert.match(shown, /Photos for Mom/);
       assert.match(shown, /1 waiting on you · 0 of 2 done/);
-      assert.match(shown, /\? Which cover\? · \/questions q1/);
+      assert.match(shown, /\? Which cover\?/);
+      assert.match(shown, /Alt\+A answer/);
       assert.match(shown, /◉ Print/);
       await h.command("tasks", "hide");
       assert.deepEqual(last.rows, []);
@@ -1161,8 +1162,12 @@ test("Tasks keeps its selected question under an Ask overlay and stable across a
     assert.equal(nav.key, "q:q1"); assert.match(panel.render(100).map(plain).join("\n"), /› ! First question/);
     panel.handleInput("\r"); await new Promise(resolve => setTimeout(resolve, 0));
     assert.match(forms.at(-1).component.render(80).map(plain).join("\n"), /Keep it local/);
-    forms.at(-1).component.handleInput("\r"); forms.at(-1).component.handleInput("\r"); await new Promise(resolve => setTimeout(resolve, 0));
+    // Both waiting questions share the sheet: Enter answers q1 and moves on; Ctrl+Enter → Review sends q1 and keeps q2 open.
+    forms.at(-1).component.handleInput("\r");
+    assert.match(forms.at(-1).component.render(80).map(plain).join("\n"), /Second question\?/);
+    forms.at(-1).component.handleInput("\x1b[13;5u"); forms.at(-1).component.handleInput("\r"); await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(h.messages.length, 1);
+    assert.deepEqual(h.messages[0].details.submissions.map(s => s.id), ["q1"]);
     await h.emit("context", { messages: h.messages });
     const q = JSON.parse((await h.callQuestion({ op: "list" })).content[0].text).questions[0];
     await h.callQuestion({ op: "apply", id: q.id, revision: q.revision, reason: "A local handoff, not publication." });

@@ -57,7 +57,7 @@ function click(shell: any, text: string, width = 80) {
  */
 function ensurePinned(shell: any, width = 80) {
 	if (shell.render(width).length === 1) click(shell, "Pin");
-	if (!stripVTControlCharacters(shell.render(width)[0]).includes("Pinned")) click(shell, "Pin");
+	if (!stripVTControlCharacters(shell.render(width)[0]).includes("Collapse")) click(shell, "Pin");
 }
 
 test("the keybind bar names + Note for choices and Tab Note for free text", () => {
@@ -153,8 +153,8 @@ test("an empty askText form closes immediately and a draft one asks", async () =
 test("the compact bar keeps the question one line away from the transcript", () => {
 	const h = setup([freeText, single]);
 	ensurePinned(h.shell);
-	assert.match(h.bare()[0], /Pinned/, "a pinned panel shows its state in the top-right corner");
-	assert.deepEqual(click(h.shell, "Pinned"), { handled: true, focus: true });
+	assert.match(h.bare()[0], /Collapse/, "a pinned panel names its corner action");
+	assert.deepEqual(click(h.shell, "Collapse"), { handled: true, focus: true });
 	const collapsed = h.shell.render(80);
 	assert.equal(collapsed.length, 1, "an unpinned panel is a single bottom row");
 	const bar = stripVTControlCharacters(collapsed[0]);
@@ -168,8 +168,8 @@ test("the compact bar keeps the question one line away from the transcript", () 
 	assert.match(h.bare()[0], / Pin /, "temporary expansion stays unpinned");
 
 	click(h.shell, "Pin");
-	assert.match(h.bare()[0], /Pinned/, "the corner pin reopens and re-pins");
-	assert.match(h.bare()[0], / Pinned /);
+	assert.match(h.bare()[0], /Collapse/, "the corner pin reopens and re-pins");
+	assert.match(h.bare()[0], / Collapse /);
 });
 
 test("F2 More offers the pin and a red discard in every top-level state", () => {
@@ -181,7 +181,7 @@ test("F2 More offers the pin and a red discard in every top-level state", () => 
 	h.shell.handleInput(keys.escape);
 	assert.doesNotMatch(h.view(), /Unpin to compact bar/, "Escape closes the menu");
 
-	click(h.shell, "Pinned");
+	click(h.shell, "Collapse");
 	click(h.shell, "Questions");
 	h.shell.handleInput(keys.f2);
 	assert.match(h.view(), /Pin panel open/, "the keyboard pin is available at widths without a corner label");
@@ -202,7 +202,7 @@ test("not pinning collapses to the bar when the next question opens; pinning kee
 	const questions = [freeText, { ...freeText, question: "And the second?" }, { ...freeText, question: "And the third?" }];
 	const unpinned = setup(questions);
 	ensurePinned(unpinned.shell);
-	click(unpinned.shell, "Pinned");
+	click(unpinned.shell, "Collapse");
 	click(unpinned.shell, "Questions");
 	unpinned.shell.handleInput("First answer");
 	unpinned.shell.handleInput(keys.enter);
@@ -223,7 +223,7 @@ test("not pinning collapses to the bar when the next question opens; pinning kee
 test("a collapsed bar scrolls the transcript only where the host can scroll", () => {
 	const fullscreen = setup([single], 40, true);
 	ensurePinned(fullscreen.shell);
-	click(fullscreen.shell, "Pinned");
+	click(fullscreen.shell, "Collapse");
 	assert.ok(stripVTControlCharacters(fullscreen.shell.render(120)[0]).includes("PgUp/PgDn scroll"));
 	fullscreen.shell.handleInput(keys.pageDown);
 	fullscreen.shell.handleInput(keys.pageUp);
@@ -235,7 +235,7 @@ test("a collapsed bar scrolls the transcript only where the host can scroll", ()
 
 	const inline = setup([single]);
 	ensurePinned(inline.shell);
-	click(inline.shell, "Pinned");
+	click(inline.shell, "Collapse");
 	assert.ok(!stripVTControlCharacters(inline.shell.render(80)[0]).includes("scroll"), "no scroll hint without a scrollable host");
 	inline.shell.handleInput(keys.pageDown);
 	assert.equal(inline.shell.render(80).length, 1);
@@ -245,7 +245,7 @@ test("a collapsed bar scrolls the transcript only where the host can scroll", ()
 test("the collapsed bar ignores editing keys so it cannot answer for you", () => {
 	const h = setup([freeText]);
 	ensurePinned(h.shell);
-	click(h.shell, "Pinned");
+	click(h.shell, "Collapse");
 	const before = h.shell.render(80);
 	for (const input of ["typed", keys.tab, keys.clear, "1"]) h.shell.handleInput(input);
 	assert.deepEqual(h.shell.render(80), before, "no key other than open/F2/scroll changes the bar");
@@ -259,7 +259,7 @@ test("the close confirmation cannot be hidden by collapsing the panel", () => {
 	h.shell.handleInput("A draft answer");
 	h.shell.handleInput(keys.escape);
 	assert.match(h.view(), /Discard 1 answer and close\?/);
-	click(h.shell, "Pinned");
+	click(h.shell, "Collapse");
 	assert.ok(h.shell.render(80).length > 1, "the banner stays visible while a decision is pending");
 	assert.match(h.view(), /Discard 1 answer and close\?/);
 	h.shell.handleInput("n");
@@ -351,7 +351,7 @@ test("a real Pi screen writes the compact bar without leaking input markers", ()
 		tui.addChild(shell); tui.setFocus(shell);
 		tui.start();
 		ensurePinned(shell);
-		click(shell, "Pinned");
+		click(shell, "Collapse");
 		writes.length = 0;
 		tui.renderNow(true);
 		const written = stripVTControlCharacters(writes.join(""));

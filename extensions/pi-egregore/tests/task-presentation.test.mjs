@@ -33,7 +33,7 @@ test('task panel preserves exact counts and bounded geometry, prioritizes open w
   const render = time => panel.render(theme, 90, dock, egregore, time, true, 7);
   const a = render(3000), b = render(3500);
   assert.deepEqual(a, b, "steady emphasis does not animate continuously");
-  assert.match(a.map(plain).join('\n'), /1 needs you · 3 of 6 done · 1 blocked/); assert.match(a.map(plain).join('\n'), /\+ 2 more · \/questions q1/);
+  assert.match(a.map(plain).join('\n'), /1 needs you · 3 of 6 done · 1 blocked/); assert.match(a.map(plain).join('\n'), /\+ 2 more · Alt\+A answer/);
   egregore.promptDepth = 1; const paused = render(4000); assert.deepEqual(paused, render(4500)); assert.equal(panel.tick(egregore, 4600, true), false);
   egregore.promptDepth = 0; egregore.lastInputAt = 4700; render(4700); assert.equal(panel.tick(egregore, 4800, true), false);
   egregore.lastInputAt = 0; egregore.prefs.motion = 'off'; render(6000); assert.equal(panel.tick(egregore, 6500, true), false);
@@ -56,7 +56,7 @@ test('Tasks title and counts share one frame; the count is muted and the plan na
     const rows = taskPanelRows(theme, 90, taskDemo('working'), taskPanelDefaults(), frame('idle'), 7);
     assert.ok(rows[0].includes(theme.style(' Photos for Mom ', { fg: theme.colors.accent, bold: true })));
     assert.ok(rows[0].includes(theme.style(' 1 needs you · 3 of 6 done · 1 blocked ', { fg: theme.colors.muted, bold: true })));
-    assert.ok(rows.at(-1).includes(theme.style(' + 2 more · /questions q1 · /tasks details ', { fg: theme.colors.muted, bold: true })));
+    assert.ok(rows.at(-1).includes(theme.style(' + 2 more · Alt+A answer ', { fg: theme.colors.muted, bold: true })));
     const idleRows = taskPanelRows(theme, 90, taskDemo('idle'), taskPanelDefaults(), frame('idle'), 7);
     assert.ok(idleRows.slice(1, -1).some(row => !row.includes('\x1b[1m')), 'ordinary body text remains unbolded');
   }
@@ -67,7 +67,7 @@ test('the settings demo is shaped exactly like a real snapshot', () => {
   assert.equal(isSnapshot(demo), true);
   assert.equal(demo.title, 'Photos for Mom');
   assert.ok(demo.rows.some(row => row.text === '◉ Print 4×6 copies' && row.tone === 'accent'));
-  assert.ok(demo.rows.some(row => row.text === '? Which photo goes on the cover? · /questions q1' && row.tone === 'warning'));
+  assert.ok(demo.rows.some(row => row.text === '? Which photo goes on the cover?' && row.tone === 'warning' && row.ref === 'q1'));
   assert.ok(demo.rows.some(row => row.text === '○ Mail the album' && row.tone === 'text'));
   assert.ok(demo.rows.some(row => row.text === '✓ Pick the best twenty photos' && row.kind === 'task'), 'the checklist keeps the last finished task for context');
   for (const appearance of ['dark', 'light']) {
@@ -144,7 +144,7 @@ test('Tasks room synchronizes list and rendered preview selection without editin
   h.click('Plan name');
   h.click('1 needs you · 3 of 6 done · 1 blocked');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Progress/);
-  h.click('+ 2 more · /questions q1 · /tasks details');
+  h.click('+ 2 more · Alt+A answer');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · More hint/);
   h.click('◉ Print 4×6 copies');
   assert.match(h.rows().join('\n'), /Egregore · Tasks · Active task/);
@@ -237,4 +237,44 @@ test('finished tasks in the dock are struck through after the check; open work i
   assert.match(done, SGR_STRIKE);
   assert.ok(plain(done).includes('✓ '), 'the check itself stays legible');
   for (const line of lines.filter(l => /[◉○] /.test(plain(l)))) assert.doesNotMatch(line, SGR_STRIKE);
+});
+
+test('live dock question rows open the answer sheet on click; other rows and drags do not', async () => {
+  const { createDock } = await jiti.import(join(source, 'dock.ts'));
+  const opened = [], egregore = state();
+  const docks = new Map([['pi-tasks', taskDemo('working')]]);
+  const ctx = { ui: { theme } };
+  const dock = createDock({ terminal: { rows: 40 } }, () => ctx, egregore, docks, () => true, () => 3000, id => opened.push(id));
+  const rows = dock.render(90).map(plain);
+  const y = rows.findIndex(row => row.includes('Which photo goes on the cover?'));
+  assert.ok(y > 0, rows.join('\n'));
+  const event = (type, row) => ({ type, button: 'left', x: 4, y: row, screenX: 4, screenY: row, width: 90, height: rows.length });
+  assert.ok(dock.handleMouse(event('press', y)), 'a question row claims the press');
+  assert.equal(dock.handleMouse(event('release', y)), undefined, 'Pi sends release before the click');
+  assert.ok(dock.handleMouse(event('click', y)));
+  assert.deepEqual(opened, ['q1']);
+  const task = rows.findIndex(row => row.includes('Print 4×6 copies'));
+  assert.equal(dock.handleMouse(event('press', task)), undefined, 'task rows stay selectable text');
+  assert.equal(dock.handleMouse(event('click', task)), undefined);
+  assert.deepEqual(opened, ['q1']);
+});
+
+test('a real alt-screen click on a dock question row reaches the dock through Pi widget containers', async () => {
+  const { createDock } = await jiti.import(join(source, 'dock.ts'));
+  const { root } = await import('./host.mjs');
+  const { pathToFileURL } = await import('node:url');
+  const { createChatViewport } = await import(pathToFileURL(join(root, '@earendil-works/pi-coding-agent/dist/modes/interactive/chat-viewport.js')));
+  const { Container, Text, Spacer, TuiAltScreen } = await import(pathToFileURL(join(root, '@earendil-works/pi-tui/dist/index.js')));
+  const terminal = { columns: 100, rows: 40, kittyProtocolActive: false, start() {}, stop() {}, async drainInput() {}, write() {}, moveBy() {}, hideCursor() {}, showCursor() {}, clearLine() {}, clearFromCursor() {}, clearScreen() {}, setTitle() {}, setProgress() {} };
+  const renderer = new TuiAltScreen(terminal, false), opened = [];
+  const dock = createDock(renderer, () => ({ ui: { theme } }), state(), new Map([['pi-tasks', taskDemo('working')]]), () => true, () => 3000, id => opened.push(id));
+  const widgets = new Container(); widgets.addChild(new Spacer(1)); widgets.addChild(dock);
+  const view = createChatViewport({ document: new Text('Transcript', 0, 0), pendingMessages: new Container(), status: new Container(), widgetsAbove: widgets, editor: new Text('editor', 0, 0), footer: new Container() });
+  renderer.setLayoutRoot(view.root); renderer.start();
+  try {
+    renderer.renderNow(true);
+    const y = renderer.previousScreen.map(plain).findIndex(line => line.includes('Which photo goes on the cover?')) + 1;
+    for (const data of [`\x1b[<0;6;${y}M`, `\x1b[<0;6;${y}m`]) renderer.handleMouseEvent(renderer.parseSgrMouseEvent(data));
+    assert.deepEqual(opened, ['q1']);
+  } finally { renderer.stop(); }
 });

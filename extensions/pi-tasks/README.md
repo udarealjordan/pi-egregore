@@ -4,12 +4,12 @@ A visible checklist for substantial work. The agent keeps named plans of tasks i
 
 ```
 ╭ Photos for Mom ━━━━━━━━━━━━━━━━━━━ 1 waiting on you · 1 of 4 done ╮
-┃ ? Which cover photo? · /questions q1                              ┃
+┃ ? Which cover photo?                                              ┃
 ┃ ✓ Gather the photos                                               ┃
 ┃ ◉ Print 4×6 copies                                                ┃
 ┃ ! Order the album · waiting for the shop to reopen                ┃
 ┃ ○ Mail it                                                         ┃
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Alt+A answer ━╯
 ```
 
 ## The dock
@@ -17,7 +17,7 @@ A visible checklist for substantial work. The agent keeps named plans of tasks i
 - **Rows follow the plan's order** around the work in progress: the task just finished, the active task, what comes next, then any earlier tasks not yet started. Tasks that don't fit become `+ N more`.
 - **Glyphs:** `✓` done, `◉` in progress (with `· paused` when the agent isn't running), `!` blocked with its reason, `○` not started (with `· after …` when it waits on another task), `–` dropped.
 - **Phases:** when a plan has more than one phase, each phase gets a header with its progress, such as `Research · 2/3`.
-- **Questions** the agent posted for you lead the dock as `?` rows. Answer with `/questions` or from the `/tasks` panel. Once you answer, the row goes away.
+- **Questions** the agent posted for you lead the dock as `?` rows. Click one, or press `Alt+A`, to answer every waiting question in one sheet; `/questions` and the `/tasks` panel open it too. Once you answer, the row goes away.
 - **When every task is done or dropped,** the dock shows `✓ Plan finished` for about four seconds and then gets out of the way. The plan stays in `/tasks history`.
 - Use `/tasks hide` to hide it while keeping the plan.
 

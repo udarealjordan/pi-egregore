@@ -12,7 +12,7 @@ const ask = join(source, "../../packages/pi-ask/extensions/ask-user-question");
 const { TabbedQuestions } = await jiti.import(join(ask, "batch-ui.ts"));
 const { frameQuestion, questionViewport } = await jiti.import(join(ask, "question-surface.ts"));
 const { askAppearanceDefaults } = await jiti.import(join(ask, "appearance.ts"));
-const { postedQuestionUI, questionEventCard } = await jiti.import(join(ask, "posted-ui.ts"));
+const { postedSheetUI, questionEventCard, answerCard } = await jiti.import(join(ask, "posted-ui.ts"));
 const { emptyPostedBook, postQuestion } = await jiti.import(join(ask, "posted-state.ts"));
 const { TaskPanel } = await jiti.import(join(source, "../pi-tasks/panel.ts"));
 const { emptyBook, mutateBook } = await jiti.import(join(source, "../pi-tasks/book.ts"));
@@ -148,7 +148,7 @@ test("real posted Ask overlay honors column offsets, row-local drift, resize and
         overlay = f.tui.showOverlay(shell, options.overlayOptions); handle = overlay;
       });
     } } };
-    const pending = postedQuestionUI(ctx, q, () => true, () => {});
+    const pending = postedSheetUI(ctx, [{ question: q, links: () => [] }], () => true, () => {});
     try {
       f.paint();
       let layout = overlayLayout(f.tui, shell);
@@ -185,10 +185,31 @@ test("real posted Ask overlay honors column offsets, row-local drift, resize and
       shell.handleInput("\x1b"); shell.handleInput("\x1b");
       const outcome = await pending;
       assert.equal(outcome.result, null);
-      assert.equal(outcome.draft.textBuffer, draft);
+      assert.equal(outcome.drafts[0].textBuffer, draft);
       assert.equal(f.native.getValue(), "Native draft | unchanged");
     } finally { handle?.hide(); shell?.dispose(); f.stop(); }
   });
+});
+
+test("real Ask answer card copies questions and answers but not its title or rails", () => {
+  const f = fixture();
+  const make = (question, label) => {
+    const q = postQuestion(emptyPostedBook(), { question, why: "Reason", boundary: "Boundary", urgency: "deferred", options: [{ label, value: label }] }).questions[0];
+    q.state = "submitted";
+    q.response = { status: "answered", answers: [{ questionIndex: 0, answer: { type: "option", label, value: label, index: 1 } }] };
+    return q;
+  };
+  const card = answerCard({ version: 2, questions: [make("First | 界面?", "Choice | one"), make("Second?", "Two")] }, theme);
+  const root = new VStack([{ component: card }, { component: new Text("native | after", 0, 0) }]);
+  f.tui.setLayoutRoot(root);
+  try {
+    f.paint();
+    const box = f.tui.currentLayout.root.children[0];
+    const selected = f.select(box.rect.y, 0, box.rect.y + box.lines.length - 1, f.terminal.columns);
+    assert.match(selected, /First \| 界面\?\nAnswer  Choice \| one\n\nSecond\?\nAnswer  Two/);
+    assert.ok(!selected.includes("Your answers"), "the title is chrome");
+    assert.ok(!selected.split("\n").some(line => /^[╭╰│]/.test(line)), "rails are decoration");
+  } finally { f.stop(); }
 });
 
 test("real Ask question event card copies only its framed body", () => {

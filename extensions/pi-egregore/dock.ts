@@ -8,10 +8,25 @@ import { forgetCopyProjection, projectCopyRows, rememberCopyProjection, type Cop
 
 /** Composer's optional dock sits above the native editor; no art or idle animation. */
 export function createDock(tui: TUI, ctx: () => ExtensionContext, state: EgregoreState,
-  docks: Map<string, DockSnapshot>, focused: () => boolean, now: () => number = Date.now): Component {
+  docks: Map<string, DockSnapshot>, focused: () => boolean, now: () => number = Date.now,
+  openQuestion?: (id: string) => void): Component {
   state.taskPanel ??= new TaskPanel();
   let copyRevision = 0;
+  /** Question id by rendered row; a click on that row opens the answer sheet. */
+  let targets = new Map<number, string>();
+  let pressed: string | undefined;
   const component: Component = {
+    handleMouse(event) {
+      const ref = targets.get(event.y);
+      if (!openQuestion || event.button !== "left") return undefined;
+      // Pi delivers release before the synthesized click, so the pressed row lives until the click or next press.
+      if (event.type === "press") { pressed = ref; return ref ? { handled: true } : undefined; }
+      if (event.type === "click") {
+        const target = pressed; pressed = undefined;
+        if (ref && ref === target) { openQuestion(ref); return { handled: true }; }
+      }
+      return undefined;
+    },
     invalidate() {},
     render(width) {
       if (width <= 0) { forgetCopyProjection(component); return []; }
@@ -22,6 +37,7 @@ export function createDock(tui: TUI, ctx: () => ExtensionContext, state: Egregor
         if (start < width) regions.push({ row: rows.length - 1, start, end: width, kind });
       };
       const providers = [...docks.values()].filter((dock) => dock.rows.length).slice(0, 6);
+      targets = new Map();
       state.taskPanel!.setVisible(providers.some((dock) => dock.id === "pi-tasks"));
       let remaining = Math.max(4, Math.min(9, Math.floor(terminalRows / 4)));
       for (let index = 0; index < providers.length; index++) {
@@ -29,6 +45,7 @@ export function createDock(tui: TUI, ctx: () => ExtensionContext, state: Egregor
         if (dock.id === "pi-tasks") {
           const offset = rows.length;
           const frame = state.taskPanel!.render(theme, width, dock, state, nowMs, focused(), Math.max(3, remaining));
+          state.taskPanel!.refs.forEach((ref, y) => { if (ref) targets.set(offset + y, ref); });
           rows.push(...frame);
           // The shared task frame is unframed below its native width threshold.
           // Project those rows as content rather than dropping their first/last rows.
@@ -49,6 +66,7 @@ export function createDock(tui: TUI, ctx: () => ExtensionContext, state: Egregor
         rows.push(truncateToWidth(theme.fg("muted", ` ${cleanText(dock.title)}${dock.summary ? " · " + cleanText(dock.summary) : ""}`), width));
         content(1, "metadata");
         for (const row of items) {
+          if (row.kind === "question" && row.ref) targets.set(rows.length, row.ref);
           rows.push(truncateToWidth(theme.fg(row.tone ?? "text", " " + cleanText(row.text)), width));
           content();
         }

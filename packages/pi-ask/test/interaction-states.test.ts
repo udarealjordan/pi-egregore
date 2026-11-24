@@ -25,7 +25,7 @@ function formWithQuestions(questions: QuestionDef[]) {
 test("frame shows 1 of N at the bottom left instead of a question-summary bar", () => {
   const h = form(3);
   let lines = h.view().split("\n");
-  assert.match(lines[0], /^╭ Questions ─+ Pinned ╮$/);
+  assert.match(lines[0], /^╭ Questions ─+ Collapse ╮$/);
   assert.match(lines.at(-1)!, /^╰ 1 of 3 ─+╯$/);
   assert.doesNotMatch(h.view(), /○ Topic|✓ Topic/);
   h.shell.handleInput(keys.skip);

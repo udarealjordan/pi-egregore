@@ -217,7 +217,9 @@ export default function egregore(pi: ExtensionAPI) {
     const question = state.promptDepth > 0 && [...state.tools.values()].some(name => QUESTION_TOOLS.has(name));
     const scope = surfaces;
     if (!scope) return;
-    ctx.ui.setWidget(IDENTITY_WIDGET, (ui) => scope.guard(createDock(ui, current, state, docks, () => activeEditor()?.focused ?? false)), { placement: question ? "belowEditor" : "aboveEditor" });
+    // A click on a dock question opens Ask's sheet through the shared posted contract; Egregore never imports Ask.
+    const openQuestion = (id: string) => pi.events.emit(POSTED.open, { version: 1, sessionId: current().sessionManager.getSessionId(), id });
+    ctx.ui.setWidget(IDENTITY_WIDGET, (ui) => scope.guard(createDock(ui, current, state, docks, () => activeEditor()?.focused ?? false, Date.now, openQuestion)), { placement: question ? "belowEditor" : "aboveEditor" });
   }
 
   function install(ctx: ExtensionContext) {

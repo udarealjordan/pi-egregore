@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Input, TuiAltScreen, TuiMainScreen, getKeybindings, visibleWidth } from '@earendil-works/pi-tui';
-import { postedQuestionUI, postedInboxUI } from '../extensions/ask-user-question/posted-ui.ts';
+import { postedSheetUI, postedInboxUI } from '../extensions/ask-user-question/posted-ui.ts';
 import { emptyPostedBook, postQuestion } from '../extensions/ask-user-question/posted-state.ts';
 import { sanitizeDisplayText } from '../extensions/ask-user-question/tui-primitives.ts';
 
@@ -48,7 +48,7 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) {
         });
       } } };
       const q = postQuestion(emptyPostedBook(), { question: 'Which release boundary?', urgency: 'blocking', why: 'This is your decision.', boundary: 'Only release waits.' }).questions[0];
-      const pending = postedQuestionUI(ctx, q, () => true, () => {});
+      const pending = postedSheetUI(ctx, [{ question: q, links: () => [] }], () => true, () => {});
       assert.equal(tui.getFocusedComponent(), shell);
       send('Keep the handoff local'); tui.renderNow(true);
       assert.equal(native.getValue(), 'Native draft remains untouched');
@@ -56,7 +56,7 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) {
       for (const width of [16, 32, 80]) assert.ok(shell.render(width).every((line: string) => visibleWidth(line) <= width));
       terminal.columns = 54; terminal.rows = 24; tui.renderNow(true);
       send('\x1b'); send('\x1b'); const outcome = await pending;
-      assert.equal(outcome.result, null); assert.equal(outcome.draft?.textBuffer, 'Keep the handoff local');
+      assert.equal(outcome.result, null); assert.equal(outcome.drafts[0]?.textBuffer, 'Keep the handoff local');
       assert.equal(tui.getFocusedComponent(), task); assert.equal(taskFocus, true);
       taskHandle.hide(); taskHandle = undefined;
       assert.equal(tui.getFocusedComponent(), native);

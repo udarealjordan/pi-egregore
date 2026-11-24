@@ -41,12 +41,15 @@ test('multi-phase plans get headers with each phase\'s progress',()=>{
 test('questions waiting on you lead the dock; answers already sent are not shown',()=>{
  let p=plan(['Review sources','Create credentials']); p=update(p,'t1',{status:'active'});
  const result=attentionDockRows(p,true,[q],'p1');
- assert.equal(result.rows[0].text,'? Authorize credential creation or keep it deferred? · /questions q1');
- assert.equal(result.rows[0].tone,'warning'); assert.equal(result.hint,'');
+ assert.equal(result.rows[0].text,'? Authorize credential creation or keep it deferred?');
+ assert.equal(result.rows[0].ref,'q1','the row names its question so a click opens it');
+ assert.equal(result.rows[0].tone,'warning'); assert.equal(result.hint,'Alt+A answer');
+ assert.equal(attentionDockRows(p,true,[],'p1').hint,'','no waiting question, no hint');
  assert.equal(attentionDockRows(p,true,[{...q,urgency:'deferred'}],'p1').rows[0].tone,'muted');
  for(const state of ['submitted','delivered','applied']) assert.doesNotMatch(attentionDockRows(p,true,[{...q,state}],'p1').rows.map(r=>r.text).join('\n'),/\?/);
  const many=attentionDockRows(p,true,[1,2,3].map(n=>({...q,id:`q${n}`})),'p1');
  assert.equal(many.rows.filter(r=>r.text.startsWith('?')).length,2); assert.equal(many.more,1,'a third question becomes a count');
+ assert.equal(many.hint,'Alt+A answer 3');
 });
 
 test('both dock hosts fit every width',()=>{
@@ -70,7 +73,7 @@ test('a short dock keeps the question and the active task; headers and finished 
  const {rows,more}=attentionDockRows(p,true,[{...q,urgency:'deferred'}],'p1');
  assert.deepEqual(rows.map(r=>r.kind),['question','header','task','task','task','header','task','task']);
  const picked=prioritizeDock(rows,3);
- assert.deepEqual(picked.rows.map(r=>r.text),['? Authorize credential creation or keep it deferred? · /questions q1','◉ Shortlist photos','○ Pick cover']);
+ assert.deepEqual(picked.rows.map(r=>r.text),['? Authorize credential creation or keep it deferred?','◉ Shortlist photos','○ Pick cover']);
  assert.equal(picked.hidden,3,'finished and unshown tasks count; headers do not');
  const fitted=fitDock({version:1,sessionId:'s',id:'pi-tasks',title:'Photos',rows,more},4);
  assert.equal(fitted.at(-1).text,'+ 3 more'); assert.ok(fitted.some(r=>r.text.startsWith('◉ Shortlist photos')));

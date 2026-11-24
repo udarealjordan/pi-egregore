@@ -274,7 +274,8 @@ export function frameQuestion(component: any, theme: any, tui: any, options: Que
       const accent = questionAccent(theme);
       const progress = appearance.labels === "matched" ? accent
         : theme.colors?.muted ? mixColors(accent, theme.colors.muted, .55) : accent;
-      const pinLabel = menu ? "" : pinned ? " Pinned " : " Pin ";
+      // The corner names what a click does: collapse an open panel, or pin it open again.
+      const pinLabel = menu ? "" : pinned ? " Collapse " : " Pin ";
       // A truncated pin label is not a target: keep the title readable and let F2 More stand in.
       const pinFits = pinLabel !== "" && visibleWidth(title) + visibleWidth(pinLabel) <= inner - 2;
       // A question waits on you, so it draws in heavy lines like the Composer.

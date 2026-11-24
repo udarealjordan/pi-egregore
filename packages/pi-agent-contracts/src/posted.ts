@@ -14,7 +14,9 @@ export interface QuestionProjection {
   boundary: string; planId?: string; taskIds: string[]; responseStatus?: string; consequence?: string; replacementId?: string; neededNow?: string;
 }
 export interface QuestionSnapshot { version: 1; sessionId: string; available: boolean; questions: QuestionProjection[]; fault?: string }
-export interface QuestionOpen { version: 1; sessionId: string; id: string; revision: number }
+/** Opens the answer sheet. `id` picks the starting question; omit it to start at the most urgent.
+ * `revision` is advisory: the sheet always reads the current record. */
+export interface QuestionOpen { version: 1; sessionId: string; id?: string; revision?: number }
 export interface TaskCatalogue { version: 1; sessionId: string; available: boolean; attentionHosted?: boolean; plans: { id: string; taskIds: string[]; title?: string; tasks?: { id: string; title: string }[] }[] }
 export function isTaskCatalogue(value: unknown): value is TaskCatalogue {
   const v = value as TaskCatalogue;

@@ -13,6 +13,18 @@ export interface QuestionDraft {
 	clarificationText?: string; clarificationMode?: boolean;
 }
 
+/** Opt-in behavior for hosts other than consult's blocking form. Defaults keep consult unchanged. */
+export interface TabbedQuestionsOptions {
+	/** Choosing a single-select option also continues; a lone question sends without Review. */
+	quick?: boolean;
+	/** Submitting leaves unanswered, unskipped questions out (answer null, not skipped) instead of skipping them. */
+	keepUnansweredOpen?: boolean;
+	/** Question the form opens on. */
+	initialTab?: number;
+	/** Per-question drafts, by index. */
+	drafts?: (QuestionDraft | undefined)[];
+}
+
 export class TabbedQuestions {
 	private questions: QuestionDef[];
 	private tabs: TabState[];
@@ -60,6 +72,7 @@ export class TabbedQuestions {
 		cwd = process.cwd(),
 		draft?: QuestionDraft,
 		private readonly regenerationEnabled = true,
+		private readonly options: TabbedQuestionsOptions = {},
 	) {
 		this.questions = questions;
 		this.tui = tui;
@@ -107,6 +120,7 @@ export class TabbedQuestions {
 				this.otherEditor.focused = false;
 				this.invalidate();
 				tui.requestRender();
+				if (this.options.quick) this.advance();
 				return;
 			}
 			this.selected.set("other", { type: "other" as const, label: trimmed, value: trimmed });
@@ -145,6 +159,18 @@ export class TabbedQuestions {
 		}
 		this.tabs = tabs;
 		if (draft && tabs.length === 1) Object.assign(tabs[0], structuredClone(draft), { selected: new Map(draft.selected) });
+		options.drafts?.forEach((saved, index) => {
+			if (!saved || !tabs[index]) return;
+			const { clarificationText: _text, clarificationMode: _mode, ...rest } = structuredClone(saved);
+			Object.assign(tabs[index], rest, { selected: new Map(saved.selected) });
+		});
+		const initial = options.initialTab ?? 0;
+		if (initial > 0 && initial < tabs.length) this.activeTab = initial;
+		const initialDraft = options.drafts?.[this.activeTab];
+		if (initialDraft?.clarificationText) {
+			this.clarificationEditor.setText(initialDraft.clarificationText);
+			this.clarificationMode = initialDraft.clarificationMode === true;
+		}
 
 		// Prepare active tab
 		this.prepareActiveTab();
@@ -152,6 +178,15 @@ export class TabbedQuestions {
 		if (this.tabs.length > 0) {
 			this.noteEditor.setText(this.tabs[this.activeTab].note || "");
 		}
+	}
+
+	/** Every question's unsubmitted input, by index. Clarification text belongs to the active question. */
+	captureDrafts(): QuestionDraft[] {
+		const active = this.captureDraft();
+		return this.tabs.map((tab, index) => index === this.activeTab ? active : structuredClone({
+			answer: tab.answer, textBuffer: tab.textBuffer, otherText: tab.otherText, selected: [...tab.selected.entries()],
+			note: tab.note, skipped: tab.skipped, committed: tab.committed,
+		}));
 	}
 
 	/** Posted-question navigation preserves unsubmitted input; this is not an answer result. */
@@ -172,11 +207,13 @@ export class TabbedQuestions {
 	}
 
 	/** Read-only boundary/context updates never edit answers or the underlying question definition. */
-	setContextDetails(details: string): void {
-		if (this.questions.length === 1 && this.questions[0].details !== details) {
-			this.questions[0] = { ...this.questions[0], details }; this.invalidate();
+	setContextDetails(details: string, index = 0): void {
+		if (this.questions[index] && this.questions[index].details !== details) {
+			this.questions[index] = { ...this.questions[index], details }; this.invalidate();
 		}
 	}
+
+	get activeIndex(): number { return this.activeTab; }
 
 	private snapshot(): TabAnswer[] {
 		if (this.editMode) this.preserveOtherDraft();
@@ -464,15 +501,32 @@ export class TabbedQuestions {
 		this.otherEditor.focused = false;
 		this.noteEditor.focused = false;
 		this.editor.focused = false;
-		if (this.tabs.every((candidate) => candidate.skipped || this.isAnswered(candidate))) this.openReview();
+		if (this.tabs.every((candidate) => candidate.skipped || this.isAnswered(candidate))) this.finishOrReview();
 		else this.advance();
 	}
 
+	/** A quick lone question has nothing to review: its answer or skip is the decision. */
+	private finishOrReview(): void {
+		if (this.options.quick && this.tabs.length === 1) {
+			this.syncAnswerFromTab();
+			return this.done(this.snapshot());
+		}
+		this.openReview(this.options.keepUnansweredOpen === true);
+	}
+
 	private advance(): void {
-		if (this.tabs.every((candidate) => candidate.skipped || this.isAnswered(candidate))) this.openReview();
+		if (this.tabs.every((candidate) => candidate.skipped || this.isAnswered(candidate))) this.finishOrReview();
 		else if (this.activeTab < this.tabs.length - 1) {
-			this.selectTab(this.activeTab + 1);
+			// A sheet moves to the next question still needing an answer, not merely the next tab.
+			const next = this.options.keepUnansweredOpen
+				? this.tabs.findIndex((tab, index) => index > this.activeTab && !tab.skipped && !this.isAnswered(tab))
+				: this.activeTab + 1;
+			this.selectTab(next > this.activeTab ? next : this.activeTab + 1);
 			this.advanceListener?.();
+		} else if (this.options.keepUnansweredOpen) {
+			const pending = this.tabs.findIndex((tab) => !tab.skipped && !this.isAnswered(tab));
+			if (pending >= 0 && pending !== this.activeTab) { this.selectTab(pending); this.advanceListener?.(); }
+			else this.openReview(true);
 		} else this.openReview();
 	}
 
@@ -525,7 +579,8 @@ export class TabbedQuestions {
 	private submitAll(): void {
 		if (!this.reviewing) return this.openReview();
 		// "Submit without unanswered" is an explicit decision, unlike merely opening Review.
-		for (const tab of this.tabs) if (!tab.skipped && !this.isAnswered(tab)) tab.skipped = true;
+		// A sheet of waiting questions instead leaves the rest open for later.
+		if (!this.options.keepUnansweredOpen) for (const tab of this.tabs) if (!tab.skipped && !this.isAnswered(tab)) tab.skipped = true;
 		this.done(this.snapshot());
 	}
 
@@ -856,7 +911,7 @@ export class TabbedQuestions {
 					if (tab.selected.has("other")) this.advance();
 					else this.openOtherEditor();
 				} else if (tab.selected.has(item.id)) this.advance();
-				else this.selectOption(tab, item);
+				else this.chooseOption(tab, item);
 				return;
 			}
 		}
@@ -873,12 +928,18 @@ export class TabbedQuestions {
 				if (tab.selected.has("other")) this.advance();
 				else this.openOtherEditor();
 			} else if (tab.selected.has(item.id)) this.advance();
-			else this.selectOption(tab, item);
+			else this.chooseOption(tab, item);
 			return;
 		}
 		if (action === "cancel") {
 			this.handleInput("\x1b");
 		}
+	}
+
+	/** Consult stages a choice for a second Enter; a quick form treats the choice as the answer. */
+	private chooseOption(tab: TabState, item: WrappedChoiceItem): void {
+		this.selectOption(tab, item);
+		if (this.options.quick) this.advance();
 	}
 
 	private selectOption(tab: TabState, item: WrappedChoiceItem): void {
@@ -1023,7 +1084,7 @@ export class TabbedQuestions {
 			const editHint = this.questions.length <= 9 ? `1–${this.questions.length} Edit` : `1–${this.questions.length} then Enter Edit`;
 			tokens = this.reviewEditDigits
 				? [`Enter Edit ${this.reviewEditDigits}`, "Esc Clear number", "F2 More"]
-				: [pending ? `Enter Submit without ${pending} unanswered` : "Enter Submit",
+				: [pending ? this.options.keepUnansweredOpen ? `Enter Send · ${pending} stay open` : `Enter Submit without ${pending} unanswered` : "Enter Submit",
 					editHint, "Esc Back", "F2 More"];
 		} else {
 			const tab = this.getActiveTab();
@@ -1045,9 +1106,14 @@ export class TabbedQuestions {
 	}
 
 	private primaryActionLabel(tab: TabState): string {
-		if (tab.mode === "text") return tab.textBuffer.trim() ? "Enter Continue" : "Write answer";
+		const lone = this.options.quick && this.tabs.length === 1;
+		if (tab.mode === "text") return tab.textBuffer.trim() ? lone ? "Enter Send" : "Enter Continue" : "Write answer";
 		const item = this.getOrCreateChoiceList(this.questions[this.activeTab]).selectedItem;
-		if (tab.mode === "single-select") return item?.isOther && !tab.selected.has(item.id) ? "Enter Edit" : tab.selected.has(item.id) ? "Enter Continue" : "Enter Select";
+		if (tab.mode === "single-select") {
+			if (item?.isOther && !tab.selected.has(item.id)) return "Enter Edit";
+			if (this.options.quick) return lone ? "Enter Send" : "Enter Choose";
+			return tab.selected.has(item.id) ? "Enter Continue" : "Enter Select";
+		}
 		return item?.isOther ? "Enter Edit" : "Enter/Space Toggle";
 	}
 
@@ -1081,7 +1147,9 @@ export class TabbedQuestions {
 				const answers = Array.isArray(tab.answer) ? tab.answer : tab.answer ? [tab.answer] : [];
 				const summary = this.isAnswered(tab)
 					? `Answered — ${answers.map((answer) => typeof answer === "string" ? answer : answer.label).join(" · ")}`
-					: tab.skipped ? "Skipped — answer and note won't be sent" : tab.textBuffer.trim() && tab.mode === "text" ? "Unanswered — draft not sent" : "Unanswered";
+					: tab.skipped ? "Skipped — answer and note won't be sent"
+					: this.options.keepUnansweredOpen ? "Stays open — draft kept for later"
+					: tab.textBuffer.trim() && tab.mode === "text" ? "Unanswered — draft not sent" : "Unanswered";
 				const questionPrefix = `${index + 1}. `;
 				addWrappedWithPrefix(
 					summaryLines,

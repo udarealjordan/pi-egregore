@@ -53,38 +53,80 @@ export async function postedInboxUI(ctx: ExtensionContext, questions: () => Post
   },{overlay:true,overlayOptions:{width:'90%',maxHeight:overlayMaxHeight,anchor:'bottom-center'}}).finally(()=>bindClose(undefined));
 }
 
-/** Reuse Ask's editors/choice/review machinery. Only the temporary overlay/back contract differs. */
-export async function postedQuestionUI(ctx: ExtensionContext, q: PostedQuestion, current: () => boolean,
-  bindClose: (close?: () => void) => void, workContext: () => string[] = () => q.planId ? [`Linked work: ${q.planId} / ${q.taskIds.join(', ') || 'plan boundary'}`] : ['Standalone question · no task links']): Promise<{ result: BatchUIResult; draft?: QuestionDraft }> {
-  let draft: QuestionDraft | undefined;
+export interface SheetQuestion {
+  question: PostedQuestion;
+  /** Linked plan/task titles, resolved by the caller from the Tasks catalogue. */
+  links: () => string[];
+}
+
+/** One quiet line under the question: what it is for and what waits. Full detail is one F2 away. */
+export function compactContext(q: PostedQuestion, links: string[]): string {
+  const work = links.find(line => line.startsWith('Linked work: '))?.slice('Linked work: '.length).replace(/ · t\d+$/, '');
+  const plan = links.find(line => line.startsWith('Linked plan: '))?.slice('Linked plan: '.length);
+  const subject = work ? `For ${work}${plan ? ` · ${plan}` : ''}` : plan ? `For ${plan}` : '';
+  const waits = q.urgency === 'blocking' ? q.boundary : 'Can wait';
+  return [subject, waits].filter(Boolean).join(' — ');
+}
+
+export function fullContext(q: PostedQuestion, links: string[]): string {
+  return [...links, `Why: ${q.why}`, q.boundary, ...(q.neededNow ? [`Needed now: ${q.neededNow}`] : []),
+    q.urgency === 'blocking' ? 'Only the stated boundary waits. Independent authorized work may continue.' : 'Can wait until this boundary needs the answer.'].filter(Boolean).join('\n\n');
+}
+
+/** Every waiting question in one sheet. Choosing an option continues; a lone question sends at once;
+ * submitting leaves unanswered questions open with their drafts. Reuses Ask's editors and Review. */
+export async function postedSheetUI(ctx: ExtensionContext, sheet: SheetQuestion[], current: (index: number) => boolean,
+  bindClose: (close?: () => void) => void, initialTab = 0): Promise<{ result: BatchUIResult; drafts: QuestionDraft[]; activeIndex: number }> {
+  let drafts: QuestionDraft[] = [], activeIndex = initialTab;
+  const expanded = new Set<number>();
+  const details = (index: number) => {
+    const { question: q, links } = sheet[index]!;
+    const own = q.definition.details?.trim();
+    const context = expanded.has(index) ? fullContext(q, links()) : compactContext(q, links());
+    return [own, context].filter(Boolean).join('\n\n');
+  };
   const result = await ctx.ui.custom<BatchUIResult>((tui, theme, kb, done) => {
     let settled = false;
-    const finish = (result: BatchUIResult) => { if (settled) return; settled = true; draft = form.captureDraft(); done(result); };
+    const finish = (result: BatchUIResult) => { if (settled) return; settled = true; drafts = form.captureDrafts(); activeIndex = form.activeIndex; done(result); };
     const palette = questionTheme(theme, savedAskAppearance());
-    const contextDetails = () => [q.definition.details, ...workContext(), `Why: ${q.why}`, q.boundary, ...(q.neededNow ? [`Needed now: ${q.neededNow}`] : []),
-      q.urgency === 'blocking' ? 'Only the stated boundary waits. Independent authorized work may continue.' : 'Can wait until this boundary needs the answer.'].filter(Boolean).join('\n\n');
-    const form = new TabbedQuestions([{ ...q.definition, details: contextDetails() }], questionViewport(tui, overlayRows(tui)), palette, kb, finish, ctx.cwd, q.draft, false);
-    // A posted question is not a submission: an explicit close retains the draft.
+    const form = new TabbedQuestions(sheet.map((item, index) => ({ ...item.question.definition, details: details(index) })),
+      questionViewport(tui, overlayRows(tui)), palette, kb, finish, ctx.cwd, undefined, false,
+      { quick: true, keepUnansweredOpen: true, initialTab, drafts: sheet.map(item => item.question.draft) });
+    // Closing a sheet is not a submission: every question keeps its draft.
     form.preserveDraftOnDismiss = true;
     bindClose(() => finish(null));
+    const refresh = () => sheet.forEach((_, index) => { if (current(index)) form.setContextDetails(details(index), index); });
+    const urgency = () => {
+      const q = sheet[form.activeIndex]?.question;
+      return !q ? '' : q.urgency === 'blocking' ? q.taskIds.length ? 'Blocks linked work' : 'Blocks stated boundary' : 'Can wait';
+    };
     const component = {
       get focused() { return form.focused; }, set focused(v: boolean) { form.focused = v; },
-      invalidate() { form.invalidate(); }, render(width: number) { if (current()) form.setContextDetails(contextDetails()); return form.render(width); },
+      invalidate() { form.invalidate(); }, render(width: number) { refresh(); return form.render(width); },
       handleInput(data: string) {
-        if (!current()) { finish(null); return; }
-        form.setContextDetails(contextDetails());
+        if (!sheet.some((_, index) => current(index))) { finish(null); return; }
+        refresh();
         // Nested modes and a pending confirmation resolve their own Escape; otherwise
         // the form's own top-level close decides, so a draft asks before closing.
         if (!matchesKey(data, 'escape') || !form.backFromNestedMode()) form.handleInput(data);
       },
       isConfirmingDismiss() { return form.isConfirmingDismiss(); },
       setAdvanceListener(listener: () => void) { form.setAdvanceListener(listener); },
-      getHeaderLabel() { return q.urgency === 'blocking' ? q.taskIds.length ? 'Blocks linked work' : 'Blocks stated boundary' : 'Can wait'; },
-      getMoreActions() { return [{ label: 'Close and keep draft', run: () => finish(null) }, ...form.getMoreActions()]; },
+      getHeaderLabel() { return sheet.length > 1 ? `${urgency()} · ${form.getHeaderLabel()}` : urgency(); },
+      getMoreActions() {
+        const index = form.activeIndex;
+        return [
+          { label: expanded.has(index) ? 'Hide why this is asked' : 'Why this is asked', run: () => {
+            if (expanded.has(index)) expanded.delete(index); else expanded.add(index);
+            form.setContextDetails(details(index), index); tui.requestRender();
+          } },
+          { label: 'Close and keep drafts', run: () => finish(null) }, ...form.getMoreActions(),
+        ];
+      },
     };
     return frameQuestion(component, palette, tui, { raised: true, maxRows: overlayRows(tui) });
-  }, { overlay: true, overlayOptions: { width: '75%', maxHeight: overlayMaxHeight, anchor: 'bottom-center' } }).finally(() => bindClose(undefined));
-  return { result, draft };
+  }, { overlay: true, overlayOptions: { width: '75%', minWidth: 56, maxHeight: overlayMaxHeight, anchor: 'bottom-center' } }).finally(() => bindClose(undefined));
+  return { result, drafts, activeIndex };
 }
 export async function postedOutcomeUI(ctx: ExtensionContext, q: PostedQuestion, bindClose: (close?: () => void) => void) {
   await ctx.ui.custom<void>((tui, theme, _kb, done) => {
@@ -146,6 +188,56 @@ export function questionEventCard(details: any, theme: any, expanded = false) {
     // The renderer label is chrome; the question, status, answers and notes are content.
     for (let row = details?.label ? 2 : 1; row < rendered.length - 1; row++) regions.push({ row, start: 2, end: width - 2 });
     return rememberCopyProjection(card, width, rendered, projectCopyRows("pi-ask:event-card", width, rendered, ++revision, regions));
+  } };
+  return card;
+}
+
+/** Questions carried by an answer message: a sheet's batch, or one question from older sessions. */
+export function answeredQuestions(details: any): PostedQuestion[] {
+  return Array.isArray(details?.questions) ? details.questions : details?.question ? [details.question] : [];
+}
+
+/** The transcript record of what you sent: each question, then a purple "Answer" label and your answer.
+ * Delivery state lives in /questions, so the card never goes stale saying "submitted". */
+export function answerCard(details: any, theme: any, expanded = false) {
+  let revision = 0;
+  const card = { invalidate() {}, render(width: number) {
+    if (width <= 0) { forgetCopyProjection(card); return []; }
+    const questions = answeredQuestions(details);
+    const inner = Math.max(1, width - (width >= 10 ? 4 : 0));
+    const out: string[] = [];
+    const wrap = (text: string, paint: (line: string) => string) => {
+      for (const line of sanitizeDisplayText(text).split('\n')) out.push(...wrapTextWithAnsi(paint(line), inner));
+    };
+    const labelled = (label: string, role: string, value: string) => {
+      const lines = sanitizeDisplayText(value).split('\n');
+      out.push(...wrapTextWithAnsi(`${theme.fg(role, label)}  ${theme.fg('text', lines[0] ?? '')}`, inner));
+      for (const rest of lines.slice(1)) out.push(...wrapTextWithAnsi(theme.fg('text', rest), inner));
+    };
+    out.push(theme.fg('accent', questions.length > 1 ? `Your answers · ${questions.length}` : 'Your answer'));
+    questions.forEach((q, index) => {
+      if (index > 0) out.push('');
+      wrap(q.definition.question, line => theme.fg('muted', line));
+      const response = q.response;
+      const values = (response?.answers ?? []).flatMap(a => Array.isArray(a.answer) ? a.answer : a.answer == null ? [] : [a.answer])
+        .map(v => typeof v === 'string' ? v : v.label);
+      if (response?.status === 'answered') labelled('Answer', 'accent', values.join(' · '));
+      else if (response?.status === 'skipped') out.push(theme.fg('muted', 'Skipped · not approval'));
+      if (response?.clarification) labelled('You asked', 'accent', response.clarification);
+      for (const a of response?.answers ?? []) if (a.note) labelled('Note', 'muted', a.note);
+      if (expanded) {
+        wrap(`Why: ${q.why}`, line => theme.fg('dim', line));
+        wrap(q.boundary, line => theme.fg('dim', line));
+        wrap(`Reference ${q.id} · revision ${q.revision}${q.taskIds.length ? ` · ${q.planId} / ${q.taskIds.join(', ')}` : ''}`, line => theme.fg('dim', line));
+      }
+    });
+    const content = out.map(line => truncateToWidth(line, inner, ''));
+    if (width < 10) { forgetCopyProjection(card); return content; }
+    const rendered = frameRows({ theme, width, rows: content, inset: 1, color: questionAccent(theme) });
+    // The title row is chrome; questions, answers and notes are content.
+    const regions = [];
+    for (let row = 2; row < rendered.length - 1; row++) regions.push({ row, start: 2, end: width - 2 });
+    return rememberCopyProjection(card, width, rendered, projectCopyRows('pi-ask:answer-card', width, rendered, ++revision, regions));
   } };
   return card;
 }

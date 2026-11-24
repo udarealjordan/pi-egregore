@@ -23,13 +23,13 @@ export function readTaskPanel(value: unknown): TaskPanelPrefs {
   return out;
 }
 function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs: TaskPanelPrefs,
-  frame: FrameSample, budget = 7, withHits = false): { rows: string[]; hits: TaskPreviewHit[] } {
+  frame: FrameSample, budget = 7, withHits = false): { rows: string[]; hits: TaskPreviewHit[]; refs: (string | undefined)[] } {
   const bodyBudget = Math.max(1, budget - 2);
   const capacity = Math.max(1, Math.min(prefs.rows, bodyBudget));
   const picked = prioritizeDock(dock.rows, capacity), source = picked.rows;
   const hidden = picked.hidden + (dock.more ?? 0);
   const inner = Math.max(1, width - 4);
-  const content: Array<{ text: string; role: "text" | "active" | "muted" | "warning" | "error" }> = [];
+  const content: Array<{ text: string; role: "text" | "active" | "muted" | "warning" | "error"; ref?: string }> = [];
   const chosen = source.slice(0, capacity);
   for (const [index, row] of chosen.entries()) {
     const role = row.tone === "accent" ? "active" : row.tone === "warning" || row.tone === "error" || row.tone === "muted" ? row.tone : "text";
@@ -38,7 +38,7 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
     // A finished task reads struck through, like a checklist.
     const struck = row.kind === "task" && row.text.startsWith("✓ ");
     const strike = (line: string, first: boolean) => !struck ? line : first ? line.slice(0, 2) + theme.style(line.slice(2), { strikethrough: true }) : theme.style(line, { strikethrough: true });
-    for (let i = 0; i < count; i++) content.push({ role,
+    for (let i = 0; i < count; i++) content.push({ role, ref: row.kind === "question" ? row.ref : undefined,
       text: strike(i === count - 1 && lines.length > count ? truncateToWidth(lines[i], Math.max(0, inner - 1), "") + "…" : lines[i], i === 0) });
   }
   if (!content.length) content.push({ text: dock.overview?.total ? "No open tasks" : "No tasks yet", role: "muted" });
@@ -47,7 +47,7 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
   const hint = hidden > 0 ? `+ ${hidden} more${dock.hint ? ` · ${cleanText(dock.hint)}` : ""}` : cleanText(dock.hint ?? "");
   if (width < 16) {
     if (hint && content.length < bodyBudget) content.push({ text: hint, role: "muted" });
-    return { rows: content.map(row => truncateToWidth(row.text, width, "…")), hits: [] };
+    return { rows: content.map(row => truncateToWidth(row.text, width, "…")), hits: [], refs: content.map(row => row.ref) };
   }
   const changesOnly = prefs.presentation.motion === "changes" && prefs.presentation.states[frame.state]?.motion !== "repeat";
   const rows = presentationRows({ theme, width, rows: content, title, summary, hint, presentation: prefs.presentation, weight: "heavy",
@@ -65,7 +65,9 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
     const bg = lift ? mixColors(base, flash, lift, "srgb") : base;
     rows[y] = sliceByColumn(rows[y], 0, 1) + selectionHighlight(theme, sliceByColumn(rows[y], 1, width - 2), { background: bg }) + sliceByColumn(rows[y], width - 1, 1);
   });
-  if (!withHits) return { rows, hits: [] }; // No hit parsing on the live, possibly animated Tasks widget.
+  // Clickable question rows come from the dock data, not from parsing painted text.
+  const refs = rows.map((_, y) => y >= 1 && y < rows.length - 1 ? content[y - 1]?.ref : undefined);
+  if (!withHits) return { rows, hits: [], refs }; // No hit parsing on the live, possibly animated Tasks widget.
   const hits: TaskPreviewHit[] = [];
   // Hit regions are derived from the *rendered* rail, not assumed positions: a
   // truncated or omitted label is not clickable. This stays in the Egregore adapter;
@@ -93,10 +95,16 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
     const text = stripVTControlCharacters(rows[y]).slice(1, -1).trim();
     if (text && row.text) hits.push({ id: row.role === "active" ? "active" : "body", x: 1, y, width: width - 2 });
   });
-  return { rows, hits };
+  return { rows, hits, refs };
 }
 export function taskPanelRows(theme: Theme, width: number, dock: DockSnapshot, prefs: TaskPanelPrefs,
   frame: FrameSample, budget = 7): string[] { return taskPanelLayout(theme, width, dock, prefs, frame, budget).rows; }
+/** Rows plus the question id each row opens, for the live dock's click targets. */
+export function taskPanelRowsWithRefs(theme: Theme, width: number, dock: DockSnapshot, prefs: TaskPanelPrefs,
+  frame: FrameSample, budget = 7): { rows: string[]; refs: (string | undefined)[] } {
+  const { rows, refs } = taskPanelLayout(theme, width, dock, prefs, frame, budget);
+  return { rows, refs };
+}
 /** Display-only hit metadata for the settings preview. Never changes Tasks state. */
 export function taskPanelPreview(theme: Theme, width: number, dock: DockSnapshot, prefs: TaskPanelPrefs,
   frame: FrameSample, budget = 7): { rows: string[]; hits: TaskPreviewHit[] } {
@@ -109,6 +117,8 @@ export class TaskPanel {
   private dock?: DockSnapshot;
   private identity?: string;
   private visible = false;
+  /** Question id per row of the last render, for click targets. */
+  refs: (string | undefined)[] = [];
   setVisible(value: boolean) { this.visible = value; if (!value) this.reset(); }
   reset() { this.controller.reset(); this.dock = undefined; this.identity = undefined; }
   private update(egregore: EgregoreState, now: number, focused: boolean) {
@@ -134,7 +144,9 @@ export class TaskPanel {
     if (this.identity !== undefined && this.identity !== identity) this.reset();
     this.identity = identity;
     this.dock = dock; this.visible = width >= 16 && budget >= 3;
-    return taskPanelRows(theme, width, dock, egregore.layout?.tasks ?? taskPanelDefaults(), this.update(egregore, now, focused), budget);
+    const { rows, refs } = taskPanelRowsWithRefs(theme, width, dock, egregore.layout?.tasks ?? taskPanelDefaults(), this.update(egregore, now, focused), budget);
+    this.refs = refs;
+    return rows;
   }
 }
 
@@ -143,11 +155,11 @@ export function taskDemo(state: FrameState): DockSnapshot {
   // Rows mirror the real Tasks dock (questions first, then the checklist around the active task).
   // The hint stays so its position can be previewed in /egregore.
   const done = state === "done", paused = state === "waiting" || state === "blocked", active = state === "working" || paused;
-  return { version: 1, sessionId: "demo", id: "pi-tasks", title: "Photos for Mom", hint: done ? "/tasks" : "/questions q1 · /tasks details",
+  return { version: 1, sessionId: "demo", id: "pi-tasks", title: "Photos for Mom", hint: done ? "/tasks" : "Alt+A answer",
     summary: done ? "6 of 6 done" : "1 needs you · 3 of 6 done · 1 blocked", more: done ? 0 : 1,
     rows: done ? [] : [
       ...(state === "error" ? [{ text: "× Could not load task history", tone: "error" as const }] : []),
-      { text: "? Which photo goes on the cover? · /questions q1", tone: "warning" as const, kind: "question" as const },
+      { text: "? Which photo goes on the cover?", tone: "warning" as const, kind: "question" as const, ref: "q1" },
       { text: "✓ Pick the best twenty photos", tone: "muted" as const, kind: "task" as const },
       active ? { text: `◉ Print 4×6 copies${paused ? " · paused" : ""}`, tone: "accent" as const, kind: "task" as const }
         : { text: "○ Print 4×6 copies", tone: "text" as const, kind: "task" as const },

@@ -5,7 +5,7 @@ import { emptyPostedBook, postQuestion, changeQuestion, restorePostedBook, POSTE
 import { registerPostedQuestions } from '../extensions/ask-user-question/posted.ts';
 import { TabbedQuestions } from '../extensions/ask-user-question/batch-ui.ts';
 import { POSTED, isTaskCatalogue } from 'pi-agent-contracts/posted';
-import { questionEventCard } from '../extensions/ask-user-question/posted-ui.ts';
+import { questionEventCard, answerCard } from '../extensions/ask-user-question/posted-ui.ts';
 import { sanitizeDisplayText } from '../extensions/ask-user-question/tui-primitives.ts';
 
 const input: PostedInput = { question: 'Keep this local?', urgency: 'blocking', why: 'Release scope belongs to you.', boundary: 'Publishing waits. Local checks can continue.' };
@@ -88,24 +88,25 @@ test('durable drafts restore unsubmitted text, custom selections and note input'
 });
 
 function harness(mode = 'tui') {
+  const shortcuts = new Map<string, any>(); let editorText = '';
   const hooks = new Map<string, any[]>(), commands = new Map<string, any>(), tools = new Map<string, any>(), subs = new Map<string, any[]>();
   const entries: any[] = [], messages: any[] = [], notices: string[] = [], widgets = new Map(); let branch = entries, fail = false;
   const forms: any[] = [];
   const colors = Object.fromEntries(['text', 'accent', 'muted', 'customMessageBg'].map(k => [k, parseColor(k === 'customMessageBg' ? '#171925' : k === 'accent' ? '#bbadff' : '#dcdcee')]));
   const theme = { ...plainTheme, colors, getColorMode: () => 'truecolor', style: (t: string) => t };
   const ctx: any = { mode, hasUI: mode === 'tui', cwd: process.cwd(), sessionManager: { getSessionId: () => 'posted-test', getBranch: () => branch },
-    ui: { theme, notify: (s: string) => notices.push(s), setWidget: (k: string, v: any) => v ? widgets.set(k, v) : widgets.delete(k), confirm: async () => false,
+    ui: { theme, getEditorText: () => editorText, notify: (s: string) => notices.push(s), setWidget: (k: string, v: any) => v ? widgets.set(k, v) : widgets.delete(k), confirm: async () => false,
       custom: (factory: any, options: any) => new Promise(resolve => { const component = factory({ terminal: { rows: 40 }, requestRender() {} }, theme, getKeybindings(), resolve); component.focused = true; forms.push({ component, options }); }), select: async () => undefined } };
   const pi: any = { events: { on(k: string, fn: any) { if (!subs.has(k)) subs.set(k, []); subs.get(k)!.push(fn); }, emit(k: string, d: any) { for (const fn of subs.get(k) ?? []) fn(d); } },
-    on(k: string, fn: any) { if (!hooks.has(k)) hooks.set(k, []); hooks.get(k)!.push(fn); }, registerTool: (t: any) => tools.set(t.name, t), registerCommand: (k: string, c: any) => commands.set(k, c),
+    on(k: string, fn: any) { if (!hooks.has(k)) hooks.set(k, []); hooks.get(k)!.push(fn); }, registerTool: (t: any) => tools.set(t.name, t), registerCommand: (k: string, c: any) => commands.set(k, c), registerShortcut: (k: string, o: any) => shortcuts.set(k, o),
     registerEntryRenderer() {}, registerMessageRenderer() {}, appendEntry(customType: string, data: any) { if (fail) throw new Error('Storage failed'); entries.push({ type: 'custom', customType, data: structuredClone(data) }); }, sendMessage: (m: any, opts: any) => messages.push({ ...structuredClone(m), role: 'custom', opts }) };
   registerPostedQuestions(pi, fn => fn());
   const emit = async (k: string, d: any = {}) => { let result: any; for (const fn of hooks.get(k) ?? []) result = await fn(d, ctx) ?? result; return result; };
   const call = (p: any) => tools.get('question_queue').execute('test', p, undefined, undefined, ctx);
-  return { pi, ctx, entries, messages, forms, notices, widgets, emit, call, commands, branch(b: any[]) { branch = b; }, fail() { fail = true; } };
+  return { pi, ctx, entries, messages, forms, notices, widgets, emit, call, commands, shortcuts, type(text: string) { editorText = text; }, branch(b: any[]) { branch = b; }, fail() { fail = true; } };
 }
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
-test('inbox to normal choice form to Review submits one-based choices and preserves notes',async()=>{
+test('inbox to sheet: a note goes in first, then choosing the option sends at once with one-based choices',async()=>{
   const h=harness();await h.emit('session_start');
   await h.call({op:'post',question:{...input,options:[{label:'Local'},{label:'Hosted'}]}});
   const opening=h.commands.get('questions').handler('',h.ctx);await tick();
@@ -113,8 +114,8 @@ test('inbox to normal choice form to Review submits one-based choices and preser
   assert.match(sanitizeDisplayText(inbox.render(90).join('\n')),/Question inbox/);
   inbox.handleInput('\r');await tick();
   const form=h.forms.at(-1).component;assert.notEqual(form,inbox);
-  form.handleInput('\x1b[B');form.handleInput('\r');form.handleInput('+');form.handleInput('Only after review');form.handleInput('\r');
-  form.handleInput('\r');assert.match(sanitizeDisplayText(form.render(90).join('\n')),/Review/);
+  form.handleInput('\x1b[B');form.handleInput('+');form.handleInput('Only after review');form.handleInput('\r');
+  assert.match(sanitizeDisplayText(form.render(90).join('\n')),/↵ Send/,'a lone question sends on choice, without Review');
   form.handleInput('\r');await opening;
   assert.deepEqual(h.notices,[]);assert.equal(h.messages.length,1);
   const q=h.entries.filter(e=>e.customType===POSTED_ENTRY).at(-1).data.questions[0];
@@ -150,13 +151,11 @@ test('urgency-only changes preserve open text/notes, refresh linked context and 
   assert.equal(q.urgency, 'blocking'); assert.equal(q.draft.textBuffer, 'Typed before escalation and after'); assert.equal(h.messages.length, 0);
 });
 
-test('posted Escape respects review/note modes and clarification survives leaving/reopening', async () => {
+test('posted Escape respects note mode and clarification survives leaving/reopening', async () => {
   const h = harness(); await h.emit('session_start'); await h.call({ op: 'post', question: input });
   let opening = h.commands.get('questions').handler('q1', h.ctx); await tick(); let f = h.forms.at(-1).component;
   f.handleInput('Answer'); f.handleInput('\t'); f.handleInput('\r'); f.handleInput('Discard this note');
   f.handleInput('\x1b'); assert.doesNotMatch(sanitizeDisplayText(f.render(90).join('\n')), /Discard this note/);
-  f.handleInput('\r'); assert.match(sanitizeDisplayText(f.render(90).join('\n')), /Review/);
-  f.handleInput('\x1b'); assert.doesNotMatch(sanitizeDisplayText(f.render(90).join('\n')), /Review 1 answer/);
   f.handleInput('\x1b[47;5u'); f.handleInput('Clarify the scope'); f.handleInput('\x1b');
   f.handleInput('\x1b');
   assert.match(sanitizeDisplayText(f.render(90).join('\n')), /Close this question and keep your draft\?/);
@@ -257,4 +256,91 @@ test('answered cards show the Answer label in accent and the chosen answer as te
   assert.deepEqual(painted.find(([, text]) => text === 'Answer'), ['accent', 'Answer']);
   assert.ok(painted.some(([role, text]) => role === 'text' && text.startsWith(' · ')), 'the stage after the label stays text');
   assert.deepEqual(painted.find(([, text]) => text === 'Keep it local'), ['text', 'Keep it local']);
+});
+
+const book = (h: any) => h.entries.filter((e: any) => e.customType === POSTED_ENTRY).at(-1).data;
+test('Alt+A opens every waiting question as one sheet, blocking first; one submit sends one message; the rest stay open', async () => {
+  const h = harness(); await h.emit('session_start');
+  await h.call({ op: 'post', question: { ...input, question: 'Deferred choice?', urgency: 'deferred', options: [{ label: 'A' }, { label: 'B' }] } });
+  await h.call({ op: 'post', question: { ...input, question: 'Blocking choice?', options: [{ label: 'X' }, { label: 'Y' }] } });
+  await h.call({ op: 'post', question: { ...input, question: 'Deferred text?', urgency: 'deferred' } });
+  const opening = h.shortcuts.get('alt+a').handler(h.ctx); await tick();
+  assert.equal(h.forms.length, 1);
+  const f = h.forms.at(-1).component;
+  const screen = () => sanitizeDisplayText(f.render(100).join('\n'));
+  assert.match(screen(), /Blocking choice\?/, 'blocking questions lead');
+  assert.match(screen(), /Blocks stated boundary · 1 of 3/);
+  f.handleInput('\r');
+  assert.match(screen(), /Deferred choice\?/, 'choosing an option moves to the next waiting question');
+  f.handleInput('2');
+  assert.match(screen(), /Deferred text\?/);
+  f.handleInput('Not sure yet');
+  f.handleInput('\x1b[13;5u');
+  assert.match(screen(), /Review 2 answers/); assert.match(screen(), /Stays open/); assert.match(screen(), /Send · 1 stay open/);
+  f.handleInput('\r'); await opening; await tick(); await tick();
+  assert.deepEqual(h.notices, []); assert.equal(h.messages.length, 1, 'one message for the whole sheet');
+  assert.deepEqual(h.messages[0].details.submissions.map((s: any) => s.id), ['q2', 'q1']);
+  assert.equal(h.messages[0].opts.deliverAs, 'steer');
+  const after = book(h).questions;
+  assert.deepEqual(after.map((q: any) => q.state), ['submitted', 'submitted', 'awaiting']);
+  assert.equal(after[2].draft.textBuffer, 'Not sure yet', 'an unanswered question keeps its draft');
+  assert.equal(after[1].response.answers[0].answer.label, 'X');
+  assert.equal(after[0].response.answers[0].answer.label, 'B');
+  await h.emit('context', { messages: h.messages });
+  assert.deepEqual(book(h).questions.map((q: any) => q.state), ['delivered', 'delivered', 'awaiting']);
+  assert.equal(h.entries.filter((e: any) => e.customType === QUESTION_EVENT).length, 0);
+});
+
+test('/questions <id> opens the sheet on that question; closing keeps every draft and sends nothing', async () => {
+  const h = harness(); await h.emit('session_start');
+  await h.call({ op: 'post', question: { ...input, question: 'First?' } });
+  await h.call({ op: 'post', question: { ...input, question: 'Second?', urgency: 'deferred' } });
+  const opening = h.commands.get('questions').handler('q2', h.ctx); await tick();
+  const f = h.forms.at(-1).component;
+  assert.match(sanitizeDisplayText(f.render(100).join('\n')), /Second\?/);
+  f.handleInput('Draft two'); f.handleInput('\x1b'); f.handleInput('\x1b'); await opening;
+  assert.equal(h.messages.length, 0);
+  assert.equal(book(h).questions[1].draft.textBuffer, 'Draft two');
+  assert.equal(book(h).questions[0].draft, undefined, 'an untouched question gets no empty draft');
+});
+
+test('a blocking question opens itself once when the agent stops, but never while you are typing', async () => {
+  const typing = harness(); await typing.emit('session_start');
+  await typing.call({ op: 'post', question: input });
+  typing.type('half a thought'); await typing.emit('agent_end'); await tick();
+  assert.equal(typing.forms.length, 0, 'a draft in the editor is never interrupted');
+  assert.match(typing.notices.join('\n'), /needs your answer · Alt\+A/);
+
+  const idle = harness(); await idle.emit('session_start');
+  await idle.call({ op: 'post', question: { ...input, urgency: 'deferred' } });
+  await idle.emit('agent_end'); await tick();
+  assert.equal(idle.forms.length, 0, 'deferred questions wait in the dock');
+  await idle.call({ op: 'post', question: { ...input, question: 'Now blocking?' } });
+  await idle.emit('agent_end'); await tick();
+  assert.equal(idle.forms.length, 1);
+  assert.match(sanitizeDisplayText(idle.forms[0].component.render(100).join('\n')), /Now blocking\?/, 'it opens on the blocking question');
+  idle.forms[0].component.handleInput('\x1b'); await tick();
+  await idle.emit('agent_end'); await tick();
+  assert.equal(idle.forms.length, 1, 'closing it is respected: no re-pop on the next turn');
+
+  const busy = harness(); await busy.emit('session_start');
+  busy.pi.events.emit(POSTED.interaction, { version: 1, sessionId: 'posted-test', id: 'pi-tasks:browser', active: true });
+  await busy.call({ op: 'post', question: input });
+  await busy.emit('agent_end'); await tick();
+  assert.equal(busy.forms.length, 0, 'another open panel is not covered');
+});
+
+test('the answer card groups a sheet and labels each answer in accent, without delivery wording', () => {
+  let b = postQuestion(emptyPostedBook(), { ...input, question: 'One?' });
+  b = postQuestion(b, { ...input, question: 'Two?' });
+  b = changeQuestion(b, 'q1', b.questions[0].revision, { op: 'submit', response: { status: 'answered', answers: [{ questionIndex: 0, answer: 'Local' }] } as any });
+  b = changeQuestion(b, 'q2', b.questions[1].revision, { op: 'submit', response: { status: 'skipped', answers: [{ questionIndex: 0, answer: null, skipped: true }] } as any });
+  const painted: [string, string][] = [];
+  const theme = { fg: (role: string, text: string) => { painted.push([role, text]); return text; }, style: (t: string) => t };
+  const text = answerCard({ version: 2, questions: b.questions }, theme).render(80).join('\n');
+  assert.match(text, /Your answers · 2/); assert.match(text, /One\?/); assert.match(text, /Answer {2}Local/); assert.match(text, /Skipped · not approval/);
+  assert.doesNotMatch(text, /submitted|Delivered/i);
+  assert.deepEqual(painted.find(([, t]) => t === 'Answer'), ['accent', 'Answer']);
+  // An older single-question message still renders.
+  assert.match(answerCard({ label: 'You submitted a response', question: b.questions[0] }, theme).render(80).join('\n'), /Your answer\b/);
 });

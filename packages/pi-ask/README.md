@@ -24,7 +24,16 @@ call out the unknown!
 Ask lets the agent bring you into a decision: a focused question when it can't continue without you, or a posted question you can answer later while it keeps working.
 
 - **`consult`** asks one to four questions and waits. One question opens a focused form; several open a sequential form with a Review screen.
-- **`question_queue`** posts a question for later. It appears at the top of the Tasks dock and in `/questions`; your answer reaches the agent as a message.
+- **`question_queue`** posts a question for later. It appears at the top of the Tasks dock; your answers reach the agent as one message.
+
+### Answering posted questions
+
+- **One sheet.** `Alt+A`, a click on a dock question, or `/questions <id>` opens every waiting question as tabs, blocking ones first, starting on the one you picked.
+- **Choosing is answering.** Enter or a number on an option answers and moves to the next waiting question. A lone question sends immediately; with several, Review appears when they are all answered, or on `Ctrl+Enter`.
+- **Send what you have.** Review sends the answered and skipped questions; the rest stay open with their drafts. Closing the sheet keeps every draft and sends nothing.
+- **Choices first.** Under the question is one line saying what it is for and what waits. F2 → *Why this is asked* shows the reason, boundary and linked work.
+- **It comes to you when it must.** When the agent stops with a new blocking question, the sheet opens on it once, unless you are typing a draft or another panel is open; then a notice points at `Alt+A`. Deferred questions wait in the dock.
+- **One record.** The transcript shows a single *Your answer(s)* card: each question, a purple **Answer** label and what you chose. Delivery status lives in `/questions`.
 - **How often the agent asks** is yours to set: `/egregore` → Ask → Question frame → **How often to ask**. *Only when needed* asks when it is blocked or before something hard to undo. *Balanced* (the default) also asks at real forks and on taste, naming or scope. *Curious* also checks in at milestones.
 
 ## Answering
@@ -66,7 +75,7 @@ The footer shows the keys that apply right now; F2 More lists everything else.
 | Esc | Go back one level; at the top, close (asks first if you've entered anything) |
 | F2 | More actions, including pin, clear and discard |
 
-**Pin.** The top-right **Pinned** label collapses the panel to a one-line bar so you can read the transcript; click the bar or press Enter to reopen it. The pin lasts for the session.
+**Collapse.** The top-right **Collapse** label collapses the panel to a one-line bar so you can read the transcript; click the bar or press Enter to reopen it. The pin lasts for the session.
 
 ## Tool parameters
 
@@ -105,7 +114,7 @@ One tool with an `op`:
 | `withdraw` | `id`, its current `revision` from `list`, and a `reason` |
 | `replace` | `id`, `revision`, `reason` and the new `question` |
 
-`/questions` opens the inbox; `/questions q1` opens one question; `/questions retry q1` resends an answer that didn't reach the agent. Limits: 100 questions and 1 MiB per branch.
+`/questions` opens the inbox (answered history included); `/questions q1` opens the sheet on that question; `/questions retry q1 q2` resends answers that didn't reach the agent, as one message. Limits: 100 questions and 1 MiB per branch.
 
 ## Outside the terminal UI
 
