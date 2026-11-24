@@ -118,7 +118,7 @@ export class SentMessageFrames {
         const framed = frameRows({ theme: t, width, rows: messageBodyRows(lines.map(terminalBackground), density), color,
           corners: { topLeft: assistant ? assistantIdentity(t, ` ${label} `, color, style) : t.style(` ${label} `, { fg: color, bold: true }),
             ...(!assistant && this.gaps.has(node) && width >= 40 ? { topCenter: t.fg("dim", ` ${gapLabel(this.gaps.get(node)!)} `) } : {}),
-            [style.chat.sentPosition]: styledSentLabel(t, time, color, assistant ? "quiet" : "user", options?.prefs?.icons) },
+            [style.chat.sentPosition]: styledSentLabel(t, time, color, assistant ? "matched" : "user", options?.prefs?.icons) },
           surface: (text, cells) => composerSurface(t, text, cells),
           motion: motion ? { ...motion, accent: mixColors(color, t.colors.text, .35) } : undefined });
         // The frame's own corner rows replace the removed host padding rows, so they

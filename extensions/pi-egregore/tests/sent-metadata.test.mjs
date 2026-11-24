@@ -24,14 +24,18 @@ test('sourced Sent metadata shares formatting without inventing missing time', (
   }
 });
 
-test('user and assistant/group Sent metadata share text but preserve different tones', () => {
+test('user Sent metadata keeps user color while assistant metadata exactly matches the Tasks accent', () => {
   for (const appearance of ['light', 'dark']) {
     initTheme(appearance, false);
+    const text = ' Sent 12:00 ';
     const user = styledSentLabel(theme, '12:00', theme.colors.error, 'user', 'plain');
-    const quiet = styledSentLabel(theme, '12:00', theme.colors.error, 'quiet', 'plain');
-    assert.equal(plain(user), ' Sent 12:00 ');
-    assert.equal(plain(quiet), plain(user));
-    assert.notEqual(user, quiet);
+    const matched = styledSentLabel(theme, '12:00', theme.colors.accent, 'matched', 'plain');
+    const quiet = styledSentLabel(theme, '12:00', theme.colors.accent, 'quiet', 'plain');
+    assert.equal(plain(user), text);
+    assert.equal(plain(matched), text);
+    assert.equal(matched, theme.style(text, { fg: theme.colors.accent, bold: true }));
+    assert.notEqual(user, matched);
+    assert.notEqual(quiet, matched);
     assert.equal(plain(styledSentLabel(theme, '12:00:07', theme.colors.error, 'user', 'nerd')), ` ${COMPOSER_ICONS.sent} 12:00:07 `);
     assert.equal(styledSentLabel(theme, '', theme.colors.error, 'user'), '');
   }

@@ -22,8 +22,8 @@ export function sentLabel(time: string, icons: FooterPrefs["icons"] = "nerd"): s
   return time ? ` ${icons === "nerd" ? COMPOSER_ICONS.sent : "Sent"} ${time} ` : "";
 }
 
-/** User-send metadata keeps user red; assistant/group metadata is quiet in its frame hue. */
-export function styledSentLabel(theme: Theme, time: string, color: Color, tone: "user" | "quiet", icons: FooterPrefs["icons"] = "nerd"): string {
+/** User-send metadata keeps user red; matched assistant metadata uses the Tasks/frame accent exactly. */
+export function styledSentLabel(theme: Theme, time: string, color: Color, tone: "user" | "matched" | "quiet", icons: FooterPrefs["icons"] = "nerd"): string {
   const label = sentLabel(time, icons);
-  return label ? theme.style(label, { fg: tone === "user" ? color : mixColors(color, theme.colors.muted, .55), bold: true }) : "";
+  return label ? theme.style(label, { fg: tone === "quiet" ? mixColors(color, theme.colors.muted, .55) : color, bold: true }) : "";
 }

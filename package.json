@@ -53,7 +53,8 @@
     "extensions": [
       "./extensions/pi-egregore/index.ts",
       "./extensions/pi-tasks/index.ts",
-      "./packages/pi-ask/extensions/questions.ts"
+      "./packages/pi-ask/extensions/questions.ts",
+      "./extensions/pi-egregore/session-name-prompt.ts"
     ]
   },
   "egregoreSync": {

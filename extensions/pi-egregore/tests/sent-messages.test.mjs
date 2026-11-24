@@ -139,6 +139,8 @@ test("chat frames show only sourced fixed creation times; repeated user text map
     assert.doesNotMatch(plain(synthetic.render(70).at(-1)), /Sent |\u{f10dd}/u, "unsourced user messages have no invented time");
     const assistantTime = sentTime(Date.UTC(2024, 0, 2, 15, 42), prefs, Date.now());
     assert.ok(plain(assistant.render(70).at(-1)).includes(label(assistantTime)));
+    assert.ok(assistant.render(70).at(-1).includes(theme.style(` ${label(assistantTime)} `, { fg: taskFrameColor(theme), bold: true })),
+      "assistant timestamp exactly matches the Tasks/frame accent");
     frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, chronomancerDay: "2024-01-01" }));
     const actualDay = calendarDay(users[0].timestamp);
     assert.ok(plain(first.render(90).at(-1)).includes(actualDay), "past-day mode shows the real send date");
@@ -150,6 +152,8 @@ test("chat frames show only sourced fixed creation times; repeated user text map
     assert.ok(plain(first.render(70).at(-1)).startsWith(`╰ ${label(firstTime)}`), "user creation time moves left without losing its red identity");
     assert.ok(first.render(70).at(-1).includes(theme.style(` ${label(firstTime)} `, { fg: userFrameColor(theme), bold: true })));
     assert.ok(plain(assistant.render(70).at(-1)).includes(label(assistantTime)));
+    assert.ok(assistant.render(70).at(-1).includes(theme.style(` ${label(assistantTime)} `, { fg: taskFrameColor(theme), bold: true })),
+      "moving the label and quieting the assistant identity do not mute the timestamp");
     assert.doesNotMatch(plain(synthetic.render(70).at(-1)), /Sent /);
     prefs.icons = "plain";
     assert.ok(plain(first.render(70).at(-1)).includes(`Sent ${firstTime}`), "plain mode retains a readable label");

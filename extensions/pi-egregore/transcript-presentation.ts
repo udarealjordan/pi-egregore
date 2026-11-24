@@ -68,7 +68,7 @@ export function transcriptPreview(theme: Theme, width: number, style: Transcript
     add(userRows, [{ id: "chatIdentity", text: " jordan ", y: 0, affected: false }, { id: "chatSent", text: userSent, y: userRows.length - 1 }], "chatFrame");
     const assistantRows = frameRows({ theme, width, rows: messageBodyRows(["  Sample assistant reply"], density), color: assistant,
       corners: { topLeft: assistantIdentity(theme, " Assistant ", assistant, style),
-        [style.chat.sentPosition]: styledSentLabel(theme, style.chat.showSent ? "9:42:09 AM" : "", assistant, "quiet", icons) },
+        [style.chat.sentPosition]: styledSentLabel(theme, style.chat.showSent ? "9:42:09 AM" : "", assistant, "matched", icons) },
       surface: (text, cells) => composerSurface(theme, text, cells) });
     add(assistantRows, [{ id: "chatIdentity", text: " Assistant ", y: 0 }, { id: "chatSent", text: assistantSent, y: assistantRows.length - 1 }], "chatFrame");
   } else {
