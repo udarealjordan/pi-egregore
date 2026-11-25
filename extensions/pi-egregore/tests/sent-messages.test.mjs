@@ -11,7 +11,7 @@ const { COMPOSER_ICONS } = await jiti.import(join(source, "composer-icons.ts"));
 const { AssistantMessageComponent, UserMessageComponent } = await import(pathToFileURL(join(root, "@earendil-works/pi-coding-agent/dist/index.js")));
 const { Container, Text, TuiMainScreen, TuiAltScreen, colorToHex, parseColor } = await import(pathToFileURL(join(root, "@earendil-works/pi-tui/dist/index.js")));
 
-test("composer, assistant and Tasks use the same Pi accent in dark and light themes", () => {
+test("composer, assistant identity and Tasks use the same Pi accent; settled history frames stay quiet", () => {
   for (const appearance of ["dark", "light"]) {
     const accent = parseColor(appearance === "light" ? "#6546aa" : "#bbadff");
     const current = { ...theme, appearance, colors: { ...theme.colors, accent },
@@ -25,7 +25,10 @@ test("composer, assistant and Tasks use the same Pi accent in dark and light the
     root.addChild(assistant);
     try {
       frames.sync(root, () => current);
-      assert.ok(assistant.render(80)[0].includes(current.style("╭", { fg: accent })));
+      const top = assistant.render(80)[0];
+      assert.ok(top.includes(current.style("╭", { fg: current.colors.borderMuted })), "settled frame uses the quiet history line");
+      assert.ok(!top.includes(current.style("╭", { fg: accent })), "settled frame no longer draws in the accent");
+      assert.ok(top.includes(current.style(" Assistant ", { fg: accent, bold: true })), "identity label keeps the accent");
     } finally { frames.dispose(); }
   }
 });
@@ -227,6 +230,9 @@ test("only the active streaming assistant frame animates, without modifying its 
     assert.deepEqual(first.map(plain), second.map(plain));
     assistant.updateContent(message, false);
     const settled = assistant.render(70);
+    const quietCorner = theme.style("╭", { fg: theme.colors.borderMuted });
+    assert.ok(settled[0].includes(quietCorner), "a finished reply settles to the quiet history line");
+    assert.ok(!first[0].includes(quietCorner), "a streaming reply stays live, not quiet");
     now = 2100;
     assert.deepEqual(assistant.render(70), settled);
   } finally { frames.dispose(); }

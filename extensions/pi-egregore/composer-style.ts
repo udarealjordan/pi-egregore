@@ -22,6 +22,9 @@ export const composerEdge = () => frameGlyphs(COMPOSER_WEIGHT).vertical;
 export function composerBorder(theme: Theme): Color { return theme.colors.accent; }
 /** User-send metadata uses the same red/pink identity as the user message frame. */
 export function userFrameColor(theme: Theme): Color { return hue(theme, "red"); }
+/** Settled chat history draws a quiet line, as Rex draws inactive panes; identity stays in its labels.
+ *  Live surfaces (Composer, Tasks, a streaming reply) keep their color. */
+export function historyFrameColor(theme: Theme): Color { return theme.colors.borderMuted; }
 export function composerInset(width: number): number { return width >= 8 ? 2 : 0; }
 /** Related metadata stays readable while borrowing the frame's hue. */
 export function quietFrameLabel(theme: Theme, text: string, border: Color): string {

@@ -2,7 +2,7 @@ import { stripVTControlCharacters } from "node:util";
 import { AssistantMessageComponent, UserMessageComponent, type Theme } from "@earendil-works/pi-coding-agent";
 import { frameRows } from "../../lib/frame.ts";
 import { mixColors, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { composerSurface, userFrameColor } from "./composer-style.ts";
+import { composerSurface, historyFrameColor, userFrameColor } from "./composer-style.ts";
 import { clean, type FooterPrefs } from "./footer-state.ts";
 import { calendarDay, sentTime, styledSentLabel } from "./sent-metadata.ts";
 import { taskFrameColor } from "../../lib/task-frame.ts";
@@ -106,7 +106,9 @@ export class SentMessageFrames {
         framedWidth = width;
         padding = density === "compact" ? 0 : 1;
         const t = theme(), assistant = node instanceof AssistantMessageComponent;
-        const color = assistant ? taskFrameColor(t) : userFrameColor(t);
+        const identity = assistant ? taskFrameColor(t) : userFrameColor(t);
+        const live = facts.kind === "assistant" && facts.streaming;
+        const color = live ? identity : historyFrameColor(t);
         const options = this.presentation, style = activeTranscript(options?.prefs);
         const label = truncateToWidth(assistant ? clean(modelName()) || "Assistant" : clean(options?.prefs?.displayName ?? "jordan") || "jordan", width - 6, "…");
         const timestamp = facts.kind === "assistant" ? facts.timestamp : this.timestamps.get(node);
@@ -116,11 +118,11 @@ export class SentMessageFrames {
         const motion = facts.kind === "assistant" && facts.streaming
           ? thinkingMotion?.() : undefined;
         const framed = frameRows({ theme: t, width, rows: messageBodyRows(lines.map(terminalBackground), density), color,
-          corners: { topLeft: assistant ? assistantIdentity(t, ` ${label} `, color, style) : t.style(` ${label} `, { fg: color, bold: true }),
+          corners: { topLeft: assistant ? assistantIdentity(t, ` ${label} `, identity, style) : t.style(` ${label} `, { fg: identity, bold: true }),
             ...(!assistant && this.gaps.has(node) && width >= 40 ? { topCenter: t.fg("dim", ` ${gapLabel(this.gaps.get(node)!)} `) } : {}),
-            [style.chat.sentPosition]: styledSentLabel(t, time, color, assistant ? "matched" : "user", options?.prefs?.icons) },
+            [style.chat.sentPosition]: styledSentLabel(t, time, identity, assistant ? "matched" : "user", options?.prefs?.icons) },
           surface: (text, cells) => composerSurface(t, text, cells),
-          motion: motion ? { ...motion, accent: mixColors(color, t.colors.text, .35) } : undefined });
+          motion: motion ? { ...motion, accent: mixColors(identity, t.colors.text, .35) } : undefined });
         // The frame's own corner rows replace the removed host padding rows, so they
         // become the message's start and end line. Prefixing there keeps every zone
         // marker at column 0 where the host can strip and find it.
