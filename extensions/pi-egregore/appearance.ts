@@ -64,7 +64,7 @@ export function appearanceDefaults(p: FooterPrefs): Appearance {
       : id === "hint" ? p.railHint !== "off" : true;
     elements[id] = { visible, position: DEFAULT_POSITIONS[id], order,
       text: id === "sentTime" ? "Sent {value}" : id === "hint" ? "Next: {value}" : "{value}",
-      color: id === "sentTime" ? "red" : ["session", "vim", "model"].includes(id) ? "frame" : id === "status" || id === "context" || id === "git" ? "auto" : "quiet",
+      color: id === "sentTime" ? "accent" : ["session", "vim", "model"].includes(id) ? "frame" : id === "status" || id === "context" || id === "git" ? "auto" : "quiet",
       bold: id === "session" || id === "vim" || id === "status", priority: ["status", "vim", "thinking"].includes(id) ? "high" : id === "hint" || id === "model" ? "low" : "normal" };
   }
   // Preserve fields deliberately kept in the legacy footer rather than the input border.

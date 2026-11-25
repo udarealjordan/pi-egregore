@@ -52,3 +52,9 @@ test("identity hex literals live only in composer-palette.ts", () => {
     .flatMap(file => curated.filter(value => readFileSync(join(source, file), "utf8").toLowerCase().includes(value)).map(value => `${file}: ${value}`));
   assert.deepEqual(offenders, []);
 });
+
+test("the Composer's sent time defaults to the user's accent, like their message frames", async () => {
+  const { appearanceDefaults } = await jiti.import(join(source, "appearance.ts"));
+  const { FOOTER_DEFAULTS } = await jiti.import(join(source, "footer-state.ts"));
+  assert.equal(appearanceDefaults(FOOTER_DEFAULTS).elements.sentTime.color, "accent");
+});
