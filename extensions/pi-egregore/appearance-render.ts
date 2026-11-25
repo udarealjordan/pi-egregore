@@ -114,10 +114,13 @@ export function appearanceRow(theme: Theme, width: number, egregore: EgregoreSta
       sizes[candidates[0].i]--; total = sizes.reduce((a, b) => a + b, 0) + overhead();
     }
     const hits: Array<{ id: ElementId; x: number; width: number }> = [];
-    let content = "", x = 1;
+    let content = "", x = 1, previous: ElementId | undefined;
     for (let i = 0; i < parts.length; i++) {
       if (!sizes[i]) continue;
-      if (content) { content += theme.style(separator, { fg: border }); x += visibleWidth(separator); }
+      // Between two parts that speak for the same identity (model · thinking), the separator is theirs too.
+      const owner = previous && IDENTITY[previous] && IDENTITY[previous] === IDENTITY[parts[i].id] ? IDENTITY[previous] : undefined;
+      if (content) { content += theme.style(separator, { fg: owner ? identityColor(theme, owner) : border }); x += visibleWidth(separator); }
+      previous = parts[i].id;
       const part = parts[i];
       const selected = egregore.footerPickerOpen && egregore.appearancePreview?.selected === part.id;
       const styled = part.id === "status"

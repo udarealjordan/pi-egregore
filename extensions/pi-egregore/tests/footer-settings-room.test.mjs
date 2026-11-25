@@ -274,3 +274,11 @@ test("live activity strip stays above the input and preview label clicks retain 
   assert.equal(h.egregore.appearancePreview.selected, "session");
   await h.discard();
 });
+
+test("model · thinking render as one assistant-colored unit; the Composer frame stays the user's accent", () => {
+  const h = egregore();
+  const bottom = appearanceRow(theme, 140, h.egregore, "bottom", 0);
+  const text = theme.colors.text, accent = theme.colors.accent;
+  assert.ok(bottom.includes(theme.style(" · ", { fg: text })), "the separator between model and thinking is the assistant's");
+  assert.deepEqual(appearanceBorder(theme, h.egregore), accent, "the frame is the user's accent");
+});
