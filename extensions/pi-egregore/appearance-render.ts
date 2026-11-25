@@ -12,6 +12,7 @@ import type { EgregoreState } from "./state.ts";
 import { selectionHighlight } from "./footer-selection.ts";
 import { emberStatus, statusWithTools } from "./composer-ember.ts";
 import { sessionBadge } from "./composer-title.ts";
+import { hue, isHue } from "./theme-hues.ts";
 
 export function currentAppearanceState(egregore: EgregoreState): AppearanceState {
   if (egregore.footerPickerOpen && egregore.appearancePreview?.state) return egregore.appearancePreview.state;
@@ -23,10 +24,7 @@ export function appearanceColor(theme: Theme, value: AppearanceColor | undefined
   if (value === "frame") return frame;
   if (value === "quiet") return mixColors(frame, theme.colors.muted, .45);
   if (value.startsWith("#")) return parseColor(value);
-  const palette = theme.appearance === "light"
-    ? { red: "#a84760", purple: "#68409b", blue: "#375e86", cyan: "#006879", green: "#406522" }
-    : { red: "#f0a3b1", purple: "#c4a7ff", blue: "#8caed2", cyan: "#67d8e8", green: "#a0d080" };
-  if (Object.hasOwn(palette, value)) return parseColor(palette[value as keyof typeof palette]);
+  if (isHue(value)) return hue(theme, value);
   return theme.colors[value as "accent" | "text" | "muted" | "warning"] ?? frame;
 }
 export function appearanceBorder(theme: Theme, egregore: EgregoreState): Color {

@@ -2,13 +2,14 @@ import { askText } from "../../lib/dialogs.ts";
 import { stripVTControlCharacters } from "node:util";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry, SessionTreeNode, Theme } from "@earendil-works/pi-coding-agent";
 import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
-import { Input, Key, Markdown, matchesKey, parseColor, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
+import { Input, Key, Markdown, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
 import { framePlacement, frameRows } from "../../lib/frame.ts";
 
 /** Paths takes the composer's place at the bottom, like /btw and questions, so it never covers the chat. */
 const PLACEMENT = framePlacement("input");
 import { clean } from "./footer-state.ts";
 import type { EgregoreState } from "./state.ts";
+import { hue } from "./theme-hues.ts";
 
 /** One of your messages, on the current path or on an alternative you rewound from. */
 export type Turn = { id: string; parentId: string | null; text: string; at: number; label?: string; reply: string; leaf: string };
@@ -100,7 +101,7 @@ export function dayLabel(at: number, now = Date.now()): string {
 /** Long file paths in a message keep only their last part, which is the part you recognize. */
 export const shortenPaths = (text: string) => text.replace(/(?:~\/|\/)(?:[^\s/]+\/)+([^\s/]+)/g, "…/$1");
 /** Gold marks /paths, so it never reads as chat or as the composer. */
-export function pathsColor(theme: Theme) { return parseColor(theme.appearance === "light" ? "#8a6400" : "#e2b55a"); }
+export function pathsColor(theme: Theme) { return hue(theme, "amber"); }
 /** go: move to a point and keep going. rewind: back to just before your message, which returns to the Composer. */
 type Pick = { action: "go"; target: string } | { action: "rewind"; turn: Turn } | { action: "label"; turn: Turn };
 

@@ -1,5 +1,8 @@
 import { parseColor, type Color } from "@earendil-works/pi-tui";
 
+/** Name of the Theme the Composer lease installs; identity hues keep their curated values under it. */
+export const COMPOSER_THEME_NAME = "pi-egregore-composer";
+
 /** Palette roles used by the live Composer theme. */
 export type Palette = Record<string, Color>;
 export function makeComposerPalette(light = false): Palette {
@@ -15,3 +18,9 @@ export function makeComposerPalette(light = false): Palette {
   };
   return Object.fromEntries(Object.entries(colors).map(([name, value]) => [name, parseColor(value)]));
 }
+
+/** Curated Composer values for Egregore's named identity hues (see theme-hues.ts). */
+export const COMPOSER_HUES = {
+  dark: { red: "#f0a3b1", purple: "#c4a7ff", blue: "#8caed2", cyan: "#67d8e8", green: "#a0d080", teal: "#5fd4d0", amber: "#e2b55a" },
+  light: { red: "#a84760", purple: "#68409b", blue: "#375e86", cyan: "#006879", green: "#406522", teal: "#00727a", amber: "#8a6400" },
+} as const;

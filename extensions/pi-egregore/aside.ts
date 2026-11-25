@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { buildSessionContext, convertToLlm, copyToClipboard, getMarkdownTheme, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
-import { Input, Key, Markdown, matchesKey, parseColor, truncateToWidth, wrapTextWithAnsi, type Component, type TUI, type TuiMouseEvent } from "@earendil-works/pi-tui";
+import { Input, Key, Markdown, matchesKey, truncateToWidth, wrapTextWithAnsi, type Component, type TUI, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { stripVTControlCharacters } from "node:util";
 import { framePlacement, frameRows } from "../../lib/frame.ts";
 
 /** An aside is something you type into, so it takes the composer's place like a question. */
 const PLACEMENT = framePlacement("input");
 import { userFrameColor } from "./composer-style.ts";
+import { hue } from "./theme-hues.ts";
 
 /** Side questions ("asides"): asked about the session without entering its transcript. */
 export const ASIDE_ENTRY = "pi-egregore:aside-v1";
@@ -24,7 +25,7 @@ type Done = { action: "close" } | { action: "fork"; exchange: Exchange };
 export const ASIDE_PROMPT = "\n\n# Side question\nThe user is asking a quick side question about this session. Answer directly and briefly from the conversation so far. Do not continue the main task, call tools or make changes. If answering needs a tool, say what you would check instead. The main agent may still be working.";
 
 /** Teal marks an aside so it never reads as the main chat. */
-export function asideColor(theme: Theme) { return parseColor(theme.appearance === "light" ? "#00727a" : "#5fd4d0"); }
+export function asideColor(theme: Theme) { return hue(theme, "teal"); }
 
 type Message = ReturnType<typeof convertToLlm>[number];
 /** Drop tool calls that have no result yet (the main agent may be mid-call); providers reject them. */

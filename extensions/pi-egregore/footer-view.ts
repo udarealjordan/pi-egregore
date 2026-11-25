@@ -1,10 +1,11 @@
 import { basename } from "node:path";
 import { COMPOSER_ICONS } from "./composer-icons.ts";
 import type { ContextUsage, Theme } from "@earendil-works/pi-coding-agent";
-import { mixColors, parseColor, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Color } from "@earendil-works/pi-tui";
+import { mixColors, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Color } from "@earendil-works/pi-tui";
 import { clean, gitLabel, homePath, type FooterPrefs, type GitState } from "./footer-state.ts";
 
 import { meter, paintMeter, type MotionFrame } from "./footer-effects.ts";
+import { footerHue, hue, type Hue } from "./theme-hues.ts";
 
 export interface FooterData {
   frame?: MotionFrame;
@@ -13,10 +14,6 @@ export interface FooterData {
 }
 const nerd: Record<string, string> = COMPOSER_ICONS;
 const plain: Record<string, string> = { directory: "dir", git: "git", session: "session", model: "", context: "ctx" };
-const accents = {
-  dark: { cyan: parseColor("#67d8e8"), violet: parseColor("#c4a7ff"), green: parseColor("#a0d080") },
-  light: { cyan: parseColor("#006879"), violet: parseColor("#68409b"), green: parseColor("#406522") },
-};
 const compactNumber = (n: number) => n >= 1e6 ? `${+(n / 1e6).toFixed(1)}m` : n >= 1000 ? `${+(n / 1000).toFixed(1)}k` : `${Math.round(n)}`;
 export function middle(text: string, width: number): string {
   if (visibleWidth(text) <= width) return text;
@@ -37,14 +34,13 @@ export function contextText(p: FooterPrefs, u: ContextUsage | undefined, width: 
   return bar + label + counts;
 }
 interface Segment { id: string; text: string; tone?: "error" | "warning" | "success" }
+const SEMANTIC_HUES: Record<string, Hue> = { session: "purple", context: "cyan", directory: "blue" };
 function semanticColor(theme: Theme, id: string) {
-  const dark: Record<string, string> = { session: "#c4a7ff", context: "#67d8e8", directory: "#8caed2" };
-  const light: Record<string, string> = { session: "#68409b", context: "#006879", directory: "#375e86" };
-  const hex = (theme.appearance === "dark" ? dark : light)[id];
-  return hex ? parseColor(hex) : theme.colors.text;
+  const name = SEMANTIC_HUES[id];
+  return name ? hue(theme, name) : theme.colors.text;
 }
 export function decorateFooterPart(theme: Theme, p: FooterPrefs, part: Segment, index: number, frame?: MotionFrame, override?: Color): string {
-  const tone = override ?? part.tone ?? (p.color === "mono" ? "text" : p.color === "semantic" ? semanticColor(theme, part.id) : p.color === "theme" ? "accent" : accents[theme.appearance][p.color]);
+  const tone = override ?? part.tone ?? (p.color === "mono" ? "text" : p.color === "semantic" ? semanticColor(theme, part.id) : p.color === "theme" ? "accent" : footerHue(theme, p.color));
   if (part.id === "context") {
     const text = override ? part.text : paintMeter(part.text, theme, p, frame, part.tone === "success" ? undefined : part.tone);
     if (p.shape === "pill") {

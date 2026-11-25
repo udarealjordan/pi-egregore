@@ -1,8 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { frameGlyphs, frameRail, type FrameWeight } from "../../lib/frame.ts";
-import { foregroundAnsi, mixColors, parseColor, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
+import { foregroundAnsi, mixColors, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import { inheritColors } from "./composer-theme.ts";
 import { makeComposerPalette } from "./composer-palette.ts";
+import { hue } from "./theme-hues.ts";
 import { colorToHex } from "@earendil-works/pi-tui";
 import { formatDuration, type EgregoreState } from "./state.ts";
 import { clean, homePath } from "./footer-state.ts";
@@ -20,9 +21,7 @@ export const composerEdge = () => frameGlyphs(COMPOSER_WEIGHT).vertical;
 /** Composer, assistant transcript, and Tasks use the same active Pi accent. */
 export function composerBorder(theme: Theme): Color { return theme.colors.accent; }
 /** User-send metadata uses the same red/pink identity as the user message frame. */
-export function userFrameColor(theme: Theme): Color {
-  return parseColor(theme.appearance === "light" ? "#a84760" : "#f0a3b1");
-}
+export function userFrameColor(theme: Theme): Color { return hue(theme, "red"); }
 export function composerInset(width: number): number { return width >= 8 ? 2 : 0; }
 /** Related metadata stays readable while borrowing the frame's hue. */
 export function quietFrameLabel(theme: Theme, text: string, border: Color): string {

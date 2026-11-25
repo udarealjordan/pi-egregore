@@ -1,6 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { mixColors, parseColor, type Color } from "@earendil-works/pi-tui";
+import { mixColors, type Color } from "@earendil-works/pi-tui";
 import type { FooterPrefs } from "./footer-state.ts";
+import { footerHue, hue } from "./theme-hues.ts";
 
 export interface MotionFrame { now: number; running: boolean }
 const STILL: MotionFrame = { now: 0, running: false };
@@ -19,10 +20,7 @@ export function meter(p: FooterPrefs, percent: number, length: number): string {
 }
 const paletteCache = new Map<string, Color[]>();
 function palette(theme: Theme, p: FooterPrefs, warning?: "warning" | "error"): Color[] {
-  const custom = theme.appearance === "light"
-    ? { cyan: "#006879", violet: "#68409b", green: "#406522" }
-    : { cyan: "#67d8e8", violet: "#c4a7ff", green: "#a0d080" };
-  const accent = warning ? theme.colors[warning] : p.color === "semantic" ? parseColor(custom.cyan) : p.color === "theme" ? theme.colors.accent : p.color === "mono" ? theme.colors.text : parseColor(custom[p.color]);
+  const accent = warning ? theme.colors[warning] : p.color === "semantic" ? hue(theme, "cyan") : p.color === "theme" ? theme.colors.accent : p.color === "mono" ? theme.colors.text : footerHue(theme, p.color);
   const key = JSON.stringify([accent, theme.colors.dim, theme.colors.text]);
   let colors = paletteCache.get(key);
   if (!colors) {
@@ -62,7 +60,7 @@ export function decorateActivity(parts: string[], theme: Theme, p: FooterPrefs, 
   return parts.map(part => {
     if (part.startsWith("working ")) {
       const glyph = workGlyph(p, frame);
-      const teal = parseColor(theme.appearance === "dark" ? "#67d8e8" : "#006879");
+      const teal = hue(theme, "cyan");
       const pulse = moving(p, frame) ? 0.10 + 0.10 * (1 + Math.sin(frame.now / 550)) / 2 : 0;
       const color = mixColors(teal, theme.colors.text, pulse);
       const duration = part.slice("working ".length);
