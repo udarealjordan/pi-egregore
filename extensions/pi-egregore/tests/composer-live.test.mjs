@@ -54,16 +54,17 @@ test("the composer's side edges use the same frame color as its rails in both ed
   const sgr = (row, at) => {
     // The color in effect where the border glyph at visible column `at` is drawn.
     let col = 0, color = "";
-    for (const part of row.split(/(\x1b\[[0-9;]*m)/)) {
+    // Pi's zero-width APC markers (cursor, focus) are not cells.
+    for (const part of row.replace(/\x1b_[^\x07]*\x07/g, "").split(/(\x1b\[[0-9;]*m)/)) {
       if (part.startsWith("\x1b[")) { const m = /38;2;(\d+);(\d+);(\d+)/.exec(part); if (m) color = m.slice(1).join(","); else if (part === "\x1b[0m" || part === "\x1b[39m") color = ""; continue; }
       for (const ch of Array.from(part.replace(CURSOR_MARKER, ""))) { if (col === at) return color; col += visibleWidth(ch); }
     }
     return color;
   };
   const egregore = state(); egregore.prefs.motion = "off"; egregore.thinkingLevel = () => "medium";
-  egregore.layout = { ...FOOTER_DEFAULTS, appearance: { ...appearanceDefaults(FOOTER_DEFAULTS), frameColor: "text" } };
+  egregore.layout = { ...FOOTER_DEFAULTS, appearance: appearanceDefaults(FOOTER_DEFAULTS) };
   const expected = colorToHex(appearanceBorder(theme, egregore)).slice(1).match(/../g).map(h => parseInt(h, 16)).join(",");
-  assert.notEqual(colorToHex(appearanceBorder(theme, egregore)), colorToHex(theme.colors.accent), "fixture uses a non-default frame color");
+  assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(theme.colors.accent), "the Composer frame is the user's accent");
   const tui = { terminal: { rows: 40 }, requestRender() {} };
   const fullCtx = { ...ctx, cwd: "/tmp", model: { id: "test-model" }, getContextUsage: () => ({ percent: 24, contextWindow: 200000 }) };
   const native = new ComposerEditor(tui, getEditorTheme(), kb, () => fullCtx, egregore, () => "medium", () => 10000);
@@ -278,7 +279,7 @@ test("Chronomancer hides run-state rail without hiding session title or changing
   assert.match(plain(composerMessageRail(theme, 110, egregore, at, "Alchemy")), /your turn/);
 });
 
-test("Chronomancer makes the native composer frame red, preserves Vim and explicit /egregore frame colors", () => {
+test("Chronomancer makes the native composer frame red and preserves Vim; stale saved frame colors are ignored", () => {
   const egregore = state(); egregore.prefs.motion = "off"; egregore.layout = { ...FOOTER_DEFAULTS };
   const tui = { terminal: { rows: 40 }, requestRender() {} };
   const vim = new ModalEditor(tui, getEditorTheme(), kb);
@@ -298,12 +299,13 @@ test("Chronomancer makes the native composer frame red, preserves Vim and explic
     assert.match(plain(red.join("\n")), /INSERT/);
     egregore.layout.appearance = appearanceDefaults(egregore.layout);
     assert.ok(vim.render(90)[0].includes(redAnsi), "the default /egregore layout is red in mode too");
+    // Older saved layouts may still carry frame colors; the Composer frame has no such setting now.
     egregore.layout.appearance.frameColor = "blue";
-    assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(appearanceColor(theme, "blue")));
-    assert.ok(vim.render(90)[0].includes(rgbAnsi(appearanceColor(theme, "blue"))));
-    egregore.layout.appearance.frameColor = "accent";
     egregore.layout.appearance.states = { idle: { frameColor: "green" } };
-    assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(appearanceColor(theme, "green")));
+    assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(appearanceColor(theme, "red")), "mode red still wins");
+    egregore.chronomancerDay = undefined;
+    assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(theme.colors.accent), "otherwise always the user's accent");
+    egregore.chronomancerDay = "2025-05-01";
     egregore.layout.appearance = undefined;
     egregore.chronomancerDay = undefined;
     assert.equal(vim.render(90)[0], normal[0], "normal accent returns on exit");

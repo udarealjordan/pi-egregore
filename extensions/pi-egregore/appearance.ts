@@ -6,6 +6,10 @@ export const ELEMENTS = {
   vim: "Vim mode", model: "Model name", thinking: "Thinking level", context: "Context usage", git: "Git status", hint: "Next-step hint",
 } as const;
 export type ElementId = keyof typeof ELEMENTS;
+/** Elements that speak for someone draw in that identity's color (theme-hues.ts identityColor) and have no
+ *  color setting, so the Composer's send time always matches the user's messages and the model name and
+ *  thinking level always match the assistant's. The Composer frame itself is always the user's color. */
+export const IDENTITY: Partial<Record<ElementId, "user" | "assistant">> = { sentTime: "user", model: "assistant", thinking: "assistant" };
 export const POSITIONS = {
   topLeft: "Input box · top left", topCenter: "Input box · top center", topRight: "Input box · top right",
   bottomLeft: "Input box · bottom left", bottomCenter: "Input box · bottom center", bottomRight: "Input box · bottom right",
@@ -33,11 +37,10 @@ export interface ElementStyle {
   visible: boolean; position: Position; order: number; text: string; color: AppearanceColor; bold: boolean;
   priority: "low" | "normal" | "high";
 }
-export interface StateStyle { text?: string; color?: AppearanceColor; frameColor?: AppearanceColor; bold?: boolean }
+export interface StateStyle { text?: string; color?: AppearanceColor; bold?: boolean }
 export interface Appearance {
   version: 1;
   elements: Record<ElementId, ElementStyle>;
-  frameColor: AppearanceColor;
   separator: string;
   states: Partial<Record<AppearanceState, StateStyle>>;
 }
@@ -64,7 +67,7 @@ export function appearanceDefaults(p: FooterPrefs): Appearance {
       : id === "hint" ? p.railHint !== "off" : true;
     elements[id] = { visible, position: DEFAULT_POSITIONS[id], order,
       text: id === "sentTime" ? "Sent {value}" : id === "hint" ? "Next: {value}" : "{value}",
-      color: id === "sentTime" ? "accent" : ["session", "vim", "model"].includes(id) ? "frame" : id === "status" || id === "context" || id === "git" ? "auto" : "quiet",
+      color: IDENTITY[id] === "user" ? "accent" : IDENTITY[id] === "assistant" ? "text" : ["session", "vim"].includes(id) ? "frame" : id === "status" || id === "context" || id === "git" ? "auto" : "quiet",
       bold: id === "session" || id === "vim" || id === "status", priority: ["status", "vim", "thinking"].includes(id) ? "high" : id === "hint" || id === "model" ? "low" : "normal" };
   }
   // Preserve fields deliberately kept in the legacy footer rather than the input border.
@@ -73,12 +76,11 @@ export function appearanceDefaults(p: FooterPrefs): Appearance {
     Object.assign(elements.directory, { visible: p.directory !== "off", position: "footer1Right" });
     Object.assign(elements.model, { visible: p.model !== "off", position: "footer2Right" });
   }
-  return { version: 1, elements, frameColor: "accent", separator: " · ", states: {} };
+  return { version: 1, elements, separator: " · ", states: {} };
 }
 export function readAppearance(value: unknown, p: FooterPrefs): Appearance | undefined {
   if (!value || typeof value !== "object" || (value as Appearance).version !== 1) return undefined;
   const raw = value as Appearance, result = appearanceDefaults(p);
-  if (validColor(raw.frameColor)) result.frameColor = raw.frameColor;
   if (typeof raw.separator === "string") result.separator = safeText(raw.separator, 8);
   for (const id of Object.keys(ELEMENTS) as ElementId[]) {
     const field = raw.elements?.[id]; if (!field || typeof field !== "object") continue;
@@ -87,7 +89,7 @@ export function readAppearance(value: unknown, p: FooterPrefs): Appearance | und
     if (Object.hasOwn(POSITIONS, field.position)) out.position = field.position;
     if (Number.isInteger(field.order)) out.order = Math.max(0, Math.min(100, field.order));
     if (typeof field.text === "string") out.text = safeText(field.text);
-    if (validColor(field.color)) out.color = field.color;
+    if (validColor(field.color) && !IDENTITY[id]) out.color = field.color;
     if (typeof field.bold === "boolean") out.bold = field.bold;
     if (["low", "normal", "high"].includes(field.priority)) out.priority = field.priority;
   }
@@ -96,7 +98,6 @@ export function readAppearance(value: unknown, p: FooterPrefs): Appearance | und
     const out: StateStyle = {};
     if (typeof field.text === "string") out.text = safeText(field.text);
     if (validColor(field.color)) out.color = field.color;
-    if (validColor(field.frameColor)) out.frameColor = field.frameColor;
     if (typeof field.bold === "boolean") out.bold = field.bold;
     result.states[id] = out;
   }

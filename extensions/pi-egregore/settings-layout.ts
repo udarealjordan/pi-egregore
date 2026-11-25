@@ -7,7 +7,7 @@ import type { Control } from "./settings-room-types.ts";
 // Display vocabulary only: persisted values and internal control identities stay unchanged.
 const settingNames: Record<string, string> = {
   "Show this element": "Visible", "Preview appearance": "Preview state", "Label before status": "Prefix",
-  "Label before value": "Prefix", "Text for this state": "Status text", "Frame color for this state": "State border color",
+  "Label before value": "Prefix", "Text for this state": "Status text",
   "More options": "Advanced settings", "Move earlier in this position": "Earlier in group", "Move later in this position": "Later in group",
   "Keep space when narrow": "Narrow-screen priority", "Separator between elements": "Group separator",
   "Show sourced Sent time": "Show Sent time", "Assistant name color": "Assistant name color", "Question emphasis": "Text weight",

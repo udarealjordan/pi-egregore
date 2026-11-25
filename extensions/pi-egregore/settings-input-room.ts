@@ -1,11 +1,11 @@
-import { ELEMENTS, POSITIONS, STATES, STATE_TEXT, COLORS, safeText, type AppearanceColor } from "./appearance.ts";
+import { ELEMENTS, IDENTITY, POSITIONS, STATES, STATE_TEXT, COLORS, safeText, type AppearanceColor } from "./appearance.ts";
 import type { Selection, Control, InputRoomEditor } from "./settings-room-types.ts";
 export const INFO: Record<Selection, string> = {
-  frame: "The border around your input. Its color can stay the same or change with the assistant's state.",
+  frame: "The border around your input. It is always your color, the theme accent, like your messages and send times.",
   status: "What the assistant is doing. Preview another state to customize its text and colors without starting a run.",
-  session: "Your current chat name. Long names shorten to fit.", sentTime: "The latest recorded user-message send time. Hidden until you send a message; never a live clock.",
+  session: "Your current chat name. Long names shorten to fit.", sentTime: "The latest recorded user-message send time, in your color like your messages. Hidden until you send a message; never a live clock.",
   directory: "The current working directory.", vim: "Your native Vim mode, when a Vim editor is installed. It is absent otherwise.",
-  model: "The current model's display name.", thinking: "The selected thinking level; this setting does not change how the model thinks.",
+  model: "The current model's display name, in the assistant's color like its replies.", thinking: "The selected thinking level, in the assistant's color; this setting does not change how the model thinks.",
   context: "Context capacity used, not task progress. Unknown usage shows —. Off means absent from the preview.",
   git: "Local Git state. Hidden outside a repository; never performs a network fetch.",
   hint: "A display-only next step from your active task, before the first message. Hidden when there is no sourced hint.",
@@ -25,16 +25,7 @@ export function inputControls(editor: InputRoomEditor): Control[] {
     const propertyControls = (): Control[] => {
       const style = state ? design().states[state] : undefined;
       const setState = () => design().states[state!] ??= {};
-      if (selected === "frame") return [stateControl(), {
-        label: "Frame color", value: colorName(state ? style?.frameColor : design().frameColor), help: "Follow the normal frame, choose a named color, or enter an exact color.",
-        activate: () => colorEditor(state ? style?.frameColor : design().frameColor, value => {
-          if (state) { if (value) setState().frameColor = value; else delete setState().frameColor; }
-          else design().frameColor = value ?? "accent";
-        }, !!state, (candidate, value) => {
-          if (state) { const style = candidate.appearance!.states[state] ??= {}; if (value) style.frameColor = value; else delete style.frameColor; }
-          else candidate.appearance!.frameColor = value ?? "accent";
-        }),
-      }];
+      if (selected === "frame") return [stateControl()];
       const id = selected, e = design().elements[id];
       const controls: Control[] = [
         { label: "Show this element", value: e.visible ? "On" : "Off", help: "Hide this part without removing its settings. You can turn it back on here.", activate: () => changed(() => {
@@ -45,14 +36,14 @@ export function inputControls(editor: InputRoomEditor): Control[] {
         }) },
         { label: "Position", value: POSITIONS[e.position], help: "Hover a position to try it. Input rails and footer rows are separate; native scroll hints keep priority.",
           activate: () => choose("Choose a position", Object.entries(POSITIONS).map(([value, label]) => ({ value, label })), e.position, value => changed(() => { e.position = value as typeof e.position; }), editor.visual((candidate, value) => { candidate.appearance!.elements[id].position = value as typeof e.position; })) },
-        { label: "Text color", value: colorName(id === "status" && state ? style?.color : e.color), help: "Hover a color to try it. A state override can inherit the normal color.",
+        ...(IDENTITY[id] ? [] : [{ label: "Text color", value: colorName(id === "status" && state ? style?.color : e.color), help: "Hover a color to try it. A state override can inherit the normal color.",
           activate: () => colorEditor(id === "status" && state ? style?.color : e.color, value => {
             if (id === "status" && state) { if (value) setState().color = value; else delete setState().color; }
             else e.color = value ?? "auto";
           }, id === "status" && !!state, (candidate, value) => {
             if (id === "status" && state) { const style = candidate.appearance!.states[state] ??= {}; if (value) style.color = value; else delete style.color; }
             else candidate.appearance!.elements[id].color = value ?? "auto";
-          }) },
+          }) }]),
       ];
       if (id === "status") {
         controls.splice(2, 0, stateControl());
@@ -61,9 +52,6 @@ export function inputControls(editor: InputRoomEditor): Control[] {
           activate: () => textEditor(state ? "Text for this state" : "Label before status", state ? style?.text ?? STATE_TEXT[state] : e.text.split("{value}")[0], "Enter keeps the edit in your preview. Esc cancels this edit. Save is separate.", value => {
             changed(() => { if (state) setState().text = safeText(value); else e.text = safeText(value) + "{value}"; }); return true;
           }) });
-        if (state) controls.push({ label: "Frame color for this state", inspect: { room: "input", id: "frame" }, value: colorName(style?.frameColor), help: "Border color for this state only. Use default inherits the normal border.",
-          activate: () => colorEditor(style?.frameColor, value => { if (value) setState().frameColor = value; else delete setState().frameColor; }, true,
-            (candidate, value) => { const style = candidate.appearance!.states[state] ??= {}; if (value) style.frameColor = value; else delete style.frameColor; }) });
       } else controls.push({ label: "Label before value", value: e.text.split("{value}")[0] || "None", help: "Text before the real value. Names, paths and times still come from Pi.",
         activate: () => textEditor("Label before value", e.text.split("{value}")[0], "Include a trailing space if you want one between your label and the value.", value => { changed(() => { e.text = safeText(value) + "{value}"; }); return true; }) });
       controls.push({ label: "More options", value: more ? "Shown" : "Show…", help: "Bold text, group order, narrow-width priority and complete text formatting.", activate: () => { editor.expand(!more); } });

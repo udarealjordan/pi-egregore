@@ -31,3 +31,11 @@ export function hue(theme: Theme, name: Hue): Color {
 export function footerHue(theme: Theme, color: "cyan" | "violet" | "green"): Color {
   return hue(theme, color === "violet" ? "purple" : color);
 }
+
+/** Who a surface speaks for. The accent is the user's, since it is the theme they chose: Composer frame,
+ *  their messages, name and send times, Tasks. The assistant speaks in the plain text color: its
+ *  messages, model name and thinking level. These are wired by role and are not per-element settings. */
+export type Identity = "user" | "assistant";
+export function identityColor(theme: Theme, who: Identity): Color {
+  return who === "user" ? theme.colors.accent : theme.colors.text;
+}

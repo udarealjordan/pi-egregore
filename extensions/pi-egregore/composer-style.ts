@@ -3,6 +3,7 @@ import { frameGlyphs, frameRail, type FrameWeight } from "../../lib/frame.ts";
 import { foregroundAnsi, mixColors, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import { inheritColors } from "./composer-theme.ts";
 import { makeComposerPalette } from "./composer-palette.ts";
+import { identityColor } from "./theme-hues.ts";
 import { colorToHex } from "@earendil-works/pi-tui";
 import { formatDuration, type EgregoreState } from "./state.ts";
 import { clean, homePath } from "./footer-state.ts";
@@ -17,12 +18,10 @@ export function composerPadding(width: number, rows: number, density: "spaced" |
 /** The Composer is where your attention is, so it draws in heavy lines; history stays light. */
 export const COMPOSER_WEIGHT: FrameWeight = "heavy";
 export const composerEdge = () => frameGlyphs(COMPOSER_WEIGHT).vertical;
-/** The accent is the user's: the theme they chose. Composer, the user's message frames, name and
- *  send times, and Tasks all draw in it. */
-export function composerBorder(theme: Theme): Color { return theme.colors.accent; }
-export function userFrameColor(theme: Theme): Color { return theme.colors.accent; }
-/** The assistant speaks in the plain text color: frame, model name and reply times. */
-export function assistantFrameColor(theme: Theme): Color { return theme.colors.text; }
+/** Identity colors are owned by theme-hues.ts (see identityColor). */
+export function composerBorder(theme: Theme): Color { return identityColor(theme, "user"); }
+export function userFrameColor(theme: Theme): Color { return identityColor(theme, "user"); }
+export function assistantFrameColor(theme: Theme): Color { return identityColor(theme, "assistant"); }
 export function composerInset(width: number): number { return width >= 8 ? 2 : 0; }
 /** Related metadata stays readable while borrowing the frame's hue. */
 export function quietFrameLabel(theme: Theme, text: string, border: Color): string {

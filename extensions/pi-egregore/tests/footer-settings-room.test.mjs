@@ -26,8 +26,14 @@ test("visual layout migration is optional, validates nested data and never mutat
   const parsed = footerPrefs({ ...old, appearance });
   assert.equal(parsed.appearance.elements.model.text, "Model {value} ");
   assert.equal(parsed.appearance.elements.model.position, "bottomRight");
-  assert.equal(parsed.appearance.elements.model.color, "frame");
+  assert.equal(parsed.appearance.elements.model.color, "text");
   assert.equal(parsed.appearance.states.done.text, "Ready now");
+  assert.equal(parsed.appearance.states.done.frameColor, undefined, "the Composer frame has no per-state color");
+  assert.equal(parsed.appearance.frameColor, undefined, "the Composer frame has no color setting");
+  const stored = footerPrefs({ ...old, appearance: { ...appearance, frameColor: "blue",
+    elements: { ...appearance.elements, model: { ...appearance.elements.model, color: "green" }, sentTime: { ...appearance.elements.sentTime, color: "red" } } } });
+  assert.equal(stored.appearance.elements.model.color, "text", "a saved model color is ignored: it is the assistant's");
+  assert.equal(stored.appearance.elements.sentTime.color, "accent", "a saved send-time color is ignored: it is the user's");
   assert.deepEqual(footerPrefs(JSON.parse(JSON.stringify(parsed))), parsed);
   assert.equal(footerPrefs({ ...old, appearance: { version: 999 } }).appearance, undefined);
   assert.equal(old.appearance, undefined);
@@ -107,7 +113,7 @@ test("stock Sent and directory rails follow the existing icon preference without
   assert.match(top(), new RegExp(`${COMPOSER_ICONS.sent} \\d{2}:\\d{2}:\\d{2}`));
   assert.doesNotMatch(top(), /Sent \d/);
   assert.ok(bottom().includes(`${COMPOSER_ICONS.directory} /project/界面`));
-  assert.equal(h.egregore.layout.appearance.elements.model.color, "frame");
+  assert.equal(h.egregore.layout.appearance.elements.model.color, "text");
   h.egregore.layout.icons = "plain";
   assert.match(top(), /Sent \d{2}:\d{2}:\d{2}/);
   assert.doesNotMatch(bottom(), new RegExp(COMPOSER_ICONS.directory));
@@ -139,16 +145,15 @@ test("native full-width preview, disabled elements and synced direct/list select
   assert.equal(await h.discard(), undefined);
 });
 
-test("change your turn wording, color and frame; state demonstration never changes clocks", async () => {
+test("change your turn wording and color; the frame has no state color; demonstration never changes clocks", async () => {
   const h = egregore(), before = JSON.stringify(h.egregore.clock);
   h.click("Assistant status"); h.click("Preview appearance"); h.pick("When the assistant finishes");
   h.click("Text for this state"); h.text("Your turn 界面");
   assert.match(h.rows().join("\n"), /Your turn 界面/);
   assert.equal(h.latest.appearance.states.done.text, "Your turn 界面");
   h.click("Text color"); h.pick("Green");
-  h.click("Frame color for this state"); h.pick("Blue");
   assert.equal(h.latest.appearance.states.done.color, "green");
-  assert.equal(h.latest.appearance.states.done.frameColor, "blue");
+  assert.doesNotMatch(h.rows().join("\n"), /Frame color|State border color/, "the Composer frame is always the user's color");
   assert.equal(JSON.stringify(h.egregore.clock), before);
   h.click("Preview appearance"); h.pick("While waiting for your answer");
   assert.match(h.rows().join("\n"), /Waiting for you/);
@@ -176,13 +181,13 @@ test("move model to footer; edit text; keep thinking level without a thinking pr
 
 test("invalid custom color stays editable; Escape cancels a field; Discard needs confirmation", async () => {
   const h = egregore();
-  h.click("Input box border"); h.click("Frame color"); h.pick("More color options"); h.text("nonsense");
+  h.click("Directory"); h.click("Text color"); h.pick("More color options"); h.text("nonsense");
   assert.match(h.rows().join("\n"), /Use # followed by six digits/);
   h.panel.handleInput("\x1b");
-  assert.equal(h.latest.appearance.frameColor, "accent");
-  h.click("Frame color"); h.pick("Red");
+  assert.equal(h.latest.appearance.elements.directory.color, "quiet");
+  h.click("Text color"); h.pick("Red");
   h.click("[Discard]"); assert.match(h.rows().join("\n"), /Discard all unsaved changes/);
-  h.click("[Keep editing]"); assert.equal(h.latest.appearance.frameColor, "red");
+  h.click("[Keep editing]"); assert.equal(h.latest.appearance.elements.directory.color, "red");
   assert.equal(await h.discard(), undefined);
 });
 

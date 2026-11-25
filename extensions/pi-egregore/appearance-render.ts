@@ -3,7 +3,7 @@ import { mixColors, parseColor, sliceByColumn, truncateToWidth, visibleWidth, ty
 import { frameRail } from "../../lib/frame.ts";
 import { COMPOSER_WEIGHT } from "./composer-style.ts";
 import { basename } from "node:path";
-import { ELEMENTS, STATE_TEXT, type ElementId, type Position, type AppearanceState, type AppearanceColor, type AppearanceHit } from "./appearance.ts";
+import { ELEMENTS, IDENTITY, STATE_TEXT, type ElementId, type Position, type AppearanceState, type AppearanceColor, type AppearanceHit } from "./appearance.ts";
 import { clean, duration, gitLabel, homePath, FOOTER_DEFAULTS } from "./footer-state.ts";
 import { calendarDay, sentTime } from "./sent-metadata.ts";
 import { contextText, decorateFooterPart } from "./footer-view.ts";
@@ -12,7 +12,7 @@ import type { EgregoreState } from "./state.ts";
 import { selectionHighlight } from "./footer-selection.ts";
 import { emberStatus, statusWithTools } from "./composer-ember.ts";
 import { sessionBadge } from "./composer-title.ts";
-import { hue, isHue } from "./theme-hues.ts";
+import { hue, identityColor, isHue } from "./theme-hues.ts";
 
 export function currentAppearanceState(egregore: EgregoreState): AppearanceState {
   if (egregore.footerPickerOpen && egregore.appearancePreview?.state) return egregore.appearancePreview.state;
@@ -27,15 +27,11 @@ export function appearanceColor(theme: Theme, value: AppearanceColor | undefined
   if (isHue(value)) return hue(theme, value);
   return theme.colors[value as "accent" | "text" | "muted" | "warning"] ?? frame;
 }
+/** The Composer frame is the user's color, always. Chronomancer marks its mode in red (a state signal,
+ *  like an error, not a preference); the /egregore live preview shows the normal frame. */
 export function appearanceBorder(theme: Theme, egregore: EgregoreState): Color {
-  const design = egregore.layout?.appearance;
-  const override = design?.states[currentAppearanceState(egregore)]?.frameColor;
-  // Chronomancer marks its mode with red on the native composer only.
-  // Explicit /egregore frame and state colors, and its live preview, win.
-  const modeRed = egregore.chronomancerDay && !egregore.footerPickerOpen &&
-    (!design?.frameColor || design.frameColor === "accent") && !override;
-  const base = appearanceColor(theme, modeRed ? "red" : design?.frameColor);
-  return override ? appearanceColor(theme, override, base, base) : base;
+  if (egregore.chronomancerDay && !egregore.footerPickerOpen) return hue(theme, "red");
+  return identityColor(theme, "user");
 }
 interface Piece { id: ElementId; text: string; priority: number; color: Color; bold: boolean }
 export function appearanceValues(egregore: EgregoreState, width: number, now: number): Record<ElementId, string> {
@@ -77,7 +73,8 @@ export function appearanceRow(theme: Theme, width: number, egregore: EgregoreSta
       const automatic = id === "status" ? theme.colors[state === "error" ? "error" : ["waiting", "stopped", "interrupted"].includes(state) ? "warning" : state === "done" ? "success" : "accent"]
         : id === "context" && (data?.usage?.percent ?? 0) >= 75 ? theme.colors[(data?.usage?.percent ?? 0) >= 90 ? "error" : "warning"]
         : id === "git" ? theme.colors[data?.git?.conflicts ? "error" : data?.git && data.git.staged + data.git.changed + data.git.untracked ? "warning" : "success"] : border;
-      const color = appearanceColor(theme, id === "status" ? stateStyle?.color ?? e.color : e.color, border, automatic);
+      const owner = IDENTITY[id];
+      const color = owner ? identityColor(theme, owner) : appearanceColor(theme, id === "status" ? stateStyle?.color ?? e.color : e.color, border, automatic);
       const p = egregore.layout!;
       // Existing saved defaults still say "Sent {value}". Hide only that stock
       // word in Nerd mode; leave deliberate custom templates intact.
@@ -90,7 +87,7 @@ export function appearanceRow(theme: Theme, width: number, egregore: EgregoreSta
       if (!framed) {
         const tone = id === "git" && data?.git?.conflicts || id === "context" && (data?.usage?.percent ?? 0) >= 90 ? "error"
           : id === "context" && (data?.usage?.percent ?? 0) >= 75 ? "warning" : undefined;
-        text = decorateFooterPart(theme, p, { id, text, tone }, index, data?.frame, e.color === "auto" ? undefined : color);
+        text = decorateFooterPart(theme, p, { id, text, tone }, index, data?.frame, e.color === "auto" && !owner ? undefined : color);
       }
       return { id, text, priority: e.priority === "high" ? 3 : e.priority === "low" ? 1 : 2, color,
         bold: id === "status" ? stateStyle?.bold ?? e.bold : e.bold };

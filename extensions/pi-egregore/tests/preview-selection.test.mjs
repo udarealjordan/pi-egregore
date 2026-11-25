@@ -173,25 +173,18 @@ test("unavailable targets explain hidden settings, inactive states, clipping and
   } finally { h.tui.terminal.rows = 40; await h.discard(); }
 });
 
-test("a status-specific border control identifies the perimeter without changing the selected status or run", async () => {
+test("identity-bound parts offer no color: the frame is the user's, model and thinking are the assistant's", async () => {
   const h = egregore({ ...FOOTER_DEFAULTS, motion: "off", selectionShimmer: "off" });
   try {
     const clock = JSON.stringify(h.egregore.clock), native = h.editor.getText();
     h.click("Assistant status"); h.click("Preview appearance"); h.pick("When the assistant finishes");
-    const before = JSON.stringify(h.latest);
-    move(h, "State border color");
-    assert.match(h.rows().join("\n"), /Inspecting: Input box border · Input perimeter/);
-    assert.equal(h.egregore.appearancePreview.selected, "frame");
-    assert.equal(JSON.stringify(h.latest), before);
-    h.click("Frame color for this state");
-    assert.match(h.rows().join("\n"), /Affects: Input box border · Input perimeter/);
-    h.panel.handleInput("\x1b");
-    assert.match(h.rows().join("\n"), /• Assistant status/);
-    const rail = previewRows(h).find(row => plain(row).startsWith("╭"));
-    assert.ok(background.test(rail));
-    const plainRail = plain(rail), status = plainRail.indexOf("your turn");
-    assert.ok(status >= 0);
-    assert.ok(!cells(rail).slice(status, status + "your turn".length).some(cell => cell.bg), "the status text is not a frame-color target");
+    assert.doesNotMatch(h.rows().join("\n"), /Frame color|State border color/);
+    for (const part of ["Input box border", "Model name", "Thinking level", "Sent time"]) {
+      h.click(part);
+      assert.doesNotMatch(h.rows().join("\n"), /Text color|Frame color/, `${part} has no color setting`);
+    }
+    h.click("Directory");
+    assert.match(h.rows().join("\n"), /Text color/, "other parts keep their color setting");
     assert.equal(JSON.stringify(h.egregore.clock), clock); assert.equal(h.editor.getText(), native);
   } finally { await h.discard(); }
 });
