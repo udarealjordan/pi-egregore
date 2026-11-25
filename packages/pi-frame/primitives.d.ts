@@ -16,8 +16,13 @@ export interface FrameMotion {
   now: number;
   accent?: Color | string;
   startAt?: number;
+  /** Pulse duration. Shimmer travels at `speed`, not per lap. */
   periodMs?: number;
+  /** Shimmer pace in columns per second (a row counts as two). Defaults to FRAME_SWEEP_SPEED. */
+  speed?: number;
   quiet?: boolean;
+  /** Let the light pass through rail label text (titles, names, times). Body text never changes. */
+  labels?: boolean;
   intensity?: number;
   direction?: "clockwise" | "counterclockwise";
   effect?: "shimmer" | "pulse";
@@ -71,6 +76,10 @@ export interface StatusPresetOptions {
 export function statusPreset(options: StatusPresetOptions): { marker: string; color: Color | string; label: string };
 export function frameRail(options: Omit<FrameOptions, "rows" | "corners" | "motion"> & { left?: string; center?: string; right?: string; side?: "top" | "bottom" }): string;
 export function frameRows(options: FrameOptions): string[];
+/** Shared shimmer pace, in columns per second; a row counts as two columns. */
+export const FRAME_SWEEP_SPEED: number;
+/** Truncate a styled label to terminal cells, keeping the ellipsis in the style where it was cut. */
+export function fitLabel(value: string, width: number): string;
 export function paintFramePerimeter(rows: string[], options: Omit<FrameOptions, "rows" | "corners" | "inset" | "minWidth" | "textColor"> & FrameMotion & { bottom?: number }): string[];
 
 export type FramePlacementKind = "input" | "panel" | "dock" | "transcript";

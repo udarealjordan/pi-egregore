@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripVTControlCharacters } from "node:util";
 import { mixColors, parseColor, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { createFrameController, framePresentationDefaults, readFramePresentation, presentationRows,
-  type FramePresentation, type FrameSample, type FrameState } from "../../lib/frame.ts";
+  type FramePresentation, type FrameSample, type FrameState, fitLabel } from "../../lib/frame.ts";
 import { cleanText, type DockSnapshot, prioritizeDock } from "pi-agent-contracts/dock";
 import type { EgregoreState } from "./state.ts";
 import { selectionHighlight } from "./footer-selection.ts";
@@ -47,7 +47,7 @@ function taskPanelLayout(theme: Theme, width: number, dock: DockSnapshot, prefs:
   const hint = hidden > 0 ? `+ ${hidden} more${dock.hint ? ` · ${cleanText(dock.hint)}` : ""}` : cleanText(dock.hint ?? "");
   if (width < 16) {
     if (hint && content.length < bodyBudget) content.push({ text: hint, role: "muted" });
-    return { rows: content.map(row => truncateToWidth(row.text, width, "…")), hits: [], refs: content.map(row => row.ref) };
+    return { rows: content.map(row => fitLabel(row.text, width)), hits: [], refs: content.map(row => row.ref) };
   }
   const changesOnly = prefs.presentation.motion === "changes" && prefs.presentation.states[frame.state]?.motion !== "repeat";
   const rows = presentationRows({ theme, width, rows: content, title, summary, hint, presentation: prefs.presentation, weight: "heavy",

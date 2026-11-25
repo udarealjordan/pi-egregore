@@ -3,7 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry, SessionTreeNode, Theme } from "@earendil-works/pi-coding-agent";
 import { getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Input, Key, Markdown, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type TUI } from "@earendil-works/pi-tui";
-import { framePlacement, frameRows } from "../../lib/frame.ts";
+import { framePlacement, frameRows, fitLabel } from "../../lib/frame.ts";
 
 /** Paths takes the composer's place at the bottom, like /btw and questions, so it never covers the chat. */
 const PLACEMENT = framePlacement("input");
@@ -168,7 +168,7 @@ export class PathsPanel implements Component {
       const number = String(i + 1).padStart(3);
       const left = (chosen ? theme.style("›", { fg: gold, bold: true }) + theme.style(number, { fg: gold, bold: true }) : " " + theme.fg("muted", number)) + "  ";
       const room = Math.max(4, inner - visibleWidth(left) - visibleWidth(right) - 2);
-      const text = truncateToWidth(shortenPaths(turn.text), room, "…");
+      const text = fitLabel(shortenPaths(turn.text), room);
       // The row you are on reads in gold, so it is obvious at a glance.
       const row = left + (chosen ? theme.style(text, { fg: gold, bold: true }) : theme.fg("text", text))
         + " ".repeat(Math.max(2, inner - visibleWidth(left) - visibleWidth(text) - visibleWidth(right))) + right;
@@ -177,7 +177,7 @@ export class PathsPanel implements Component {
       if (this.open === i) alternatives.forEach((alt, j) => {
         const on = j === this.sub, tail = theme.fg("muted", clock(alt.at));
         const where = this.map.latest?.leaf === alt.leaf ? " ↩ where you were" : "";
-        const body = truncateToWidth(`↳ ${shortenPaths(alt.text)}${where}`, Math.max(4, inner - 8 - visibleWidth(tail)), "…");
+        const body = fitLabel(`↳ ${shortenPaths(alt.text)}${where}`, Math.max(4, inner - 8 - visibleWidth(tail)));
         const altRow = (on ? theme.style("›", { fg: gold, bold: true }) : " ") + "      " + (on ? theme.style(body, { fg: gold, bold: true }) : theme.fg("muted", body))
           + " ".repeat(Math.max(1, inner - 7 - visibleWidth(body) - visibleWidth(tail))) + tail;
         lines.push({ text: on ? theme.bg("selectedBg", truncateToWidth(altRow, inner, "")) : altRow, turn: i });
@@ -185,7 +185,7 @@ export class PathsPanel implements Component {
     }
     // Keep the selection in view, centered when the list is long.
     // Pinned above the list, so it never scrolls away: you are behind your latest work.
-    const banner = latest ? [theme.style(truncateToWidth(`↩ You are back in time. b returns to where you were: “${shortenPaths(latest.text)}” ${clock(latest.at)}`, inner, "…"), { fg: gold, bold: true })] : [];
+    const banner = latest ? [theme.style(fitLabel(`↩ You are back in time. b returns to where you were: “${shortenPaths(latest.text)}” ${clock(latest.at)}`, inner), { fg: gold, bold: true })] : [];
     const listRoom = Math.max(3, PLACEMENT.rows(this.tui.terminal.rows) - 7 - banner.length); // preview and its rule take up to seven rows
     const at = Math.max(0, lines.findIndex(l => l.turn === this.selected));
     const start = Math.max(0, Math.min(at - Math.floor(listRoom / 2), lines.length - listRoom));

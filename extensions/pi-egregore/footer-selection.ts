@@ -1,5 +1,6 @@
+import { fitLabel } from "../../lib/frame.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { backgroundAnsi, colorToRgb, indexedColor, mixColors, parseColor, rgbColor, truncateToWidth, visibleWidth, type Color, type TerminalColorMode } from "@earendil-works/pi-tui";
+import { backgroundAnsi, colorToRgb, indexedColor, mixColors, parseColor, rgbColor, visibleWidth, type Color, type TerminalColorMode } from "@earendil-works/pi-tui";
 
 export const SELECTION_SHIMMER_MS = 480;
 const FRAME_MS = 40;
@@ -130,7 +131,7 @@ export function selectionRow(theme: Theme, text: string, width: number, options:
   selected?: boolean; focused?: boolean; phase?: number;
 } = {}): string {
   const marker = options.focused ? "› " : options.selected ? "• " : "  ";
-  const content = truncateToWidth(theme.fg("accent", marker) + theme.style(text, { fg: theme.colors.text, bold: options.focused }), Math.max(0, width), "…");
+  const content = fitLabel(theme.fg("accent", marker) + theme.style(text, { fg: theme.colors.text, bold: options.focused }), Math.max(0, width));
   const padded = content + " ".repeat(Math.max(0, width - visibleWidth(content)));
   return options.selected || options.focused ? selectionHighlight(theme, padded, options) : padded;
 }

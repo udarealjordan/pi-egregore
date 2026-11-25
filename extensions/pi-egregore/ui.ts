@@ -1,3 +1,4 @@
+import { fitLabel } from "../../lib/frame.ts";
 import {
   CustomEditor, type ExtensionContext, type KeybindingsManager, type ReadonlyFooterDataProvider,
 } from "@earendil-works/pi-coding-agent";
@@ -31,7 +32,7 @@ export function splitRow(left: string, right: string, width: number, fill = " ")
   if (width <= 0) return "";
   right = truncateToWidth(right, width, "");
   const available = Math.max(0, width - visibleWidth(right) - (right ? 2 : 0));
-  left = truncateToWidth(left, available, "…");
+  left = fitLabel(left, available);
   return left + fill.repeat(Math.max(0, width - visibleWidth(left) - visibleWidth(right))) + right;
 }
 
@@ -190,7 +191,7 @@ export function createIdentity(ctx: () => ExtensionContext, state: EgregoreState
       const context = ctx(), theme = context.ui.theme;
       const name = cleanLabel(context.sessionManager.getSessionName()?.trim() || "Untitled session");
       const icon = state.prefs.icons === "nerd" ? "\uf075" : "◆";
-      return [truncateToWidth(` ${theme.style(icon, { fg: theme.colors.accent })} ${theme.bold(name)}`, width, "…")];
+      return [fitLabel(` ${theme.style(icon, { fg: theme.colors.accent })} ${theme.bold(name)}`, width)];
     },
   };
 }

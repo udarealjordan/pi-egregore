@@ -1,5 +1,6 @@
+import { fitLabel } from "../../lib/frame.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { STATES } from "./appearance.ts";
 import { selectionRow } from "./footer-selection.ts";
 import type { Control } from "./settings-room-types.ts";
@@ -30,7 +31,7 @@ export const settingName = (label: string) => settingNames[label] ?? label;
 export const settingValue = (value: string) => values[value] ?? value;
 export const partName = (name: string) => name.startsWith("Sent time · latest user") ? "Sent time" : name;
 const labelCells = (width: number) => Math.min(28, Math.max(16, Math.floor(width * .44)));
-const clipped = (value: string, width: number) => truncateToWidth(value, Math.max(0, width), "…");
+const clipped = (value: string, width: number) => fitLabel(value, Math.max(0, width));
 export function settingColumns(width: number): { label: number; gap: number } {
   return { label: labelCells(width), gap: 3 };
 }

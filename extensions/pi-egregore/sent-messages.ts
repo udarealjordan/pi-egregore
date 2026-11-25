@@ -1,7 +1,7 @@
 import { stripVTControlCharacters } from "node:util";
 import { AssistantMessageComponent, UserMessageComponent, type Theme } from "@earendil-works/pi-coding-agent";
-import { frameRows } from "../../lib/frame.ts";
-import { mixColors, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { frameRows, fitLabel } from "../../lib/frame.ts";
+import { mixColors, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { assistantFrameColor, composerSurface, userFrameColor } from "./composer-style.ts";
 import { clean, type FooterPrefs } from "./footer-state.ts";
 import { calendarDay, sentTime, styledSentLabel } from "./sent-metadata.ts";
@@ -108,7 +108,7 @@ export class SentMessageFrames {
         // Streaming motion sweeps a soft shadow along the plain frame (a text-toward-text shimmer would be invisible).
         const color = assistant ? assistantFrameColor(t) : userFrameColor(t);
         const options = this.presentation, style = activeTranscript(options?.prefs);
-        const label = truncateToWidth(assistant ? clean(modelName()) || "Assistant" : clean(options?.prefs?.displayName ?? "jordan") || "jordan", width - 6, "…");
+        const label = fitLabel(assistant ? clean(modelName()) || "Assistant" : clean(options?.prefs?.displayName ?? "jordan") || "jordan", width - 6);
         // A reply's time is when it finished (its recorded session entry), never its start; none while streaming.
         const timestamp = facts.kind === "assistant"
           ? facts.streaming || facts.timestamp === undefined ? undefined : options?.replies?.get(facts.timestamp)
@@ -123,7 +123,7 @@ export class SentMessageFrames {
             ...(!assistant && this.gaps.has(node) && width >= 40 ? { topCenter: t.fg("dim", ` ${gapLabel(this.gaps.get(node)!)} `) } : {}),
             [style.chat.sentPosition]: styledSentLabel(t, time, color, assistant ? "matched" : "user", options?.prefs?.icons) },
           surface: (text, cells) => composerSurface(t, text, cells),
-          motion: motion ? { ...motion, accent: mixColors(color, t.colors.dim, .6) } : undefined });
+          motion: motion ? { ...motion, accent: mixColors(color, t.colors.dim, .6), labels: true } : undefined });
         // The frame's own corner rows replace the removed host padding rows, so they
         // become the message's start and end line. Prefixing there keeps every zone
         // marker at column 0 where the host can strip and find it.

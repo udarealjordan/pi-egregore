@@ -20,7 +20,7 @@ const presentation: typeof import("pi-embeddable-frame/presentation") = await im
   pathToFileURL(join(packageDirectory, "presentation.js")).href
 );
 
-export const { frameRail, frameRows, paintFramePerimeter, statusPreset, frameGlyphs, FRAME_GLYPHS, toolRows, framePlacement, FRAME_PLACEMENTS } = primitives;
+export const { frameRail, frameRows, paintFramePerimeter, FRAME_SWEEP_SPEED, fitLabel, statusPreset, frameGlyphs, FRAME_GLYPHS, toolRows, framePlacement, FRAME_PLACEMENTS } = primitives;
 export const {
   FRAME_POSITIONS, FRAME_STATES, framePresentationDefaults, readFramePresentation,
   createFrameController, presentationRows,

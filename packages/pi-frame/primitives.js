@@ -1,7 +1,22 @@
 import { mixColors, parseColor, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 const toColor = value => typeof value === "string" && value.startsWith("#") ? parseColor(value) : value;
-const fit = (value, width) => truncateToWidth(value, Math.max(0, width), "…");
+const SGR = /\x1b\[[0-9;:]*m/g;
+const CUT = "\x1b[0m…\x1b[0m";
+/** Truncate a label to terminal cells. pi-tui resets every style before its ellipsis, which
+ * would draw it in the terminal's default color; the ellipsis keeps the style in effect where
+ * the label was cut, so a shortened title stays in its own color. */
+export function fitLabel(value, width) {
+  const out = truncateToWidth(value, Math.max(0, width), "…");
+  if (!out.endsWith(CUT)) return out;
+  const kept = out.slice(0, -CUT.length);
+  // Unstyled text needs no reset, so a caller's surrounding style also colors the ellipsis.
+  if (!kept.includes("\x1b")) return kept + "…";
+  const codes = kept.match(SGR) ?? [];
+  const live = codes.slice(codes.findLastIndex(code => code === "\x1b[0m" || code === "\x1b[m") + 1);
+  return kept + "\x1b[0m" + live.join("") + "…\x1b[0m";
+}
+const fit = fitLabel;
 const ink = (theme, glyph, color, bold = false) => color && theme?.style ? theme.style(glyph, { fg: toColor(color), bold }) : glyph;
 // Row content may leave text attributes open (Pi's thinking text pads in italics); the frame owns its
 // edge, so close bold/dim, italic, underline, inverse and strikethrough before drawing it. Colors stay.
@@ -89,44 +104,92 @@ export function frameRows({ theme, width, rows, corners = {}, color, textColor, 
   return motion?.active ? paintFramePerimeter(result, { theme, width, bottom: result.length - 1, color, ...motion, surface }) : result;
 }
 
-/** Recolor only the two horizontal rails of an existing frame. Does not move or edit
- * content: every body row keeps its bytes, so a host's changed-line diff rewrites two
- * lines per tick instead of every row that carries a side rail. */
-export function paintFramePerimeter(rows, { theme, width, bottom = rows.length - 1, color, accent, active = false, now = 0, startAt = 0, periodMs = 3000, quiet = false, intensity = 1, direction = "clockwise", effect = "shimmer", surface } = {}) {
+/** Travel pace of every moving frame, in columns per second. A row counts as two columns
+ * because terminal cells are about twice as tall as wide, so the light keeps one visual
+ * speed around corners and frames of any size move alike. `periodMs` times only pulses. */
+export const FRAME_SWEEP_SPEED = 60;
+const ROW_COLUMNS = 2;
+// Below this the light is invisible; such cells keep their bytes, so a tick rewrites only
+// the rows the light actually crosses.
+const FAINT = .05;
+const ESCAPE = /(\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)))/;
+const BORDER = /^[╭╮╰╯─┏┓┗┛━│┃]$/;
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+/** Foreground (when it is a 24-bit color) and weight in effect after a run of SGR codes. */
+function sgrState(codes) {
+  let fg, bold = false;
+  for (const code of codes) {
+    const params = code.slice(2, -1).split(/[;:]/);
+    for (let i = 0; i < params.length; i++) {
+      const p = params[i];
+      if (p === "" || p === "0") { fg = undefined; bold = false; }
+      else if (p === "1") bold = true;
+      else if (p === "22") bold = false;
+      else if (p === "39" || /^(3[0-7]|9[0-7])$/.test(p)) fg = undefined;
+      else if (p === "38" || p === "48") {
+        const rgb = params[i + 1] === "2", end = i + (rgb ? 4 : 2);
+        if (p === "38") fg = rgb ? "#" + params.slice(i + 2, i + 5).map(v => Number(v).toString(16).padStart(2, "0")).join("") : undefined;
+        i = end;
+      }
+    }
+  }
+  return { fg, bold };
+}
+/** Recolor the perimeter of an existing frame: its rails and the side edge of each body row.
+ * With `labels`, the light also passes through rail label text, which then returns to its own
+ * color. Does not move or edit content, and leaves every cell the light does not reach byte-identical. */
+export function paintFramePerimeter(rows, { theme, width, bottom = rows.length - 1, color, accent, active = false, now = 0, startAt = 0, periodMs = 3000, speed = FRAME_SWEEP_SPEED, quiet = false, intensity = 1, direction = "clockwise", effect = "shimmer", labels = false, surface } = {}) {
   if (!active || width < 4 || bottom < 1 || !accent) return rows;
   periodMs = Number.isFinite(periodMs) && periodMs > 0 ? periodMs : 3000;
+  speed = Number.isFinite(speed) && speed > 0 ? speed : FRAME_SWEEP_SPEED;
   intensity = Number.isFinite(intensity) ? Math.max(0, Math.min(1, intensity)) : 1;
   if (!Number.isFinite(now) || !Number.isFinite(startAt)) return rows;
-  const perimeter = 2 * (width - 1 + bottom);
-  const phase = ((now - startAt) % periodMs + periodMs) % periodMs / periodMs;
-  const head = (direction === "counterclockwise" ? 1 - phase : phase) * perimeter;
-  const paint = (glyph, x, y) => {
-    const position = y === 0 ? x : x === width - 1 ? width - 1 + y : y === bottom ? 2 * (width - 1) + bottom - x : perimeter - y;
-    const sign = direction === "counterclockwise" ? -1 : 1;
+  const across = width - 1, down = bottom * ROW_COLUMNS, perimeter = 2 * (across + down);
+  const elapsed = now - startAt, scale = (quiet ? .4 : 1) * intensity;
+  const pulse = (.5 - .5 * Math.cos(((elapsed % periodMs) + periodMs) % periodMs / periodMs * 2 * Math.PI)) * scale;
+  const travelled = ((elapsed / 1000 * speed) % perimeter + perimeter) % perimeter;
+  const sign = direction === "counterclockwise" ? -1 : 1;
+  const head = sign < 0 ? perimeter - travelled : travelled;
+  const strength = (x, y) => {
+    if (effect === "pulse") return pulse;
+    const position = y === 0 ? x : x === width - 1 ? across + y * ROW_COLUMNS : y === bottom ? 2 * across + down - x : perimeter - y * ROW_COLUMNS;
     const behind = (sign * (head - position) + perimeter) % perimeter;
     const ahead = (sign * (position - head) + perimeter) % perimeter;
-    const strength = (effect === "pulse" ? .5 - .5 * Math.cos(phase * 2 * Math.PI)
-      : Math.max(Math.exp(-behind / 12), Math.exp(-ahead * ahead / 5))) * (quiet ? .4 : 1) * intensity;
-    // Theme style accepts concrete color values. The caller controls color and refresh scheduling.
-    const glow = color ? mixColors(toColor(color), toColor(accent), strength) : accent;
-    return ink(theme, glyph, glow, !quiet && strength > .7);
+    return Math.max(Math.exp(-behind / 12), Math.exp(-ahead * ahead / 5)) * scale;
+  };
+  // Theme style accepts concrete color values. The caller controls color and refresh scheduling.
+  const glow = (base, value) => base ? mixColors(toColor(base), toColor(accent), value) : accent;
+  const paint = (glyph, value) => ink(theme, glyph, glow(color, value), !quiet && value > .7);
+  // Label text the light crosses brightens from its own color and keeps its weight.
+  const tint = (glyph, value, codes) => { const { fg, bold } = sgrState(codes); return ink(theme, glyph, glow(fg ?? color, value), bold); };
+  const repaint = (row, y, owns, throughLabels) => {
+    let out = "", prefix = "", x = 0, changed = false;
+    for (const part of row.split(ESCAPE)) {
+      if (!part) continue;
+      if (part.startsWith("\x1b")) { out += part; prefix += part; continue; }
+      for (const { segment } of graphemes.segment(part)) {
+        const border = BORDER.test(segment) && owns(x), label = !border && throughLabels && segment.trim() !== "";
+        const value = border || label ? strength(x, y) : 0;
+        if (value >= FAINT) {
+          const codes = prefix.match(SGR) ?? [];
+          // Restore foreground, weight and background after each painted cell.
+          out += (border ? paint(segment, value) : tint(segment, value, codes)) + "\x1b[0m" + codes.join("");
+          changed = true;
+        } else out += segment;
+        prefix += segment; x += visibleWidth(segment);
+      }
+    }
+    return changed ? cover(out, width, surface) : row;
   };
   return rows.map((row, y) => {
     if (y > bottom) return row;
     if (y === 0 || y === bottom) {
       const mask = railMasks.get(row);
-      return cover(row.replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))|[╭╮╰╯─┏┓┗┛━]/g, (glyph, offset) => {
-        if (glyph.startsWith("\x1b")) return glyph;
-        const prefix = row.slice(0, offset), x = visibleWidth(prefix);
-        const owned = mask?.width === width ? mask.columns.has(x) : x === 0 || x === width - 1;
-        if (!owned) return glyph;
-        // Restore foreground, weight and background after each painted cell.
-        return paint(glyph, x, y) + "\x1b[0m" + (prefix.match(/\x1b\[[0-9;:]*m/g) ?? []).join("");
-      }), width, surface);
+      return repaint(row, y, x => mask?.width === width ? mask.columns.has(x) : x === 0 || x === width - 1, labels);
     }
-    // Side rails keep the base colour. Repainting one rewrites the row that carries
-    // it, so the host would erase and resend every content row on each tick.
-    return row;
+    // A body row changes only while the light is on one of its edges; its text never does.
+    if (strength(0, y) < FAINT && strength(width - 1, y) < FAINT) return row;
+    return repaint(row, y, x => x === 0 || x === width - 1, false);
   });
 }
 

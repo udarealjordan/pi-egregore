@@ -1,5 +1,6 @@
+import { fitLabel } from "../../lib/frame.ts";
 import { highlightCode, type Theme } from "@earendil-works/pi-coding-agent";
-import { Text, truncateToWidth } from "@earendil-works/pi-tui";
+import { Text } from "@earendil-works/pi-tui";
 import { clean } from "./footer-state.ts";
 
 const MAX_CHARS = 256 * 1024, MAX_NODES = 20000, MAX_DEPTH = 48, MAX_ROWS = 2000;
@@ -159,5 +160,5 @@ export function compactLines(text: string, limit = 2, tail = false): string[] {
 // Kept as a small public helper for compact view tests and external adapters.
 export function jsonPreview(text: string, theme: Theme, width: number): string[] | undefined {
   const parsed = parseStructured(text);
-  return parsed && structuredSummary(parsed).map((line, index) => theme.fg(index ? "warning" : "muted", truncateToWidth(line, width, "…")));
+  return parsed && structuredSummary(parsed).map((line, index) => theme.fg(index ? "warning" : "muted", fitLabel(line, width)));
 }

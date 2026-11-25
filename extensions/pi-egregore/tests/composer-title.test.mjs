@@ -51,3 +51,20 @@ test('title badge follows configured positions and visibility without forcing bo
   model.bold = true;
   assert.match(appearanceRow(theme, 140, s, 'bottom', 1000), /\x1b\[1m/);
 });
+
+test('a shortened session title keeps its ellipsis in the title color, not the terminal default', () => {
+  const s = { prefs: { ...DEFAULTS }, clock: new RunClock(), tools: new Map(), phase: 'working', promptDepth: 0,
+    compacting: false, lastInputAt: 0, layout: { ...FOOTER_DEFAULTS } };
+  s.layout.appearance = appearanceDefaults(s.layout);
+  s.appearanceData = () => ({ session: 'A rather long session name that cannot fit', model: 'Model', cwd: '/tmp', thinking: 'high' });
+  for (const e of Object.values(s.layout.appearance.elements)) e.visible = false;
+  const title = s.layout.appearance.elements.session;
+  title.visible = true; title.color = '#cc5500'; title.position = 'topCenter';
+  const row = appearanceRow(theme, 44, s, 'top', 1000);
+  assert.match(plain(row), /…/);
+  const cell = row.slice(0, row.indexOf('…'));
+  // The last style before the ellipsis is not a full reset: the title's foreground is still in effect.
+  const codes = cell.match(/\x1b\[[0-9;:]*m/g) ?? [];
+  const since = codes.slice(codes.findLastIndex(code => code === '\x1b[0m') + 1);
+  assert.ok(since.some(code => /\x1b\[(?:[0-9;]*;)?38;/.test(code)), 'the ellipsis has an explicit foreground');
+});

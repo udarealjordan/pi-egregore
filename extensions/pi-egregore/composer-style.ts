@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { frameGlyphs, frameRail, type FrameWeight } from "../../lib/frame.ts";
+import { frameGlyphs, frameRail, type FrameWeight, fitLabel } from "../../lib/frame.ts";
 import { foregroundAnsi, mixColors, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import { inheritColors } from "./composer-theme.ts";
 import { makeComposerPalette } from "./composer-palette.ts";
@@ -53,7 +53,7 @@ export function composerMessageRail(theme: Theme, width: number, egregore: Egreg
   const side = Math.max(visibleWidth(left), hint ? visibleWidth(right) : Math.min(visibleWidth(right), 17));
   const titleWidth = Math.max(0, width - 2 - 2 * (side + 1));
   const center = egregore.layout?.railTitle === "off" || width < 40 || titleWidth < 5 ? ""
-    : sessionBadge(theme, truncateToWidth(` ${clean(title?.trim() || "Untitled session")} `, titleWidth, "…"), border);
+    : sessionBadge(theme, fitLabel(` ${clean(title?.trim() || "Untitled session")} `, titleWidth), border);
   return composerRail(theme, width, left, right, true, border, center, COMPOSER_WEIGHT);
 }
 
@@ -117,7 +117,7 @@ export function composerBottomRail(theme: Theme, width: number, egregore: Egrego
   // so the level is not silently clipped when a provider has a long model name.
   const level = thinking;
   const available = Math.max(0, Math.floor(width / 2) - Math.ceil(visibleWidth(mode ? ` ${clean(mode)} ` : "") / 2) - 2 - visibleWidth(micText));
-  const modelName = model ? truncateToWidth(model, Math.max(0, available - visibleWidth(level) - (level ? 5 : 2)), "…") : "";
+  const modelName = model ? fitLabel(model, Math.max(0, available - visibleWidth(level) - (level ? 5 : 2))) : "";
   const detail = [modelName, level].filter(Boolean).join(" · ");
   // The mic leads the right slot, so tail truncation can never hide the control.
   const right = micText + (nativeHint || (detail ? modelName

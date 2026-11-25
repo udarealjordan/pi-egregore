@@ -1,6 +1,6 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { CURSOR_MARKER, Input, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi, type TuiMouseEvent } from "@earendil-works/pi-tui";
-import { frameRows, createFrameController, type FrameState } from "../../lib/frame.ts";
+import { CURSOR_MARKER, Input, Key, matchesKey, visibleWidth, wrapTextWithAnsi, type TuiMouseEvent } from "@earendil-works/pi-tui";
+import { frameRows, createFrameController, type FrameState, fitLabel } from "../../lib/frame.ts";
 import { taskPanelDefaults, taskPanelPreview, taskDemo, type TaskElementId } from "./task-presentation.ts";
 import { taskControls, taskControlElement, TASK_ELEMENTS } from "./task-settings.ts";
 import { readAskAppearance } from "../../packages/pi-ask/extensions/ask-user-question/appearance.ts";
@@ -203,7 +203,7 @@ export async function chooseFooter(ctx: ExtensionCommandContext, initial: Footer
         if (dimensions && dimensions !== size) { clearHover(); restoreChoice(); pulse.stop(); }
         dimensions = size;
         const phase = pulse.phase;
-        const clip = (text: string, n = width) => truncateToWidth(text, Math.max(0, n), "…");
+        const clip = (text: string, n = width) => fitLabel(text, Math.max(0, n));
         const cover = (text: string) => clip(text) + " ".repeat(Math.max(0, width - visibleWidth(clip(text))));
         const buttonLine = (buttons: Array<[string, () => void]>, y: number) => {
           let line = "";

@@ -1,6 +1,6 @@
 import { ToolExecutionComponent, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, createGrepToolDefinition, createFindToolDefinition, createLsToolDefinition, getLanguageFromPath, renderDiff, type Theme } from "@earendil-works/pi-coding-agent";
-import { Text, parseColor, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { frameGlyphs, statusPreset, toolRows, type FrameStatus } from "../../lib/frame.ts";
+import { Text, parseColor, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { frameGlyphs, statusPreset, toolRows, type FrameStatus, fitLabel } from "../../lib/frame.ts";
 import { forgetCopyProjection, projectFrameCopy, projectRailCopy, rememberCopyProjection } from "./native/copy-projection.ts";
 import { homedir } from "node:os";
 import { composerRail, composerSurface, quietFrameLabel } from "./composer-style.ts";
@@ -66,7 +66,7 @@ export function toolLocation(name: string, args: unknown, cwd = "", limit = 90):
     const start = typeof a.offset === "number" ? a.offset : 1;
     target += `:${start}${typeof a.limit === "number" ? "–" + (start + a.limit - 1) : ""}`;
   }
-  return truncateToWidth(titleName(name) + (target ? "  " + target : ""), limit, "…");
+  return fitLabel(titleName(name) + (target ? "  " + target : ""), limit);
 }
 
 type Result = { content?: { type: string; text?: string }[]; details?: unknown; isError?: boolean };
@@ -271,7 +271,7 @@ export class ActivityBlocks {
         body.push(...rows);
       };
       const compact = (lines: string[], tone: "muted" | "toolOutput" | "warning" | "error" = "toolOutput") => {
-        for (const line of lines.slice(0, Math.max(0, 2 - body.length))) body.push(theme.fg(tone, truncateToWidth(sourceText(line).replace(/\n/g, " ↵ "), inner, "…")));
+        for (const line of lines.slice(0, Math.max(0, 2 - body.length))) body.push(theme.fg(tone, fitLabel(sourceText(line).replace(/\n/g, " ↵ "), inner)));
       };
       // Only the exact separate native Codemode wrapper is presentation metadata.
       // Never delete a matching-looking line embedded in user/script output.
@@ -283,7 +283,7 @@ export class ActivityBlocks {
       const duration = wrapper && Number.isFinite(Number(wrapper[1])) ? `${Number(wrapper[1]).toFixed(1)}s` : "";
       const headerStatus = width >= 68 && duration ? statusLabel ? `${statusLabel} · ${duration}` : duration : statusLabel;
       const location = toolLocation(meta.toolName, meta.args, meta.cwd, 10000);
-      const title = truncateToWidth(location, Math.max(8, width - headerStatus.length - 12), "…");
+      const title = fitLabel(location, Math.max(8, width - headerStatus.length - 12));
       const childSummary = childCalls?.length ? [
         `${childCalls.length + (!storedCalls ? children?.omitted ?? 0 : 0)} call${childCalls.length + (!storedCalls ? children?.omitted ?? 0 : 0) === 1 ? "" : "s"}`,
         failures ? `${failures} failed` : "", stopped ? `${stopped} cancelled` : "", unfinished ? `${unfinished} pending` : "",
@@ -409,10 +409,10 @@ export class ActivityBlocks {
               const suffix = ` · ${call.state}`;
               const targetWidth = Math.max(1, inner - visibleWidth(suffix) - 2);
               body.push(theme.style(style.marker, { fg: style.color }) + " "
-                + theme.fg("muted", truncateToWidth(label, targetWidth, "…")) + theme.fg("dim", suffix));
+                + theme.fg("muted", fitLabel(label, targetWidth)) + theme.fg("dim", suffix));
             }
             const remaining = childCalls.length - chosen.size;
-            if (remaining) body.push(theme.fg("muted", truncateToWidth(`+${remaining} more recorded calls · expand to inspect`, inner, "…")));
+            if (remaining) body.push(theme.fg("muted", fitLabel(`+${remaining} more recorded calls · expand to inspect`, inner)));
           }
         } else {
           if (meta.toolName === "edit" && !error && typeof details.diff === "string") section("Diff", new Text(renderDiff(sourceText(details.diff), { filePath: path }), 0, 0).render(inner));
@@ -463,7 +463,7 @@ export class ActivityBlocks {
         (appearance ? matchedToolStatus(appearance, error || attention) : labels === "matched" && !error && !attention)
           ? quietFrameLabel(theme, ` ${disclosure}${headerStatus} `, rail)
           : theme.style(` ${disclosure}${headerStatus} `, { fg: color, bold: true }), true, rail)];
-      for (const line of body) rows.push(composerSurface(theme, theme.style("│", { fg: rail }) + composerSurface(theme, " " + truncateToWidth(line, inner, "…") + " ", width - 2) + theme.style("│", { fg: rail }), width));
+      for (const line of body) rows.push(composerSurface(theme, theme.style("│", { fg: rail }) + composerSurface(theme, " " + fitLabel(line, inner) + " ", width - 2) + theme.style("│", { fg: rail }), width));
       rows.push(composerRail(theme, width, "", "", false, rail));
       framedWidth = width;
       cache = { args: meta.args, result: meta.result, expanded, width, theme, version, state, labels: styleKey, rows, expandable, rawRow };

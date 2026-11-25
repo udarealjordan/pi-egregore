@@ -104,5 +104,5 @@ export function presentationRows({ theme, width, rows, title = "", summary = "",
       row.role === "active" && p.activeBold, row.role === "active" && ["active", "both"].includes(p.textEffect)));
   return frameRows({ theme, width, rows: content, corners, color: resolve(theme, style.borderColor), inset, surface, weight,
     motion: { active: !!frame?.active, now: frame?.elapsed ?? 0, accent: highlight, periodMs: p.periodMs,
-      intensity: p.intensity, direction: p.direction, effect: p.effect } });
+      intensity: p.intensity, direction: p.direction, effect: p.effect, labels: true } });
 }

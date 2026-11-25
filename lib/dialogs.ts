@@ -1,6 +1,6 @@
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { Input, Key, matchesKey, truncateToWidth, wrapTextWithAnsi, type Color, type Component, type TUI } from "@earendil-works/pi-tui";
-import { framePlacement, frameRows } from "./frame.ts";
+import { Input, Key, matchesKey, wrapTextWithAnsi, type Color, type Component, type TUI } from "@earendil-works/pi-tui";
+import { framePlacement, frameRows, fitLabel } from "./frame.ts";
 
 /**
  * Egregore's own prompts: a line of text, a choice and a yes/no question.
@@ -25,7 +25,7 @@ function dialogFrame(theme: Theme, width: number, title: string, body: string[],
   const color = options.color ?? theme.colors.accent, inner = Math.max(10, width - 4);
   const detail = options.detail ? wrapTextWithAnsi(theme.fg("muted", options.detail), inner) : [];
   return frameRows({ theme, width, rows: [...detail, ...(detail.length ? [""] : []), ...body], inset: 1, color, weight: placement.weight,
-    corners: { topLeft: theme.style(` ${truncateToWidth(title, Math.max(8, inner - 4), "…")} `, { fg: color, bold: true }), bottomLeft: theme.fg("muted", ` ${hint} `) } });
+    corners: { topLeft: theme.style(` ${fitLabel(title, Math.max(8, inner - 4))} `, { fg: color, bold: true }), bottomLeft: theme.fg("muted", ` ${hint} `) } });
 }
 
 /** One line of text. Enter saves (an empty line is a valid answer); Esc cancels. */
@@ -76,7 +76,7 @@ export class ChoiceDialog implements Component {
     const rows = this.choices.slice(start, start + room).map((choice, k) => {
       const i = start + k, on = i === this.selected;
       const number = this.choices.length <= 9 ? this.theme.fg("muted", `${i + 1} `) : "";
-      const text = truncateToWidth(choice, Math.max(4, inner - 6), "…");
+      const text = fitLabel(choice, Math.max(4, inner - 6));
       return (on ? this.theme.style("› ", { fg: color, bold: true }) : "  ") + number + (on ? this.theme.style(text, { fg: "text", bold: true }) : this.theme.fg("text", text));
     });
     const more = this.choices.length > room ? ` · ${this.selected + 1} of ${this.choices.length}` : "";

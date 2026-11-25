@@ -1,6 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { mixColors, parseColor, sliceByColumn, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
-import { frameRail } from "../../lib/frame.ts";
+import { frameRail, fitLabel } from "../../lib/frame.ts";
 import { COMPOSER_WEIGHT } from "./composer-style.ts";
 import { basename } from "node:path";
 import { ELEMENTS, IDENTITY, STATE_TEXT, type ElementId, type Position, type AppearanceState, type AppearanceColor, type AppearanceHit } from "./appearance.ts";
@@ -125,8 +125,8 @@ export function appearanceRow(theme: Theme, width: number, egregore: EgregoreSta
       const selected = egregore.footerPickerOpen && egregore.appearancePreview?.selected === part.id;
       const styled = part.id === "status"
         ? emberStatus(theme, part.text, state, egregore, now, sizes[i], part.color, part.bold)
-        : part.id === "session" ? sessionBadge(theme, truncateToWidth(part.text, sizes[i], "…"), part.color, part.bold)
-        : theme.style(truncateToWidth(part.text, sizes[i], "…"), { fg: part.color, bold: part.bold });
+        : part.id === "session" ? sessionBadge(theme, fitLabel(part.text, sizes[i]), part.color, part.bold)
+        : theme.style(fitLabel(part.text, sizes[i]), { fg: part.color, bold: part.bold });
       const text = styled;
       content += selected ? selectionHighlight(theme, styled, { underline: true, foreground: part.color, phase: egregore.appearancePreview?.shimmer }) : styled;
       hits.push({ id: part.id, x, width: visibleWidth(text) }); x += visibleWidth(text);
@@ -134,7 +134,7 @@ export function appearanceRow(theme: Theme, width: number, egregore: EgregoreSta
     return { text: content && budget >= 3 ? ` ${content} ` : "", hits };
   };
   const rendered = groups.map((parts, i) => renderGroup(parts, budgets[i]));
-  if (nativeHint) rendered[2] = { text: truncateToWidth(` ${nativeHint} `, rightBudget, "…"), hits: [] };
+  if (nativeHint) rendered[2] = { text: fitLabel(` ${nativeHint} `, rightBudget), hits: [] };
   const [left, center, right] = rendered.map(group => group.text);
   const starts = [0, Math.floor((inner - visibleWidth(center)) / 2), inner - visibleWidth(right)];
   for (let i = 0; i < rendered.length; i++) if (rendered[i].text) {

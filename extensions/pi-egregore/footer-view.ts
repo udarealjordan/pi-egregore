@@ -1,3 +1,4 @@
+import { fitLabel } from "../../lib/frame.ts";
 import { basename } from "node:path";
 import { COMPOSER_ICONS } from "./composer-icons.ts";
 import type { ContextUsage, Theme } from "@earendil-works/pi-coding-agent";
@@ -17,7 +18,7 @@ const plain: Record<string, string> = { directory: "dir", git: "git", session: "
 const compactNumber = (n: number) => n >= 1e6 ? `${+(n / 1e6).toFixed(1)}m` : n >= 1000 ? `${+(n / 1000).toFixed(1)}k` : `${Math.round(n)}`;
 export function middle(text: string, width: number): string {
   if (visibleWidth(text) <= width) return text;
-  if (width < 5) return truncateToWidth(text, Math.max(0, width), "…");
+  if (width < 5) return fitLabel(text, Math.max(0, width));
   const front = Math.ceil((width - 1) / 3), back = width - front - 1;
   return sliceByColumn(text, 0, front) + "…" + sliceByColumn(text, Math.max(0, visibleWidth(text) - back), visibleWidth(text));
 }
@@ -80,7 +81,7 @@ function row(parts: Segment[], p: FooterPrefs, theme: Theme, width: number, fram
     sizes[index]--; total--;
   }
   const rendered = parts.map((s, i) => {
-    let text = s.id === "directory" ? middle(s.text, sizes[i]) : truncateToWidth(s.text, sizes[i], "…");
+    let text = s.id === "directory" ? middle(s.text, sizes[i]) : fitLabel(s.text, sizes[i]);
     // Keep the numeric percentage at the right when its bar/counts have to shrink.
     if (s.id === "context" && visibleWidth(s.text) > sizes[i]) {
       const percentage = s.text.match(/\d+%/)?.[0] ?? "—";

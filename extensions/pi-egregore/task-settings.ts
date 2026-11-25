@@ -43,7 +43,7 @@ export function taskControls(e: Editors): TaskControl[] {
     { label: "Replay progress sweep", value: "▶", help: "Replay a progress change in this example only. Motion-off still applies.", activate: e.replay },
     choice("Motion", s.motion, ["work", "changes", "off"], "Work animates the border. Changes briefly highlights task progress; Off keeps steady emphasis.", (p, v) => { p.presentation.motion = v as typeof s.motion; }),
     choice("Border effect", s.effect, ["shimmer", "pulse"], "Shimmer travels around the border; pulse blends it in place. Text does not move.", (p, v) => { p.presentation.effect = v as typeof s.effect; }),
-    choice("Cycle duration", String(s.periodMs), ["1200", "2000", "4000", "6000", "8000"], "Time for a border circuit or one task-change highlight. Changes defaults to 1200 ms.", (p, v) => { p.presentation.periodMs = Number(v); }),
+    choice("Cycle duration", String(s.periodMs), ["1200", "2000", "4000", "6000", "8000"], "Time for one pulse or one task-change highlight. Shimmer travels at the pace every moving frame shares. Changes defaults to 1200 ms.", (p, v) => { p.presentation.periodMs = Number(v); }),
     choice("Highlight intensity", String(s.intensity), ["0.25", "0.45", "0.65", "0.85", "1"], "How strongly the border blends toward the highlight color.", (p, v) => { p.presentation.intensity = Number(v); }),
     choice("Direction", s.direction, ["clockwise", "counterclockwise"], "Travel direction for shimmer. Pulse stays in place.", (p, v) => { p.presentation.direction = v as typeof s.direction; }),
     choice("Progress sweep", s.progressSweep ? "on" : "off", ["on", "off"], "Sweep on a new recorded progress change, not on restored history.", (p, v) => { p.presentation.progressSweep = v === "on"; }),

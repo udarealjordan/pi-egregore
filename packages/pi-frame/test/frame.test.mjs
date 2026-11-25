@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { stripVTControlCharacters } from "node:util";
 const root = process.env.PI_FRAME_HOST_MODULES || process.env.PI_EGREGORE_HOST_MODULES || process.env.PI_HOME_HOST_MODULES || process.env.PI_ASK_HOST_MODULES || (() => {
   const install = join(homedir(), ".pi/agent/install");
   try { return join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules"); }
@@ -11,8 +12,8 @@ const root = process.env.PI_FRAME_HOST_MODULES || process.env.PI_EGREGORE_HOST_M
 })();
 const { createJiti } = await import(pathToFileURL(join(root, "jiti/lib/jiti.mjs")));
 const jiti = createJiti(import.meta.url, { alias: { "@earendil-works/pi-tui": join(root, "@earendil-works/pi-tui/dist/index.js") } });
-const { frameRail, frameRows, paintFramePerimeter, statusPreset, frameGlyphs, toolRows } = await jiti.import(fileURLToPath(new URL("../index.js", import.meta.url)));
-const { visibleWidth, CURSOR_MARKER } = await import(pathToFileURL(join(root, "@earendil-works/pi-tui/dist/index.js")));
+const { frameRail, frameRows, paintFramePerimeter, statusPreset, frameGlyphs, toolRows, fitLabel, FRAME_SWEEP_SPEED } = await jiti.import(fileURLToPath(new URL("../index.js", import.meta.url)));
+const { visibleWidth, CURSOR_MARKER, colorToRgb } = await import(pathToFileURL(join(root, "@earendil-works/pi-tui/dist/index.js")));
 const theme = { style: (text, { fg }) => `\x1b[38;2;100;120;180m${text}\x1b[39m` };
 const plain = text => text.replace(/\x1b\[[0-9;]*m/g, "");
 
@@ -110,15 +111,12 @@ test("motion is opt-in, stable in geometry and never paints content", () => {
   assert.deepEqual(moving.map(visibleWidth), fixed.map(visibleWidth));
   assert.equal(moving[1].includes("editor content"), true);
   assert.equal(plain(moving[1]), plain(fixed[1]));
-  // Body rows stay byte-identical so a host's changed-line diff touches only the rails.
-  assert.deepEqual(moving.slice(1, -1), fixed.slice(1, -1));
   // A shade-sensitive theme proves the horizontal rails still carry the travelling light.
   const channels = color => color?.kind === "rgb" ? `${color.r},${color.g},${color.b}`
     : color?.kind === "indexed" ? `i${color.index}` : `o${color.l},${color.c},${color.h}`;
   const shade = { style: (text, { fg, bold }) => `\x1b[38;2;${channels(fg)};${bold ? 1 : 0}m${text}\x1b[39m` };
   const first = paintFramePerimeter(fixed, { theme: shade, width: 36, bottom: 2, color: "#333333", accent: "#ffffff", active: true, now: 500 });
   const later = paintFramePerimeter(fixed, { theme: shade, width: 36, bottom: 2, color: "#333333", accent: "#ffffff", active: true, now: 900 });
-  assert.deepEqual(later.slice(1, -1), fixed.slice(1, -1), "no tick rewrites a content row");
   assert.notEqual(later[0], first[0], "the top rail still travels");
   assert.notEqual(later.at(-1), first.at(-1), "the bottom rail still travels");
   assert.deepEqual(paintFramePerimeter(fixed, { theme, width: 36, active: false, accent: "#ffffff" }), fixed);
@@ -133,7 +131,59 @@ test("heavy weight swaps every perimeter glyph and keeps geometry; perimeter mot
   assert.deepEqual(frameGlyphs("heavy"), frameGlyphs("light"), "every frame is thin and rounded; weight marks attention, not line thickness");
   const painted = paintFramePerimeter(heavy, { theme, width: 30, color: "#334455", accent: "#aabbcc", active: true, now: 500 });
   assert.notEqual(painted[0], heavy[0], "heavy rails are perimeter cells too");
-  assert.equal(painted[1], heavy[1], "side rows keep their bytes");
+  assert.equal(plain(painted[1]), plain(heavy[1]), "side rows keep their text");
+});
+
+const rgbShade = { style: (text, { fg, bold }) => { const { r, g, b } = colorToRgb(fg);
+  return `\x1b[38;2;${Math.round(r)};${Math.round(g)};${Math.round(b)}${bold ? ";1" : ""}m${text}\x1b[39;22m`; } };
+
+test("the light travels down the side edges beside text, touching only edge cells near it", () => {
+  const body = Array.from({ length: 30 }, (_, i) => `\x1b[3mline ${i} of reply text\x1b[0m`);
+  const fixed = frameRows({ theme: rgbShade, width: 40, rows: body, color: "#333333" });
+  const motion = { theme: rgbShade, width: 40, color: "#333333", accent: "#ffffff", active: true };
+  // 39 columns across, then 2 columns per row: at 1.5 s (90 columns) the head is 25 rows down the right side.
+  const moving = paintFramePerimeter(fixed, { ...motion, now: 1500 });
+  assert.deepEqual(moving.map(stripVTControlCharacters), fixed.map(stripVTControlCharacters), "text and geometry are untouched");
+  assert.deepEqual(moving.map(visibleWidth), fixed.map(visibleWidth));
+  const touched = moving.map((row, y) => row !== fixed[y]);
+  assert.ok(touched[26], "the side edge beside a text row carries the light");
+  assert.ok(!touched[0] && !touched[3], "rows the light has not reached keep their bytes");
+  assert.ok(touched.filter(Boolean).length < 24, "only rows near the light change on a tick");
+  for (const [y, changed] of touched.entries()) if (changed && y > 0 && y < moving.length - 1) {
+    // Content between the edges is byte-identical; only the two edge cells may be repainted.
+    assert.ok(moving[y].includes("line " + (y - 1) + " of reply text"));
+    assert.equal(stripVTControlCharacters(moving[y]).length, 40);
+  }
+});
+
+test("every frame moves at one pace, whatever its size or period", () => {
+  const head = (width, rows, periodMs) => {
+    const fixed = frameRows({ theme: rgbShade, width, rows: Array(rows).fill("x"), color: "#000000" });
+    const painted = paintFramePerimeter(fixed, { theme: rgbShade, width, color: "#000000", accent: "#ffffff", active: true, now: 400, periodMs });
+    const top = stripVTControlCharacters(painted[0]);
+    let best = -1, x = 0, max = -1;
+    for (const cell of painted[0].split(/(?=\x1b\[38;2;)/)) {
+      const m = cell.match(/^\x1b\[38;2;(\d+);/); const glyph = stripVTControlCharacters(cell);
+      if (m && Number(m[1]) > max) { max = Number(m[1]); best = x; }
+      x += glyph.length;
+    }
+    assert.equal(top.length, width);
+    return best;
+  };
+  const small = head(60, 2, 1200), large = head(160, 40, 8000);
+  assert.equal(small, large, "the brightest cell is the same distance along the rail");
+  assert.equal(small, Math.round(FRAME_SWEEP_SPEED * .4));
+});
+
+test("a truncated label keeps its ellipsis in the label's own color", () => {
+  const label = "\x1b[1;38;2;200;100;50m Photos for Mom and Dad \x1b[0m";
+  const cut = fitLabel(label, 10);
+  assert.equal(visibleWidth(cut), 10);
+  assert.match(cut, /\x1b\[1;38;2;200;100;50m…\x1b\[0m$/);
+  assert.equal(fitLabel("plain session name", 8), "plain s…", "unstyled text needs no reset, so an outer style covers the ellipsis");
+  assert.equal(fitLabel(label, 40), label);
+  const rail = frameRail({ width: 16, left: label, color: "#333333" });
+  assert.match(rail, /\x1b\[1;38;2;200;100;50m…/);
 });
 
 test("toolRows lays out marker, name, target and right-aligned detail at every width", () => {
@@ -171,4 +221,23 @@ test("the right edge never inherits text attributes a full-width row leaves open
   assert.ok(italicOff > lastItalicOn, JSON.stringify(content));
   assert.equal(visibleWidth(content), 20);
   assert.equal(plain(content), "│" + "x".repeat(16) + "  │");
+});
+
+test("with labels, the light passes through rail label text and leaves it as it was", () => {
+  const label = "\x1b[1;38;2;200;100;50m Photos for Mom \x1b[22;39m";
+  const fixed = frameRows({ theme: rgbShade, width: 60, rows: ["body text"], color: "#333333", corners: { topLeft: label } });
+  const motion = { theme: rgbShade, width: 60, color: "#333333", accent: "#ffffff", active: true };
+  // At 0.15 s the head is 9 columns along: inside the label.
+  const lit = paintFramePerimeter(fixed, { ...motion, now: 150, labels: true });
+  assert.deepEqual(lit.map(stripVTControlCharacters), fixed.map(stripVTControlCharacters));
+  assert.deepEqual(lit.map(visibleWidth), fixed.map(visibleWidth));
+  assert.ok(!lit[0].includes(label), "label cells near the light are tinted");
+  assert.match(lit[0], /\x1b\[38;2;\d+;\d+;\d+;1m[a-z]/, "tinted label cells keep their bold weight");
+  const brightest = Math.max(...[...lit[0].matchAll(/\x1b\[38;2;(\d+);\d+;\d+(?:;1)?m[A-Za-z]/g)].map(m => Number(m[1])));
+  assert.ok(brightest > 200, "label text brightens from its own color toward the light");
+  assert.ok(lit[1].includes("body text" + " ".repeat(49)), "body text is never tinted");
+  assert.ok(paintFramePerimeter(fixed, { ...motion, now: 150 })[0].includes(label), "labels stay untouched unless asked");
+  // Once the light has moved far on, the label is byte-identical again.
+  const later = paintFramePerimeter(fixed, { ...motion, now: 1600, labels: true });
+  assert.ok(later[0].includes(label));
 });

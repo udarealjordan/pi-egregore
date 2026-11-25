@@ -1,5 +1,6 @@
+import { fitLabel } from "../../lib/frame.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
+import { visibleWidth, type Color } from "@earendil-works/pi-tui";
 import type { AppearanceState } from "./appearance.ts";
 import { SETTLE_MS, settling, shouldAnimate, type EgregoreState } from "./state.ts";
 
@@ -154,7 +155,7 @@ export function emberStatus(theme: Theme, text: string, state: AppearanceState, 
   now: number, budget: number, color: Color, bold = true, markerEnabled = true): string {
   const marker = emberMarker(theme, state, egregore, now, color, bold);
   const room = markerEnabled && budget >= 6 + Math.min(visibleWidth(text), 24) ? 6 : 0;
-  return (room ? marker + " " : "") + theme.style(truncateToWidth(text, Math.max(0, budget - room), "…"), { fg: color, bold });
+  return (room ? marker + " " : "") + theme.style(fitLabel(text, Math.max(0, budget - room)), { fg: color, bold });
 }
 export function statusWithTools(text: string, egregore: EgregoreState): string {
   if (!egregore.tools.size || (egregore.blockingPromptDepth ?? egregore.promptDepth) > 0) return text;

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { buildSessionContext, convertToLlm, copyToClipboard, getMarkdownTheme, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
-import { Input, Key, Markdown, matchesKey, truncateToWidth, wrapTextWithAnsi, type Component, type TUI, type TuiMouseEvent } from "@earendil-works/pi-tui";
+import { Input, Key, Markdown, matchesKey, wrapTextWithAnsi, type Component, type TUI, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { stripVTControlCharacters } from "node:util";
-import { framePlacement, frameRows } from "../../lib/frame.ts";
+import { framePlacement, frameRows, fitLabel } from "../../lib/frame.ts";
 
 /** An aside is something you type into, so it takes the composer's place like a question. */
 const PLACEMENT = framePlacement("input");
@@ -115,7 +115,7 @@ export class AsidePanel implements Component {
   private saveName(): void {
     const name = this.nameInput.getValue().trim();
     this.actions.rename(name); this.focus = this.before;
-    this.flash(name ? `Named “${truncateToWidth(name, 24, "…")}”` : "Name cleared");
+    this.flash(name ? `Named “${fitLabel(name, 24)}”` : "Name cleared");
   }
   /** The answer in view, or the nearest answered one above it. */
   private answered(): Exchange | undefined {
@@ -229,10 +229,10 @@ export class AsidePanel implements Component {
     const nav = count > 1 ? theme.fg("muted", ` ‹ ${this.index.value + 1} of ${count} › `) : "";
     const position = [start > 0 ? `↑ ${start}` : "", this.scroll > 0 ? `↓ ${this.scroll}` : ""].filter(Boolean).join(" · ");
     const hint = this.flashText ? theme.fg("accent", ` ${this.flashText} `) : theme.fg("dim", ` ${this.hint(count)} `);
-    const title = thread && (thread.name || thread.exchanges.length) ? ` aside · ${truncateToWidth(threadName(thread), Math.max(8, Math.floor(width / 3)), "…")} ` : " aside ";
+    const title = thread && (thread.name || thread.exchanges.length) ? ` aside · ${fitLabel(threadName(thread), Math.max(8, Math.floor(width / 3)))} ` : " aside ";
     return frameRows({ theme, width, rows, inset: 1, color, weight: PLACEMENT.weight,
       corners: { topLeft: theme.style(title, { fg: color, bold: true }), topCenter: nav,
-        topRight: theme.fg("muted", ` ${truncateToWidth(this.model(), 24, "…")}${thread && this.pending(thread) ? " · answering" : this.threads().some(t => this.pending(t)) ? " · answering elsewhere" : ""} `), bottomLeft: hint,
+        topRight: theme.fg("muted", ` ${fitLabel(this.model(), 24)}${thread && this.pending(thread) ? " · answering" : this.threads().some(t => this.pending(t)) ? " · answering elsewhere" : ""} `), bottomLeft: hint,
         ...(position ? { bottomRight: theme.fg("muted", ` ${position} `) } : {}) } });
   }
 }

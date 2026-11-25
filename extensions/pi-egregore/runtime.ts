@@ -121,6 +121,8 @@ export default function egregore(pi: ExtensionAPI) {
     () => state.layout?.density ?? "spaced");
   registerWebMessageFrames(pi, () => state.prefs.enabled,
     () => readTranscript(state.layout?.transcript, state.layout) ?? transcriptDefaults());
+  /** The streaming reply's frame sweep; it shares the Tasks frame's pace and redraw cadence. */
+  const replySweeping = (now: number, focused: boolean) => state.phase === "thinking" && state.clock.active && shouldAnimate(state, now, focused);
   let lastMessageScan = 0;
   function syncSentFrames(now = Date.now(), beforePaint = false) {
     if (!installed) return;
@@ -129,8 +131,7 @@ export default function egregore(pi: ExtensionAPI) {
     const blocksChanged = activityBlocks.sync(tui);
     const messagesChanged = sentFrames.sync(tui, () => current().ui.theme, () => current().model?.name || current().model?.id || "Assistant", () => {
       const now = Date.now();
-      return { active: state.phase === "thinking" && state.clock.active && shouldAnimate(state, now, state.editorFocused?.() ?? true),
-        now, startAt: state.clock.transitionAt };
+      return { active: replySweeping(now, state.editorFocused?.() ?? true), now, startAt: state.clock.transitionAt };
     }, () => {
       const branch = current().sessionManager.getBranch();
       // Pi saves a message on message_end, so an assistant entry's own timestamp is when that reply
@@ -205,7 +206,9 @@ export default function egregore(pi: ExtensionAPI) {
     if (state.promptDepth === 0 && (animated || ((state.clock.timing || dictating) && second !== lastSecond))) refresh();
     lastSecond = second;
     const transition = state.clock.transitionAt > 0 && now - state.clock.transitionAt < 800;
-    const delay = taskAnimated || animated && transition ? 40 : animated || themeLease.awaitingReload ? 100 : 1000;
+    // Moving frames redraw at one cadence so a reply and Tasks travel equally smoothly.
+    const sweeping = taskAnimated || replySweeping(now, state.editorFocused?.() ?? true);
+    const delay = sweeping || animated && transition ? 40 : animated || themeLease.awaitingReload ? 100 : 1000;
     timerDue = now + delay;
     timer = setTimeout(tick, delay);
     timer.unref();
