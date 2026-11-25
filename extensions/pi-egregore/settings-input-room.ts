@@ -4,7 +4,7 @@ export const INFO: Record<Selection, string> = {
   frame: "The border around your input. It is always your color, the theme accent, like your messages and send times.",
   status: "What the assistant is doing. Preview another state to customize its text and colors without starting a run.",
   session: "Your current chat name. Long names shorten to fit.", sentTime: "The latest recorded user-message send time, in your color like your messages. Hidden until you send a message; never a live clock.",
-  directory: "The current working directory.", vim: "Your native Vim mode, when a Vim editor is installed. It is absent otherwise.",
+  directory: "The current working directory, in the plain text color like the model name.", vim: "Your native Vim mode, when a Vim editor is installed. It is absent otherwise.",
   model: "The current model's display name, in the assistant's color like its replies.", thinking: "The selected thinking level, in the assistant's color; this setting does not change how the model thinks.",
   context: "Context capacity used, not task progress. Unknown usage shows —. Off means absent from the preview.",
   git: "Local Git state. Hidden outside a repository; never performs a network fetch.",

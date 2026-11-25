@@ -181,13 +181,13 @@ test("move model to footer; edit text; keep thinking level without a thinking pr
 
 test("invalid custom color stays editable; Escape cancels a field; Discard needs confirmation", async () => {
   const h = egregore();
-  h.click("Directory"); h.click("Text color"); h.pick("More color options"); h.text("nonsense");
+  h.click("Git status"); h.click("Text color"); h.pick("More color options"); h.text("nonsense");
   assert.match(h.rows().join("\n"), /Use # followed by six digits/);
   h.panel.handleInput("\x1b");
-  assert.equal(h.latest.appearance.elements.directory.color, "quiet");
+  assert.equal(h.latest.appearance.elements.git.color, "auto");
   h.click("Text color"); h.pick("Red");
   h.click("[Discard]"); assert.match(h.rows().join("\n"), /Discard all unsaved changes/);
-  h.click("[Keep editing]"); assert.equal(h.latest.appearance.elements.directory.color, "red");
+  h.click("[Keep editing]"); assert.equal(h.latest.appearance.elements.git.color, "red");
   assert.equal(await h.discard(), undefined);
 });
 
@@ -280,5 +280,6 @@ test("model · thinking render as one assistant-colored unit; the Composer frame
   const bottom = appearanceRow(theme, 140, h.egregore, "bottom", 0);
   const text = theme.colors.text, accent = theme.colors.accent;
   assert.ok(bottom.includes(theme.style(" · ", { fg: text })), "the separator between model and thinking is the assistant's");
+  assert.ok(bottom.includes(theme.style(`${COMPOSER_ICONS.directory} /project/界面`, { fg: text, bold: false })), "the directory and its icon are plain text color");
   assert.deepEqual(appearanceBorder(theme, h.egregore), accent, "the frame is the user's accent");
 });

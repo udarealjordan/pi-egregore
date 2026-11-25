@@ -6,10 +6,11 @@ export const ELEMENTS = {
   vim: "Vim mode", model: "Model name", thinking: "Thinking level", context: "Context usage", git: "Git status", hint: "Next-step hint",
 } as const;
 export type ElementId = keyof typeof ELEMENTS;
-/** Elements that speak for someone draw in that identity's color (theme-hues.ts identityColor) and have no
- *  color setting, so the Composer's send time always matches the user's messages and the model name and
- *  thinking level always match the assistant's. The Composer frame itself is always the user's color. */
-export const IDENTITY: Partial<Record<ElementId, "user" | "assistant">> = { sentTime: "user", model: "assistant", thinking: "assistant" };
+/** Elements bound to an identity draw in its color (theme-hues.ts identityColor) and have no color setting:
+ *  the Composer's send time always matches the user's messages; the model name, thinking level and the
+ *  working directory (where the assistant works) use the assistant's plain text color. The Composer frame
+ *  itself is always the user's color. */
+export const IDENTITY: Partial<Record<ElementId, "user" | "assistant">> = { sentTime: "user", model: "assistant", thinking: "assistant", directory: "assistant" };
 export const POSITIONS = {
   topLeft: "Input box · top left", topCenter: "Input box · top center", topRight: "Input box · top right",
   bottomLeft: "Input box · bottom left", bottomCenter: "Input box · bottom center", bottomRight: "Input box · bottom right",

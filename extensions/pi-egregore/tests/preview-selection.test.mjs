@@ -179,11 +179,11 @@ test("identity-bound parts offer no color: the frame is the user's, model and th
     const clock = JSON.stringify(h.egregore.clock), native = h.editor.getText();
     h.click("Assistant status"); h.click("Preview appearance"); h.pick("When the assistant finishes");
     assert.doesNotMatch(h.rows().join("\n"), /Frame color|State border color/);
-    for (const part of ["Input box border", "Model name", "Thinking level", "Sent time"]) {
+    for (const part of ["Input box border", "Model name", "Thinking level", "Sent time", "Directory"]) {
       h.click(part);
       assert.doesNotMatch(h.rows().join("\n"), /Text color|Frame color/, `${part} has no color setting`);
     }
-    h.click("Directory");
+    h.click("Git status");
     assert.match(h.rows().join("\n"), /Text color/, "other parts keep their color setting");
     assert.equal(JSON.stringify(h.egregore.clock), clock); assert.equal(h.editor.getText(), native);
   } finally { await h.discard(); }
