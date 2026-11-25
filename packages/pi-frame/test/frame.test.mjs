@@ -160,3 +160,15 @@ test("placements give each kind of surface one weight, one mounting style and a 
   assert.equal(framePlacement("dock").rows(8), 4, "never fewer than four rows");
   assert.equal(framePlacement("unknown").share, FRAME_PLACEMENTS.panel.share);
 });
+
+test("the right edge never inherits text attributes a full-width row leaves open", () => {
+  // Pi pads thinking text in italics to the full width without closing the run.
+  const row = "\x1b[3m" + "x".repeat(16);
+  const [, content] = frameRows({ theme, width: 20, rows: [row], color: "#6478b4" });
+  const edgeAt = content.lastIndexOf("│");
+  const before = content.slice(0, edgeAt);
+  const lastItalicOn = before.lastIndexOf("\x1b[3m"), italicOff = before.search(/\x1b\[[0-9;]*\b23\b[0-9;]*m(?!.*\x1b\[3m)/s);
+  assert.ok(italicOff > lastItalicOn, JSON.stringify(content));
+  assert.equal(visibleWidth(content), 20);
+  assert.equal(plain(content), "│" + "x".repeat(16) + "  │");
+});

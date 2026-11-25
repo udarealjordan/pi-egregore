@@ -3,6 +3,10 @@ import { mixColors, parseColor, truncateToWidth, visibleWidth } from "@earendil-
 const toColor = value => typeof value === "string" && value.startsWith("#") ? parseColor(value) : value;
 const fit = (value, width) => truncateToWidth(value, Math.max(0, width), "…");
 const ink = (theme, glyph, color, bold = false) => color && theme?.style ? theme.style(glyph, { fg: toColor(color), bold }) : glyph;
+// Row content may leave text attributes open (Pi's thinking text pads in italics); the frame owns its
+// edge, so close bold/dim, italic, underline, inverse and strikethrough before drawing it. Colors stay.
+const ATTRIBUTES_OFF = "\x1b[22;23;24;27;29m";
+const edge = (theme, glyph, color) => ATTRIBUTES_OFF + ink(theme, glyph, color);
 const cover = (row, width, surface) => surface ? surface(row, width) : row + " ".repeat(Math.max(0, width - visibleWidth(row)));
 // Bounded drawing metadata, not application state. Ambiguous identical rails keep
 // only cells owned by both layouts; unknown rails fall back to physical edges.
@@ -79,7 +83,7 @@ export function frameRows({ theme, width, rows, corners = {}, color, textColor, 
   const inner = width - 2 - 2 * inset;
   const content = rows.map(row => cover(
     ink(theme, g.vertical, color) + " ".repeat(inset) + cover(fit(row, inner), inner, surface)
-      + " ".repeat(inset) + ink(theme, g.vertical, color), width, surface));
+      + " ".repeat(inset) + edge(theme, g.vertical, color), width, surface));
   const result = [frameRail({ theme, width, left: corners.topLeft, center: corners.topCenter, right: corners.topRight, color, textColor, surface, weight }),
     ...content, frameRail({ theme, width, left: corners.bottomLeft, center: corners.bottomCenter, right: corners.bottomRight, side: "bottom", color, textColor, surface, weight })];
   return motion?.active ? paintFramePerimeter(result, { theme, width, bottom: result.length - 1, color, ...motion, surface }) : result;
