@@ -28,7 +28,7 @@ export function quietFrameLabel(theme: Theme, text: string, border: Color): stri
   return theme.style(text, { fg: mixColors(border, theme.colors.muted, .55) });
 }
 
-/** A bright traveling head with a soft trail, not icons or a filling progress track.
+/** A traveling shape in the steady status color, not icons or a filling progress track.
  * Motion follows real run state; errors of individual tools do not latch the frame. */
 export function composerMessageRail(theme: Theme, width: number, egregore: EgregoreState, now: number, title: string, hint = ""): string {
   if (egregore.layout?.appearance) return composerSurface(theme, appearanceRow(theme, width, egregore, "top", now, hint), width);

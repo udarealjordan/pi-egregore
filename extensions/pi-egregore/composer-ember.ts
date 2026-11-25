@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { mixColors, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import type { AppearanceState } from "./appearance.ts";
 import { SETTLE_MS, settling, shouldAnimate, type EgregoreState } from "./state.ts";
 
@@ -11,31 +11,26 @@ const BRAILLE = [[1, 2, 4, 64], [8, 16, 32, 128]];
 const CONVEYOR_SPEEDS = [5.2, 6.4, 7.1, 5.8];
 const COLLAPSE_CORNERS = [[0, 0], [9, 0], [0, 3], [9, 3]];
 type Scene = "figure-eight" | "conveyor" | "twin-orbit" | "collapse" | "serpentine";
-interface GlyphFrame { bits: Uint8Array; heat: Float32Array }
+interface GlyphFrame { bits: Uint8Array }
 
 function emptyFrame(): GlyphFrame {
-  return { bits: new Uint8Array(CELLS), heat: new Float32Array(CELLS) };
+  return { bits: new Uint8Array(CELLS) };
 }
 
-/** The only grid writer: snap to the nearest dot, ignore off-canvas, record per-cell heat. */
-function dot(frame: GlyphFrame, x: number, y: number, heat = 0): void {
+/** The only grid writer: snap to the nearest dot and ignore off-canvas. */
+function dot(frame: GlyphFrame, x: number, y: number): void {
   const px = Math.round(x), py = Math.round(y);
   if (px < 0 || px >= WIDTH || py < 0 || py >= HEIGHT) return;
-  const cell = px >> 1;
-  frame.bits[cell] |= BRAILLE[px & 1][py];
-  if (heat > frame.heat[cell]) frame.heat[cell] = heat;
+  frame.bits[px >> 1] |= BRAILLE[px & 1][py];
 }
 
-function renderFrame(theme: Theme, frame: GlyphFrame, color: Color): string {
+/** Every cell in the status color and weight: motion comes from shape alone, so the marker never
+ *  flickers between lighter and darker cells beside its steady label. */
+function renderFrame(theme: Theme, frame: GlyphFrame, color: Color, bold: boolean): string {
   let out = "";
   for (let cell = 0; cell < CELLS; cell++) {
     const bits = frame.bits[cell];
-    if (!bits) { out += " "; continue; }
-    const bright = frame.heat[cell] > .72;
-    out += theme.style(String.fromCharCode(0x2800 + bits), {
-      fg: bright ? mixColors(color, theme.colors.text, .7) : color,
-      bold: bright,
-    });
+    out += bits ? theme.style(String.fromCharCode(0x2800 + bits), { fg: color, bold }) : " ";
   }
   return out;
 }
@@ -47,8 +42,7 @@ function figureEight(t: number, energy: number): GlyphFrame {
     const tt = t - k * .03;
     dot(frame,
       4.5 + 4.1 * Math.sin(tt * 2.1 + .6),
-      1.5 + 1.35 * Math.sin(tt * 3.15 + Math.PI / 2),
-      k === 0 ? 1 : .8 - (k / samples) * .65);
+      1.5 + 1.35 * Math.sin(tt * 3.15 + Math.PI / 2));
   }
   return frame;
 }
@@ -58,7 +52,7 @@ function conveyor(t: number, energy: number): GlyphFrame {
   for (let row = 0; row < HEIGHT; row++) {
     const head = (t * CONVEYOR_SPEEDS[row] + row * 2.9 + 2.5) % 13;
     const length = 3 - (row % 2) + (energy > .5 ? 1 : 0);
-    for (let k = 0; k < length; k++) dot(frame, head - k, row, k === 0 ? 1 : .6 - k * .15);
+    for (let k = 0; k < length; k++) dot(frame, head - k, row);
   }
   return frame;
 }
@@ -73,8 +67,7 @@ function twinOrbit(t: number, energy: number): GlyphFrame {
       const aa = a - k * .11 * direction;
       dot(frame,
         4.5 + Math.cos(aa) * (3.7 + s * .25 + energy * .25),
-        1.5 + Math.sin(aa) * (1.15 + s * .15 + energy * .1),
-        k === 0 ? 1 : .8 - (k / samples) * .65);
+        1.5 + Math.sin(aa) * (1.15 + s * .15 + energy * .1));
     }
   }
   return frame;
@@ -89,11 +82,11 @@ function collapse(t: number, energy: number): GlyphFrame {
     const p = Math.min(1, Math.max(0, phase * 1.15 - i * .03));
     for (let k = 0; k <= trail; k++) {
       const q = Math.max(0, p - k * .07);
-      dot(frame, cx + (4.5 - cx) * q, cy + (1.5 - cy) * q, k === 0 ? .95 : .55 - k * .12);
+      dot(frame, cx + (4.5 - cx) * q, cy + (1.5 - cy) * q);
     }
   }
   if (phase > .86 || energy > .5) {
-    for (let dx = 0; dx < 2; dx++) for (let dy = 1; dy < 3; dy++) dot(frame, 4.5 + dx - .5, dy - .5, 1);
+    for (let dx = 0; dx < 2; dx++) for (let dy = 1; dy < 3; dy++) dot(frame, 4.5 + dx - .5, dy - .5);
   }
   return frame;
 }
@@ -115,7 +108,7 @@ function serpentine(t: number, energy: number): GlyphFrame {
   const trail = 12 + Math.round(energy * 4);
   for (let k = 0; k < trail; k++) {
     const [x, y] = SERPENT_PATH[(head - k + SERPENT_PATH.length) % SERPENT_PATH.length];
-    dot(frame, x, y, k === 0 ? 1 : .8 - (k / trail) * .65);
+    dot(frame, x, y);
   }
   return frame;
 }
@@ -132,18 +125,18 @@ const SCENE_BY_STATE: Partial<Record<AppearanceState, Scene>> = {
 };
 
 /** Five fixed grid scenes in five cells. Deterministic from elapsed run time; no clocks, randomness, or state writes in rendering. */
-export function emberMarker(theme: Theme, state: AppearanceState, egregore: EgregoreState, now: number, color: Color): string {
+export function emberMarker(theme: Theme, state: AppearanceState, egregore: EgregoreState, now: number, color: Color, bold = true): string {
   const moving = working.has(state) && shouldAnimate(egregore, now, egregore.editorFocused?.() ?? true);
   // Finishing: the four corners draw in to the centre once, then the ✓ stays.
   if (state === "done" && settling(egregore, now)) {
     const progress = (now - egregore.clock.transitionAt) / SETTLE_MS;
-    return renderFrame(theme, collapse(Math.min(.99, progress) * 2.4, progress > .8 ? 1 : 0), color);
+    return renderFrame(theme, collapse(Math.min(.99, progress) * 2.4, progress > .8 ? 1 : 0), color, bold);
   }
   if (!moving) {
     const glyph = state === "done" ? "✓" : ["error", "waiting", "interrupted", "stopped"].includes(state) ? "!" : working.has(state) ? "●" : "○";
     // Centre the single mark in the same five cells a scene fills, so idle and working
     // states share one axis instead of the mark sliding to the label's edge.
-    return theme.style(`  ${glyph}  `, { fg: color, bold: true });
+    return theme.style(`  ${glyph}  `, { fg: color, bold });
   }
   const elapsed = Math.max(0, now - egregore.clock.transitionAt), t = elapsed / 1000;
   const eventAge = egregore.activityEventAt === undefined ? Infinity : Math.max(0, now - egregore.activityEventAt);
@@ -152,14 +145,14 @@ export function emberMarker(theme: Theme, state: AppearanceState, egregore: Egre
   const energy = Math.max(response, ignition * .7);
   const scene = SCENE_BY_STATE[state] ?? "figure-eight";
   const frame = SCENES[scene](t, energy);
-  if (!frame.bits.some(bits => bits !== 0)) dot(frame, 4.5, 1.5, 1);
-  return renderFrame(theme, frame, color);
+  if (!frame.bits.some(bits => bits !== 0)) dot(frame, 4.5, 1.5);
+  return renderFrame(theme, frame, color, bold);
 }
 
 /** Keep status before tool detail; drop the large marker before sacrificing the state label. */
 export function emberStatus(theme: Theme, text: string, state: AppearanceState, egregore: EgregoreState,
   now: number, budget: number, color: Color, bold = true, markerEnabled = true): string {
-  const marker = emberMarker(theme, state, egregore, now, color);
+  const marker = emberMarker(theme, state, egregore, now, color, bold);
   const room = markerEnabled && budget >= 6 + Math.min(visibleWidth(text), 24) ? 6 : 0;
   return (room ? marker + " " : "") + theme.style(truncateToWidth(text, Math.max(0, budget - room), "…"), { fg: color, bold });
 }

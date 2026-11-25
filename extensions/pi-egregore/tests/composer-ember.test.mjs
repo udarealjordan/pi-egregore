@@ -125,3 +125,19 @@ test('task feedback is brief, follows meaningful progress, survives typing, and 
   render(3100); assert.equal(panel.tick(s, 3200, true), false);
   s.promptDepth = 1; dock.overview.done++; render(3300); assert.equal(panel.tick(s, 3400, true), false);
 });
+
+test('every ember cell uses the status color and weight: no lighter or darker cells', () => {
+  for (const appearance of ['dark', 'light']) {
+    initTheme(appearance, false);
+    const s = state(); s.clock.begin(1000);
+    const color = theme.colors.accent, uniform = glyph => theme.style(glyph, { fg: color, bold: true });
+    for (const phase of ['thinking', 'tools', 'responding', 'compacting', 'working']) {
+      for (let i = 0; i < 60; i++) {
+        s.activityEventAt = i % 7 === 0 ? 1000 + i * 50 - 100 : undefined; // include event-energized frames
+        const frame = emberMarker(theme, phase, s, 1000 + i * 50, color);
+        const expected = [...plain(frame)].map(glyph => glyph === ' ' ? ' ' : uniform(glyph)).join('');
+        assert.equal(frame, expected, `${appearance} ${phase} frame ${i}`);
+      }
+    }
+  }
+});
