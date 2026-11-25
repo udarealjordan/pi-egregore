@@ -270,6 +270,7 @@ async function harness(mode = "tui", savedComposerPrefs) {
     on(name, fn) { handlers.set(name, [...(handlers.get(name) ?? []), fn]); },
     registerCommand(name, command) { commands.set(name, command); },
     registerEntryRenderer() {},
+    registerMessageRenderer() {},
     getThinkingLevel: () => "high",
     appendEntry(customType, data) { entries.push({ type: "custom", customType, data }); },
   };

@@ -5,6 +5,7 @@ import { isViewportTUI, type EditorComponent, type TUI } from "@earendil-works/p
 import { DictationController, createLocalDictation } from "./dictation.ts";
 import { NativeHost } from "./native/host.ts";
 import { ActivityBlocks } from "./activity-blocks.ts";
+import { registerWebMessageFrames } from "./web-message-frames.ts";
 import { SentMessageFrames } from "./sent-messages.ts";
 import { calendarDay } from "./sent-metadata.ts";
 import { readTranscript, transcriptDefaults } from "./transcript-presentation.ts";
@@ -118,6 +119,8 @@ export default function egregore(pi: ExtensionAPI) {
     () => state.layout?.toolLabels ?? "semantic",
     () => readTranscript(state.layout?.transcript, state.layout) ?? transcriptDefaults(),
     () => state.layout?.density ?? "spaced");
+  registerWebMessageFrames(pi, () => state.prefs.enabled,
+    () => readTranscript(state.layout?.transcript, state.layout) ?? transcriptDefaults());
   let lastMessageScan = 0;
   function syncSentFrames(now = Date.now(), beforePaint = false) {
     if (!installed) return;
