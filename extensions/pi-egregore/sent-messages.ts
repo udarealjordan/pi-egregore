@@ -34,10 +34,10 @@ export class SentMessageFrames {
   private timestamps = new Map<MessageComponent, number>();
   /** Time since your previous message, when it is long enough to orient by. */
   private gaps = new Map<MessageComponent, number>();
-  private presentation?: { prefs?: FooterPrefs; users?: { text: string; timestamp: number }[]; chronomancerDay?: string };
+  private presentation?: { prefs?: FooterPrefs; users?: { text: string; timestamp: number }[]; replies?: Map<number, number>; chronomancerDay?: string };
   sync(root: Component & { children?: Component[] }, theme: () => Theme, modelName: () => string = () => "Assistant",
     thinkingMotion?: () => { active: boolean; now: number; startAt: number },
-    presentation?: () => { prefs?: FooterPrefs; users?: { text: string; timestamp: number }[]; chronomancerDay?: string }): boolean {
+    presentation?: () => { prefs?: FooterPrefs; users?: { text: string; timestamp: number }[]; replies?: Map<number, number>; chronomancerDay?: string }): boolean {
     const found = new Set<MessageComponent>(), visited = new Set<Component>();
     const visit = (node: Component, depth: number) => {
       if (visited.has(node) || depth > 16) return;
@@ -109,7 +109,10 @@ export class SentMessageFrames {
         const color = assistant ? assistantFrameColor(t) : userFrameColor(t);
         const options = this.presentation, style = activeTranscript(options?.prefs);
         const label = truncateToWidth(assistant ? clean(modelName()) || "Assistant" : clean(options?.prefs?.displayName ?? "jordan") || "jordan", width - 6, "…");
-        const timestamp = facts.kind === "assistant" ? facts.timestamp : this.timestamps.get(node);
+        // A reply's time is when it finished (its recorded session entry), never its start; none while streaming.
+        const timestamp = facts.kind === "assistant"
+          ? facts.streaming || facts.timestamp === undefined ? undefined : options?.replies?.get(facts.timestamp)
+          : this.timestamps.get(node);
         const now = Date.now();
         const time = style.chat.showSent ? sentTime(timestamp, options?.prefs, now,
           !!options?.chronomancerDay && options.chronomancerDay !== calendarDay(now)) : "";

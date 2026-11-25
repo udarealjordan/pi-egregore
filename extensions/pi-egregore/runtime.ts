@@ -128,14 +128,26 @@ export default function egregore(pi: ExtensionAPI) {
       const now = Date.now();
       return { active: state.phase === "thinking" && state.clock.active && shouldAnimate(state, now, state.editorFocused?.() ?? true),
         now, startAt: state.clock.transitionAt };
-    }, () => ({ prefs: state.layout, chronomancerDay: state.chronomancerDay, users: current().sessionManager.getBranch().flatMap(entry => {
-      if (entry.type !== "message" || entry.message.role !== "user") return [];
-      const message = entry.message;
-      const text = typeof message.content === "string" ? message.content
-        : message.content.filter(part => part.type === "text").map(part => part.text).join("");
-      const timestamp = recordedTime(message.timestamp);
-      return timestamp !== undefined && text ? [{ text, timestamp }] : [];
-    }) }));
+    }, () => {
+      const branch = current().sessionManager.getBranch();
+      // Pi saves a message on message_end, so an assistant entry's own timestamp is when that reply
+      // finished; the nested message timestamp is when it started. Keyed by the start, which the
+      // rendered component carries.
+      const replies = new Map<number, number>();
+      for (const entry of branch) {
+        if (entry.type !== "message" || entry.message.role !== "assistant") continue;
+        const started = recordedTime(entry.message.timestamp), finished = recordedTime(Date.parse(entry.timestamp));
+        if (started !== undefined && finished !== undefined) replies.set(started, finished);
+      }
+      return { prefs: state.layout, chronomancerDay: state.chronomancerDay, replies, users: branch.flatMap(entry => {
+        if (entry.type !== "message" || entry.message.role !== "user") return [];
+        const message = entry.message;
+        const text = typeof message.content === "string" ? message.content
+          : message.content.filter(part => part.type === "text").map(part => part.text).join("");
+        const timestamp = recordedTime(message.timestamp);
+        return timestamp !== undefined && text ? [{ text, timestamp }] : [];
+      }) };
+    });
     if (!beforePaint && (blocksChanged || messagesChanged)) tui.requestRender();
   }
   function syncTheme(ctx: ExtensionContext) {

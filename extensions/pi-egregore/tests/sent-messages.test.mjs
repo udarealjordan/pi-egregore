@@ -124,7 +124,7 @@ test("live Egregore identity and density balance the user and assistant frame in
   } finally { frames.dispose(); }
 });
 
-test("chat frames show only sourced fixed creation times; repeated user text maps in order", () => {
+test("chat frames show only sourced times: user send times and reply finish times; repeated user text maps in order", () => {
   const root = new Container(), frames = new SentMessageFrames();
   const first = new UserMessageComponent("again"), second = new UserMessageComponent("again"), synthetic = new UserMessageComponent("synthetic");
   const assistant = new AssistantMessageComponent({ role: "assistant", content: [{ type: "text", text: "Reply" }],
@@ -133,8 +133,11 @@ test("chat frames show only sourced fixed creation times; repeated user text map
   const prefs = { messageTime: "on", timestamps: "24h", icons: "nerd" };
   const users = [Date.UTC(2024, 0, 2, 10, 1), Date.UTC(2024, 0, 2, 10, 2)]
     .map(timestamp => ({ text: "again", timestamp }));
+  // The reply started at 15:42:00 and its session entry was saved when it finished, at 15:43:07.
+  const started = Date.UTC(2024, 0, 2, 15, 42), finished = Date.UTC(2024, 0, 2, 15, 43, 7);
+  const replies = new Map([[started, finished]]);
   try {
-    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users }));
+    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, replies }));
     const firstTime = sentTime(users[0].timestamp, prefs, Date.now());
     const secondTime = sentTime(users[1].timestamp, prefs, Date.now());
     const label = time => `${COMPOSER_ICONS.sent} ${time}`;
@@ -142,18 +145,19 @@ test("chat frames show only sourced fixed creation times; repeated user text map
     assert.ok(first.render(70).at(-1).includes(theme.style(` ${label(firstTime)} `, { fg: userFrameColor(theme), bold: true })), "user timestamp matches the user frame red");
     assert.ok(plain(second.render(70).at(-1)).includes(label(secondTime)));
     assert.doesNotMatch(plain(synthetic.render(70).at(-1)), /Sent |\u{f10dd}/u, "unsourced user messages have no invented time");
-    const assistantTime = sentTime(Date.UTC(2024, 0, 2, 15, 42), prefs, Date.now());
-    assert.ok(plain(assistant.render(70).at(-1)).includes(label(assistantTime)));
+    const assistantTime = sentTime(finished, prefs, Date.now());
+    assert.ok(plain(assistant.render(70).at(-1)).includes(label(assistantTime)), "a reply shows when it finished");
+    assert.ok(!plain(assistant.render(70).at(-1)).includes(sentTime(started, prefs, Date.now())), "never when it started");
     assert.ok(assistant.render(70).at(-1).includes(theme.style(` ${label(assistantTime)} `, { fg: assistantFrameColor(theme), bold: true })),
       "assistant timestamp matches the plain assistant frame");
-    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, chronomancerDay: "2024-01-01" }));
+    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, replies, chronomancerDay: "2024-01-01" }));
     const actualDay = calendarDay(users[0].timestamp);
     assert.ok(plain(first.render(90).at(-1)).includes(actualDay), "past-day mode shows the real send date");
     assert.ok(!plain(synthetic.render(90).at(-1)).includes(actualDay), "no date is fabricated for unsourced messages");
-    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users }));
+    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, replies }));
     assert.ok(plain(first.render(90).at(-1)).includes(label(firstTime)), "normal mode restores its original formatting");
     prefs.transcript = { version: 1, chat: { assistantLabel: "quiet", showSent: true, sentPosition: "bottomLeft" }, tools: { identity: "quiet", status: "semantic" } };
-    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users }));
+    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, replies }));
     assert.ok(plain(first.render(70).at(-1)).startsWith(`╰ ${label(firstTime)}`), "user creation time moves left without losing its red identity");
     assert.ok(first.render(70).at(-1).includes(theme.style(` ${label(firstTime)} `, { fg: userFrameColor(theme), bold: true })));
     assert.ok(plain(assistant.render(70).at(-1)).includes(label(assistantTime)));
@@ -167,7 +171,7 @@ test("chat frames show only sourced fixed creation times; repeated user text map
     assert.ok(!plain(first.render(70).at(-1)).includes(firstTime), "saved transcript section takes precedence over legacy field");
     delete prefs.transcript;
     prefs.messageTime = "off";
-    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users }));
+    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, replies }));
     assert.ok(!plain(first.render(70).at(-1)).includes(firstTime));
   } finally { frames.dispose(); }
 });
@@ -259,4 +263,16 @@ for (const Renderer of [TuiMainScreen, TuiAltScreen]) test(`${Renderer.name}: mo
     frames.dispose();
     assert.doesNotMatch(tui.render(90).map(plain).join("\n"), /╭ jordan/);
   } finally { frames.dispose(); tui.stop(); }
+});
+
+test("a reply without a recorded finish shows no time rather than its start", () => {
+  const root = new Container(), frames = new SentMessageFrames();
+  const assistant = new AssistantMessageComponent({ role: "assistant", content: [{ type: "text", text: "Reply" }],
+    stopReason: "stop", model: "test", provider: "test", timestamp: Date.UTC(2024, 0, 2, 15, 42) });
+  root.addChild(assistant);
+  const prefs = { messageTime: "on", timestamps: "24h", icons: "nerd" };
+  try {
+    frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users: [], replies: new Map() }));
+    assert.doesNotMatch(plain(assistant.render(70).at(-1)), /\d{2}:\d{2}:\d{2}/);
+  } finally { frames.dispose(); }
 });
