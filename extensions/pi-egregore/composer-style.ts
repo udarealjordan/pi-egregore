@@ -3,7 +3,6 @@ import { frameGlyphs, frameRail, type FrameWeight } from "../../lib/frame.ts";
 import { foregroundAnsi, mixColors, truncateToWidth, visibleWidth, type Color } from "@earendil-works/pi-tui";
 import { inheritColors } from "./composer-theme.ts";
 import { makeComposerPalette } from "./composer-palette.ts";
-import { hue } from "./theme-hues.ts";
 import { colorToHex } from "@earendil-works/pi-tui";
 import { formatDuration, type EgregoreState } from "./state.ts";
 import { clean, homePath } from "./footer-state.ts";
@@ -18,13 +17,12 @@ export function composerPadding(width: number, rows: number, density: "spaced" |
 /** The Composer is where your attention is, so it draws in heavy lines; history stays light. */
 export const COMPOSER_WEIGHT: FrameWeight = "heavy";
 export const composerEdge = () => frameGlyphs(COMPOSER_WEIGHT).vertical;
-/** Composer, assistant transcript, and Tasks use the same active Pi accent. */
+/** The accent is the user's: the theme they chose. Composer, the user's message frames, name and
+ *  send times, and Tasks all draw in it. */
 export function composerBorder(theme: Theme): Color { return theme.colors.accent; }
-/** User-send metadata uses the same red/pink identity as the user message frame. */
-export function userFrameColor(theme: Theme): Color { return hue(theme, "red"); }
-/** Settled chat history draws a quiet line, as Rex draws inactive panes; identity stays in its labels.
- *  Live surfaces (Composer, Tasks, a streaming reply) keep their color. */
-export function historyFrameColor(theme: Theme): Color { return theme.colors.borderMuted; }
+export function userFrameColor(theme: Theme): Color { return theme.colors.accent; }
+/** The assistant speaks in the plain text color: frame, model name and reply times. */
+export function assistantFrameColor(theme: Theme): Color { return theme.colors.text; }
 export function composerInset(width: number): number { return width >= 8 ? 2 : 0; }
 /** Related metadata stays readable while borrowing the frame's hue. */
 export function quietFrameLabel(theme: Theme, text: string, border: Color): string {

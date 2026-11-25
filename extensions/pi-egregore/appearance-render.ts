@@ -30,7 +30,7 @@ export function appearanceColor(theme: Theme, value: AppearanceColor | undefined
 export function appearanceBorder(theme: Theme, egregore: EgregoreState): Color {
   const design = egregore.layout?.appearance;
   const override = design?.states[currentAppearanceState(egregore)]?.frameColor;
-  // Chronomancer borrows the user-message red for the native composer only.
+  // Chronomancer marks its mode with red on the native composer only.
   // Explicit /egregore frame and state colors, and its live preview, win.
   const modeRed = egregore.chronomancerDay && !egregore.footerPickerOpen &&
     (!design?.frameColor || design.frameColor === "accent") && !override;

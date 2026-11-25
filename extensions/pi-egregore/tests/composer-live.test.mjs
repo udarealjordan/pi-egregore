@@ -253,7 +253,7 @@ test("composer top-right shows only a recorded user-send time in user red, with 
   const sent = composerMessageRail(theme, 100, egregore, now, "Alchemy");
   const seconds = new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   assert.ok(plain(sent).includes(`${COMPOSER_ICONS.sent} ${seconds}`));
-  assert.ok(sent.includes(theme.style(` ${COMPOSER_ICONS.sent} ${seconds} `, { fg: userFrameColor(theme), bold: true })), "time uses the user frame red");
+  assert.ok(sent.includes(theme.style(` ${COMPOSER_ICONS.sent} ${seconds} `, { fg: userFrameColor(theme), bold: true })), "time uses the user identity color");
   assert.doesNotMatch(plain(sent), /Next: review tests/);
   assert.equal(sent, composerMessageRail(theme, 100, egregore, now + 20_000, "Alchemy"), "recorded time does not tick");
   assert.match(plain(composerMessageRail(theme, 100, egregore, now, "Alchemy", "↑ 3 more")), /↑ 3 more/);
@@ -288,9 +288,9 @@ test("Chronomancer makes the native composer frame red, preserves Vim and explic
   try {
     const normal = vim.render(90);
     egregore.chronomancerDay = "2025-05-01";
-    const red = vim.render(90), redAnsi = rgbAnsi(userFrameColor(theme));
+    const red = vim.render(90), redAnsi = rgbAnsi(appearanceColor(theme, "red"));
     assert.notEqual(normal[0], red[0], "active mode changes the existing frame");
-    assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(userFrameColor(theme)));
+    assert.equal(colorToHex(appearanceBorder(theme, egregore)), colorToHex(appearanceColor(theme, "red")));
     assert.ok(red[0].includes(redAnsi), "top rail is red");
     assert.ok(red[1].includes(redAnsi), "composer side is red");
     assert.ok(red.find(row => plain(row).startsWith("╰"))?.includes(redAnsi), "bottom rail is red");
@@ -311,7 +311,7 @@ test("Chronomancer makes the native composer frame red, preserves Vim and explic
     for (const appearance of ["dark", "light"]) {
       const current = { ...theme, colors: theme.colors, appearance };
       egregore.chronomancerDay = "2025-05-01";
-      assert.equal(colorToHex(appearanceBorder(current, egregore)), colorToHex(userFrameColor(current)));
+      assert.equal(colorToHex(appearanceBorder(current, egregore)), colorToHex(appearanceColor(current, "red")));
     }
   } finally { cleanup(); }
 });

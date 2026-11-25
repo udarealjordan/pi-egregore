@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { stripVTControlCharacters } from "node:util";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { frameRows } from "../../lib/frame.ts";
-import { composerRail, composerSurface, historyFrameColor, quietFrameLabel, userFrameColor } from "./composer-style.ts";
+import { composerRail, assistantFrameColor, composerSurface, quietFrameLabel, userFrameColor } from "./composer-style.ts";
 import { taskFrameColor } from "../../lib/task-frame.ts";
 import type { FooterPrefs } from "./footer-state.ts";
 import { sentLabel, styledSentLabel } from "./sent-metadata.ts";
@@ -59,14 +59,14 @@ export function transcriptPreview(theme: Theme, width: number, style: Transcript
     for (const y of [0, lines.length - 1]) hits.push({ id: frame, x: 0, y: start + y, width });
   };
   if (group === "chat") {
-    const user = userFrameColor(theme), assistant = taskFrameColor(theme);
+    const user = userFrameColor(theme), assistant = assistantFrameColor(theme);
     const userSent = style.chat.showSent ? sentLabel("9:41:05 AM", icons) : "";
     const assistantSent = style.chat.showSent ? sentLabel("9:42:09 AM", icons) : "";
-    const userRows = frameRows({ theme, width, rows: messageBodyRows(["  Sample user message"], density), color: historyFrameColor(theme),
+    const userRows = frameRows({ theme, width, rows: messageBodyRows(["  Sample user message"], density), color: user,
       corners: { topLeft: theme.style(" jordan ", { fg: user, bold: true }), [style.chat.sentPosition]: styledSentLabel(theme, style.chat.showSent ? "9:41:05 AM" : "", user, "user", icons) },
       surface: (text, cells) => composerSurface(theme, text, cells) });
     add(userRows, [{ id: "chatIdentity", text: " jordan ", y: 0, affected: false }, { id: "chatSent", text: userSent, y: userRows.length - 1 }], "chatFrame");
-    const assistantRows = frameRows({ theme, width, rows: messageBodyRows(["  Sample assistant reply"], density), color: historyFrameColor(theme),
+    const assistantRows = frameRows({ theme, width, rows: messageBodyRows(["  Sample assistant reply"], density), color: assistant,
       corners: { topLeft: assistantIdentity(theme, " Assistant ", assistant, style),
         [style.chat.sentPosition]: styledSentLabel(theme, style.chat.showSent ? "9:42:09 AM" : "", assistant, "matched", icons) },
       surface: (text, cells) => composerSurface(theme, text, cells) });

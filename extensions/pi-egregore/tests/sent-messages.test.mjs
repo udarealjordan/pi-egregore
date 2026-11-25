@@ -4,21 +4,22 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { jiti, source, root, theme, plain, visibleWidth } from "./host.mjs";
 const { SentMessageFrames, terminalBackground } = await jiti.import(join(source, "sent-messages.ts"));
-const { composerBorder, userFrameColor } = await jiti.import(join(source, "composer-style.ts"));
+const { assistantFrameColor, composerBorder, userFrameColor } = await jiti.import(join(source, "composer-style.ts"));
 const { taskFrameColor } = await jiti.import(join(source, "../../lib/task-frame.ts"));
 const { sentTime, calendarDay } = await jiti.import(join(source, "sent-metadata.ts"));
 const { COMPOSER_ICONS } = await jiti.import(join(source, "composer-icons.ts"));
 const { AssistantMessageComponent, UserMessageComponent } = await import(pathToFileURL(join(root, "@earendil-works/pi-coding-agent/dist/index.js")));
 const { Container, Text, TuiMainScreen, TuiAltScreen, colorToHex, parseColor } = await import(pathToFileURL(join(root, "@earendil-works/pi-tui/dist/index.js")));
 
-test("composer, assistant identity and Tasks use the same Pi accent; settled history frames stay quiet", () => {
+test("the user owns the accent (composer, their frames, Tasks); the assistant speaks in plain text color", () => {
   for (const appearance of ["dark", "light"]) {
     const accent = parseColor(appearance === "light" ? "#6546aa" : "#bbadff");
     const current = { ...theme, appearance, colors: { ...theme.colors, accent },
       style: theme.style.bind(theme), getColorMode: theme.getColorMode.bind(theme) };
     assert.equal(colorToHex(composerBorder(current)), colorToHex(accent));
     assert.equal(colorToHex(taskFrameColor(current)), colorToHex(accent));
-    assert.notEqual(colorToHex(userFrameColor(current)), colorToHex(accent));
+    assert.equal(colorToHex(userFrameColor(current)), colorToHex(accent));
+    assert.equal(colorToHex(assistantFrameColor(current)), colorToHex(current.colors.text));
     const root = new Container(), frames = new SentMessageFrames();
     const assistant = new AssistantMessageComponent({ role: "assistant", content: [{ type: "text", text: "Reply" }],
       stopReason: "stop", model: "test", provider: "test", timestamp: 1 });
@@ -26,9 +27,10 @@ test("composer, assistant identity and Tasks use the same Pi accent; settled his
     try {
       frames.sync(root, () => current);
       const top = assistant.render(80)[0];
-      assert.ok(top.includes(current.style("╭", { fg: current.colors.borderMuted })), "settled frame uses the quiet history line");
-      assert.ok(!top.includes(current.style("╭", { fg: accent })), "settled frame no longer draws in the accent");
-      assert.ok(top.includes(current.style(" Assistant ", { fg: accent, bold: true })), "identity label keeps the accent");
+      const text = current.colors.text;
+      assert.ok(top.includes(current.style("╭", { fg: text })), "assistant frame is plain text color");
+      assert.ok(!top.includes(current.style("╭", { fg: accent })), "assistant frame doesn't use the user's accent");
+      assert.ok(top.includes(current.style(" Assistant ", { fg: text, bold: true })), "assistant label is plain text color");
     } finally { frames.dispose(); }
   }
 });
@@ -142,8 +144,8 @@ test("chat frames show only sourced fixed creation times; repeated user text map
     assert.doesNotMatch(plain(synthetic.render(70).at(-1)), /Sent |\u{f10dd}/u, "unsourced user messages have no invented time");
     const assistantTime = sentTime(Date.UTC(2024, 0, 2, 15, 42), prefs, Date.now());
     assert.ok(plain(assistant.render(70).at(-1)).includes(label(assistantTime)));
-    assert.ok(assistant.render(70).at(-1).includes(theme.style(` ${label(assistantTime)} `, { fg: taskFrameColor(theme), bold: true })),
-      "assistant timestamp exactly matches the Tasks/frame accent");
+    assert.ok(assistant.render(70).at(-1).includes(theme.style(` ${label(assistantTime)} `, { fg: assistantFrameColor(theme), bold: true })),
+      "assistant timestamp matches the plain assistant frame");
     frames.sync(root, () => theme, () => "Assistant", undefined, () => ({ prefs, users, chronomancerDay: "2024-01-01" }));
     const actualDay = calendarDay(users[0].timestamp);
     assert.ok(plain(first.render(90).at(-1)).includes(actualDay), "past-day mode shows the real send date");
@@ -155,7 +157,7 @@ test("chat frames show only sourced fixed creation times; repeated user text map
     assert.ok(plain(first.render(70).at(-1)).startsWith(`╰ ${label(firstTime)}`), "user creation time moves left without losing its red identity");
     assert.ok(first.render(70).at(-1).includes(theme.style(` ${label(firstTime)} `, { fg: userFrameColor(theme), bold: true })));
     assert.ok(plain(assistant.render(70).at(-1)).includes(label(assistantTime)));
-    assert.ok(assistant.render(70).at(-1).includes(theme.style(` ${label(assistantTime)} `, { fg: taskFrameColor(theme), bold: true })),
+    assert.ok(assistant.render(70).at(-1).includes(theme.style(` ${label(assistantTime)} `, { fg: assistantFrameColor(theme), bold: true })),
       "moving the label and quieting the assistant identity do not mute the timestamp");
     assert.doesNotMatch(plain(synthetic.render(70).at(-1)), /Sent /);
     prefs.icons = "plain";
@@ -230,9 +232,7 @@ test("only the active streaming assistant frame animates, without modifying its 
     assert.deepEqual(first.map(plain), second.map(plain));
     assistant.updateContent(message, false);
     const settled = assistant.render(70);
-    const quietCorner = theme.style("╭", { fg: theme.colors.borderMuted });
-    assert.ok(settled[0].includes(quietCorner), "a finished reply settles to the quiet history line");
-    assert.ok(!first[0].includes(quietCorner), "a streaming reply stays live, not quiet");
+    assert.ok(settled[0].includes(theme.style("╭", { fg: theme.colors.text })), "a finished reply keeps the plain text frame");
     now = 2100;
     assert.deepEqual(assistant.render(70), settled);
   } finally { frames.dispose(); }
