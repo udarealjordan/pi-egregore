@@ -8,6 +8,7 @@ export const INFO: Record<Selection, string> = {
   model: "The current model's display name, in the assistant's color like its replies.", thinking: "The selected thinking level, in the assistant's color; this setting does not change how the model thinks.",
   context: "Context capacity used, not task progress. Unknown usage shows —. Off means absent from the preview.",
   git: "Local Git state. Hidden outside a repository; never performs a network fetch.",
+  branch: "The current Git branch icon and name, without status counts. Hidden outside a repository or when HEAD is detached.",
   hint: "A display-only next step from your active task, before the first message. Hidden when there is no sourced hint.",
 };
 export const nameOf = (id: Selection) => id === "frame" ? "Input box border" : ELEMENTS[id];

@@ -3,7 +3,7 @@ import type { FooterPrefs } from "./footer-state.ts";
 
 export const ELEMENTS = {
   status: "Assistant status", session: "Chat title", sentTime: "Sent time · latest user message", directory: "Directory",
-  vim: "Vim mode", model: "Model name", thinking: "Thinking level", context: "Context usage", git: "Git status", hint: "Next-step hint",
+  vim: "Vim mode", model: "Model name", thinking: "Thinking level", context: "Context usage", git: "Git status", hint: "Next-step hint", branch: "Git branch",
 } as const;
 export type ElementId = keyof typeof ELEMENTS;
 /** Elements bound to an identity draw in its color (theme-hues.ts identityColor) and have no color setting:
@@ -50,7 +50,7 @@ export interface AppearancePreview { selected?: ElementId | "frame"; state?: App
 export interface AppearanceHit { id: ElementId | "frame"; x: number; width: number; position: Position }
 const DEFAULT_POSITIONS: Record<ElementId, Position> = {
   status: "topLeft", session: "topCenter", sentTime: "topRight", directory: "bottomLeft", vim: "bottomCenter",
-  model: "bottomRight", thinking: "bottomRight", context: "footer2Left", git: "footer1Center", hint: "topRight",
+  model: "bottomRight", thinking: "bottomRight", context: "footer2Left", git: "footer1Center", hint: "topRight", branch: "bottomCenter",
 };
 export function safeText(value: string, max = 120): string {
   return Array.from(stripVTControlCharacters(value).replace(/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, " ")).slice(0, max).join("");
@@ -65,11 +65,11 @@ export function appearanceDefaults(p: FooterPrefs): Appearance {
     const visible = id === "session" ? p.railTitle !== "off" : id === "directory" ? p.railDetails !== "off" && p.directory !== "off"
       : id === "model" ? p.railDetails !== "off" && p.model !== "off" : id === "thinking" ? p.thinking !== "off"
       : id === "context" ? p.composerContext === "on" && p.context !== "off" : id === "git" ? p.git !== "off"
-      : id === "hint" ? p.railHint !== "off" : true;
+      : id === "hint" ? p.railHint !== "off" : id !== "branch";
     elements[id] = { visible, position: DEFAULT_POSITIONS[id], order,
       text: id === "sentTime" ? "Sent {value}" : id === "hint" ? "Next: {value}" : "{value}",
-      color: IDENTITY[id] === "user" ? "accent" : IDENTITY[id] === "assistant" ? "text" : ["session", "vim"].includes(id) ? "frame" : id === "status" || id === "context" || id === "git" ? "auto" : "quiet",
-      bold: id === "session" || id === "vim" || id === "status", priority: ["status", "vim", "thinking"].includes(id) ? "high" : id === "hint" || id === "model" ? "low" : "normal" };
+      color: IDENTITY[id] === "user" ? "accent" : IDENTITY[id] === "assistant" ? "text" : ["session", "vim"].includes(id) ? "frame" : id === "status" || id === "context" || id === "git" ? "auto" : id === "branch" ? "text" : "quiet",
+      bold: id === "session" || id === "vim" || id === "status", priority: ["status", "vim", "thinking"].includes(id) ? "high" : id === "hint" || id === "model" || id === "branch" ? "low" : "normal" };
   }
   // Preserve fields deliberately kept in the legacy footer rather than the input border.
   if (p.railTitle === "off" && p.session === "on") Object.assign(elements.session, { visible: true, position: "footer1Left" });

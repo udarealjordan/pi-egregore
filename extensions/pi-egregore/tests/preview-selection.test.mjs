@@ -180,6 +180,7 @@ test("identity-bound parts offer no color: the frame is the user's, model and th
     h.click("Assistant status"); h.click("Preview appearance"); h.pick("When the assistant finishes");
     assert.doesNotMatch(h.rows().join("\n"), /Frame color|State border color/);
     for (const part of ["Input box border", "Model name", "Thinking level", "Sent time", "Directory"]) {
+      h.panel.handleInput("/"); h.text(part);
       h.click(part);
       assert.doesNotMatch(h.rows().join("\n"), /Text color|Frame color/, `${part} has no color setting`);
     }

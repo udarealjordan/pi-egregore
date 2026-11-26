@@ -51,6 +51,7 @@ export function appearanceValues(egregore: EgregoreState, width: number, now: nu
     directory: p.directory === "folder" ? basename(data?.cwd ?? "") : homePath(data?.cwd ?? ""),
     vim: egregore.appearanceMode ?? "", model: data?.model ?? "", thinking: egregore.thinkingLevel?.() ?? data?.thinking ?? "",
     context: contextText(p, data?.usage, width), git: data?.git ? gitLabel(data.git, p, width < 75) : data?.gitUnavailable ? "—" : "",
+    branch: data?.git && !data.git.detached ? data.git.branch : "",
     hint: !egregore.clock.active && !lastSendTime ? clean(egregore.nextHint?.() ?? "") : "",
   };
 }
@@ -81,9 +82,9 @@ export function appearanceRow(theme: Theme, width: number, egregore: EgregoreSta
       const template = id === "sentTime" && p.icons === "nerd" && e.text === "Sent {value}" ? "{value}" : e.text;
       let text = template.replaceAll("{value}", clean(values[id]));
       if (id === "session" && text) text = ` ${text} `;
-      const icon = p.icons === "nerd" ? (COMPOSER_ICONS as Record<string, string>)[id === "sentTime" ? "sent" : id]
-        : !framed ? ({ directory: "dir", git: "git", session: "session", context: "ctx" } as Record<string, string>)[id] : "";
-      if (icon && (id === "sentTime" || id === "directory" || !framed)) text = `${icon} ${text}`;
+      const icon = p.icons === "nerd" ? (COMPOSER_ICONS as Record<string, string>)[id === "sentTime" ? "sent" : id === "branch" ? "git" : id]
+        : id === "branch" ? "⑂" : !framed ? ({ directory: "dir", git: "git", session: "session", context: "ctx" } as Record<string, string>)[id] : "";
+      if (icon && (id === "sentTime" || id === "directory" || id === "branch" || !framed)) text = `${icon} ${text}`;
       if (!framed) {
         const tone = id === "git" && data?.git?.conflicts || id === "context" && (data?.usage?.percent ?? 0) >= 90 ? "error"
           : id === "context" && (data?.usage?.percent ?? 0) >= 75 ? "warning" : undefined;

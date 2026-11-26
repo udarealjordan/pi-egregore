@@ -47,13 +47,14 @@ This effect belongs only to `/egregore`, independently of agent-work motion. It 
 
 ## Elements and positions
 
-Elements include assistant status, chat title, latest recorded send time, directory, native Vim mode, model, thinking level, context usage, Git status and the next-step hint. The input box border has its own color inspector.
+Elements include assistant status, chat title, latest recorded send time, directory, native Vim mode, model, thinking level, context usage, Git status, Git branch and the next-step hint. The input box border has its own color inspector.
 
 - Choose any of the six input-border positions: top/bottom × left/center/right.
 - Or use left/center/right in either of the two existing footer rows.
 - Multiple elements in one position form an ordered group. **Move earlier/later** changes their order; the group separator is configurable.
 - Off removes an element from the preview but keeps it in the list.
 - Missing data is not invented: Vim mode requires a Vim editor, Git requires a repository, send time requires a recorded message, and the next-step hint requires a sourced active task. The inspector explains hidden, unavailable or clipped targets. Tasks examples explain an absent active row; Transcript explains hidden Sent labels. Save failures and other action messages take precedence over availability help.
+- **Git branch** is opt-in and shows only the branch icon and name, without status counts. It defaults to bottom center, beside Vim mode, and yields first when space is tight. Detached HEAD has no branch label; use **Git status** to see the commit instead.
 - Native scroll indicators always take priority. Narrow panes shorten lower-priority fields first. Long model names yield before the level.
 
 At wide widths, the list and properties are side by side. At narrower widths they share a page, switched with Enter / Right and Left; Tab switches top sections. Undo sits with Save and Discard rather than among the section tabs. A selected control's explanation wraps near the controls instead of running off the edge. When top buttons do not fit, the current section number and name remain in the keyboard hint. Very short terminals shorten the preview vertically with an explicit label; below 12 rows they ask you to enlarge the terminal. Terminal **width** remains 1:1. No transcript fragments are visible behind the panel.

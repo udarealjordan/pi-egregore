@@ -107,7 +107,7 @@ export function registerEgregoreAppearance(pi: ExtensionAPI, egregore: EgregoreS
   pi.events.on(DOCK.host, afterDock);
   pi.events.on(DOCK.update, afterDock);
   function pollGit(force = false) {
-    if (!ctx || prefs.git === "off" || gitJob || (!force && Date.now() - lastGitAt < 10000)) return;
+    if (!ctx || (prefs.git === "off" && !(composer() && prefs.appearance?.elements.branch.visible)) || gitJob || (!force && Date.now() - lastGitAt < 10000)) return;
     lastGitAt = Date.now();
     const gen = generation, cwd = ctx.cwd, job = new AbortController(); gitJob = job;
     const child = execFile("git", ["--no-optional-locks", "-C", cwd, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"],
