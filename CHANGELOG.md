@@ -6,6 +6,8 @@ This file records source-workspace increments. It is not a published-release ann
 
 ### Current pending source work
 
+- `/btw` and `/aside` pass the active Pi session ID to the model provider, fixing OpenCode Go's `MissingSessionID` rejection.
+
 - Composer appearance has an opt-in Git branch label, separate from Git status. It defaults to bottom center beside Vim mode and shortens first on narrow panes.
 
 - Added the Calm Core redesign specifications and isolated `redesign/calm-core` worktree: centralized native compatibility, semantic clean copy, Calm/Study/Expressive presets, core/auxiliary boundaries, complete dictation removal, optional Tasks Work Record, and phased verification.

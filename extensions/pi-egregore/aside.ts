@@ -274,7 +274,9 @@ export function registerAside(pi: ExtensionAPI) {
     thread.exchanges.push(exchange); running.set(exchange, controller); refresh?.();
     try {
       if (!model) throw new Error("No model is selected.");
-      const stream = ctx.modelRegistry.streamSimple(model, asideRequest(ctx, earlier, question, streaming), { maxTokens: 2000, signal: controller.signal });
+      const stream = ctx.modelRegistry.streamSimple(model, asideRequest(ctx, earlier, question, streaming), {
+        maxTokens: 2000, signal: controller.signal, sessionId: ctx.sessionManager.getSessionId(),
+      });
       for await (const event of stream) {
         if (controller.signal.aborted) break;
         if (event.type === "text_delta") { exchange.answer += event.delta; refresh?.(); }

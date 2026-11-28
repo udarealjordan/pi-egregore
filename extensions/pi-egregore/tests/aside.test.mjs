@@ -7,7 +7,7 @@ const { ASIDE_ENTRY, ASIDE_PROMPT, AsidePanel, asideRequest, restoreThreads, set
 const user = (id, parentId, text) => ({ type: "message", id, parentId, timestamp: "2026-11-21T10:00:00Z", message: { role: "user", content: text, timestamp: 1 } });
 const assistant = (id, parentId, content) => ({ type: "message", id, parentId, timestamp: "2026-11-21T10:00:01Z",
   message: { role: "assistant", content, api: "openai-responses", provider: "openai", model: "m", usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: "toolUse", timestamp: 2 } });
-const ctxFor = entries => ({ sessionManager: { getBranch: () => entries, getLeafId: () => entries.at(-1)?.id ?? null }, getSystemPrompt: () => "SYSTEM" });
+const ctxFor = entries => ({ sessionManager: { getBranch: () => entries, getLeafId: () => entries.at(-1)?.id ?? null, getSessionId: () => "pi-session" }, getSystemPrompt: () => "SYSTEM" });
 
 test("a side request carries the session, the thread so far, the unfinished reply and the question", () => {
   const entries = [user("u1", null, "Run the tests"), assistant("a1", "u1", [{ type: "text", text: "Running them." }, { type: "toolCall", id: "c1", name: "bash", arguments: { command: "npm test" } }])];
@@ -45,6 +45,21 @@ test("/btw and /aside are registered and refuse non-interactive modes", async ()
   assert.ok(commands.has("btw") && commands.has("aside"));
   await commands.get("btw").handler("anything", { mode: "print", ui: { notify: text => notices.push(text) } });
   assert.match(notices[0], /interactive terminal/);
+});
+
+test("/btw passes the active Pi session ID to the direct model request", async () => {
+  const commands = new Map(), requests = [];
+  const { promise: saved, resolve: save } = Promise.withResolvers();
+  registerAside({ on() {}, registerCommand(name, spec) { commands.set(name, spec); }, appendEntry: (_type, data) => save(data), sendUserMessage() {} });
+  const ctx = { ...ctxFor([]), mode: "tui", model: { id: "m" }, isIdle: () => true,
+    modelRegistry: { streamSimple: (_model, _request, options) => {
+      requests.push(options.sessionId);
+      return { async *[Symbol.asyncIterator]() { yield { type: "text_delta", delta: "An answer." }; }, result: async () => ({ stopReason: "stop" }) };
+    } },
+    ui: { notify() {}, custom: async () => ({ action: "close" }) } };
+  await commands.get("btw").handler("Side question?", ctx);
+  assert.deepEqual(requests, ["pi-session"]);
+  assert.equal((await saved).exchange.answer, "An answer.");
 });
 
 test("a thread is named by its first question until you name it; the latest name entry wins", () => {
